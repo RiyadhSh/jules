@@ -247,18 +247,14 @@ DO j = 1,soil_pts
 
       !Prevent it from exhausting any of the soil carbon pools
       IF ( l_layeredC ) THEN
-        IF (f_wetl(i) > EPSILON(1.0)) THEN
-          DO n = 1,dim_cslayer
-            ch4_tmp_lys(n) = MIN( ch4_tmp_lys(n), cs(i,n,k) / ( timestep *     &
-                                                            f_wetl(i) ) )
-          END DO
-        END IF
+        DO n = 1,dim_cslayer
+          ch4_tmp_lys(n) = MIN( ch4_tmp_lys(n), cs(i,n,k) / ( timestep *       &
+                                                              f_wetl(i) ) )
+        END DO
       ELSE
-        IF (f_wetl(i) > EPSILON(1.0)) THEN
-          IF ( SUM(ch4_tmp_lys) > cs(i,1,k) / (timestep * f_wetl(i)) ) THEN
-            ch4_tmp_lys(:) = ch4_tmp_lys(:) * cs(i,1,k) /                      &
-                             ( timestep * SUM(ch4_tmp_lys) * f_wetl(i) )
-          END IF
+        IF ( SUM(ch4_tmp_lys) > cs(i,1,k) / (timestep * f_wetl(i)) ) THEN
+          ch4_tmp_lys(:) = ch4_tmp_lys(:) * cs(i,1,k) /                        &
+                           ( timestep * SUM(ch4_tmp_lys) * f_wetl(i) )
         END IF
       END IF !l_layeredC
 

@@ -33,9 +33,6 @@ USE pftparm, ONLY: omega,  omnir,  alpar,  alnir,                              &
                    omegau, omniru, alparu, alniru,                             &
                    can_struct_a, orient
 
-USE stochastic_physics_run_mod, ONLY: l_rp2, i_rp_scheme, i_rp2b,              &
-                                      alnir_rp, alpar_rp, omega_rp, omnir_rp
-
 USE jules_radiation_mod, ONLY: l_spec_albedo, l_albedo_obs, l_niso_direct
 
 USE jules_vegetation_mod, ONLY: can_rad_mod
@@ -225,15 +222,6 @@ IF ( albpft_call > 0 ) THEN
   END IF
 END IF
 
-IF ( l_rp2 .AND. i_rp_scheme == i_rp2b ) THEN
-  DO n = 1,npft
-    alnir(n) = alnir_rp(n)
-    alpar(n) = alpar_rp(n)
-    omega(n) = omega_rp(n)
-    omnir(n) = omnir_rp(n)
-  END DO
-END IF
-
 !$OMP PARALLEL DEFAULT(NONE)                                                   &
 !$OMP PRIVATE(n, l, i, j, albdif_tmp, albscl_new, albscl_tmp, b, betadif,      &
 !$OMP         betadir, c, ca, coszm, d, d1, d2, dabeer_dla, dlai,              &
@@ -314,18 +302,17 @@ DO n = 1,npft
 
   DO band = 1,2  ! Visible and near-IR bands
 
-    ! If albpft_call is 0, then either there's no scaling to albedo obs,
-    ! or this is the first call in that process to make a first guess:
-    IF (albpft_call == 0 ) THEN
-      om   = omega_arr(band)
-      alpl = alpa_arr(band)
-    END IF
-
 !$OMP DO SCHEDULE(STATIC)
     DO j = 1,surft_pts(n)
       l = surft_index(j,n)
 
-      IF ( albpft_call == 1 ) THEN
+      ! If albpft_call is 0, then either there's no scaling to albedo obs,
+      ! or this is the first call in that process to make a first guess:
+      IF (albpft_call == 0 ) THEN
+        om   = omega_arr(band)
+        alpl = alpa_arr(band)
+
+      ELSE IF ( albpft_call == 1 ) THEN
 
         !Firstly apply the scaling for this point to the inputs:
         om   = omega_arr(band) * albobs_scaling_surft(l,n,band)

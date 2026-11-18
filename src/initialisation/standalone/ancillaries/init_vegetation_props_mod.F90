@@ -67,20 +67,16 @@ INTEGER ::                                                                     &
     ! The number of variables that are required in this configuration.
 
 LOGICAL ::                                                                     &
-  l_file_list
-    ! Flag indicating if we have a list of files either as variable-name
-    ! templating is being used or we have supplied a list of files.
+  l_have_template
+    ! Flag indicating if variable-name templating is being used.
 
 CHARACTER(LEN=errormessagelength) :: iomessage
     ! I/O error message string.
 
 ! Local array variables.
 LOGICAL ::                                                                     &
-  use_var(nvars_max),                                                          &
+  use_var(nvars_max)
     ! Flag indicating if a variable is required.
-  is_climatology(nvars_max) = .FALSE.
-    ! Flag to indicate var is from a 12-month climatology, requiring
-    ! interpolation to the correct time.
 
 CHARACTER(LEN=max_file_name_len) :: file_name(nvars_max)
     ! The name of the file to use for each variable.
@@ -104,16 +100,9 @@ INTEGER :: nvars
 LOGICAL :: read_from_dump
   ! T means read variables from the dump file (not an ancillary file).
 
-LOGICAL :: read_list = .FALSE.
-    ! T - The given file contains a list of file names
-    ! F - Ancillary data should be read directly from the given file or template
 CHARACTER(LEN=max_file_name_len) :: FILE
-    ! The file to use for variables that need to be filled from a file.
-    ! Exact usage depends on read_list:
-    ! read_list = T
-    ! Contains a list of files; cannot contain variable name templating.
-    ! read_list = F
-    ! The name of the file (or variable name template).
+  ! The name of the file (or variable name template) to use for variables that
+  ! need to be filled from file.
 
 REAL(KIND=real_jlslsm) :: const_val(nvars_max)
   ! The constant value to use for a variable if use_file = F for that
@@ -132,8 +121,8 @@ CHARACTER(LEN=max_sdf_name_len) :: var_name(nvars_max)
 CHARACTER(LEN=max_sdf_name_len) :: tpl_name(nvars_max)
   ! The name to substitute in a template for each variable.
 
-NAMELIST  /jules_vegetation_props/ read_from_dump, FILE, nvars, var, use_file, &
-   read_list, var_name, tpl_name, const_val
+NAMELIST  / jules_vegetation_props/ read_from_dump, FILE, nvars, var, use_file,&
+                           var_name, tpl_name, const_val
 
 !------------------------------------------------------------------------------
 ! If thermal adaptation is not selected, we have nothing more to do.
@@ -146,7 +135,7 @@ IF ( photo_acclim_model /= photo_adapt .AND.                                   &
 !------------------------------------------------------------------------------
 ! Initialise some common variables.
 CALL initialise_namelist_vars( nvars, nvars_const, nvars_file,                 &
-                               nvars_required, l_file_list,                    &
+                               nvars_required, l_have_template,                &
                                FILE, const_val, use_file, use_var,             &
                                file_name, tpl_name, var, var_name )
 ! Further initialisation.
@@ -183,9 +172,9 @@ IF ( .NOT. ancil_dump_read%vegetation_props) THEN
   !----------------------------------------------------------------------------
   CALL check_namelist_values( nvars, nvars_max, nvars_required,                &
                               RoutineName, FILE, const_val,                    &
-                              use_file, read_list, required_vars,              &
-                              tpl_name, var, nvars_const, nvars_file,          &
-                              l_file_list, use_var, file_name, var_name )
+                              use_file, required_vars, tpl_name, var,          &
+                              nvars_const, nvars_file, l_have_template,        &
+                              use_var, file_name, var_name )
 
   !----------------------------------------------------------------------------
   ! Set variables that are using a constant value.
@@ -196,9 +185,9 @@ IF ( .NOT. ancil_dump_read%vegetation_props) THEN
   !----------------------------------------------------------------------------
   ! Set variables that are to be read from a file.
   !----------------------------------------------------------------------------
-  CALL set_file_vars( nvars, nvars_file, nvars_max, l_file_list,               &
-                      RoutineName, use_file, use_var, file_name, var,          &
-                      var_name, is_climatology )
+  CALL set_file_vars( nvars, nvars_file, nvars_max, l_have_template,           &
+                      RoutineName, use_file, use_var, file_name, var, var_name)
+
 
 ELSE
 

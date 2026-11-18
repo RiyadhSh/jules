@@ -1,9 +1,14 @@
 #if !defined(UM_JULES)
-!-----------------------------------------------------------------------------
-! (C) Crown copyright Met Office. All rights reserved.
-! The file LICENCE, distributed with this code, contains details of the terms
-! under which the code may be used.
-!-----------------------------------------------------------------------------
+!******************************COPYRIGHT********************************************
+! (c) CSIRO 2022.
+! All rights reserved.
+!
+! This routine has been licensed to the other JULES partners for use and
+! distribution under the JULES collaboration agreement, subject to the terms and
+! conditions set out therein.
+!
+! [Met Office Ref SC0237]
+!******************************COPYRIGHT********************************************
 
 MODULE read_cable_progs_mod
 
@@ -253,7 +258,7 @@ IF ( nvars_file > 0 ) THEN
 
       CALL fill_variables_from_file(                                           &
         tpl_substitute_var(FILE, tpl_name(i)),                                 &
-        [ var(i) ], [ var_name(i) ], is_climatology = [ .FALSE. ]              &
+        [ var(i) ], [ var_name(i) ]                                            &
       )
     END DO
   ELSE
@@ -261,9 +266,8 @@ IF ( nvars_file > 0 ) THEN
     ! file
 
     CALL fill_variables_from_file(                                             &
-      FILE, var(1:nvars_file), var_name(1:nvars_file),                         &
-      is_climatology = [ (.FALSE., i=1, nvars_file) ]                          &
-      )
+      FILE,var(1:nvars_file), var_name(1:nvars_file)                           &
+    )
   END IF
 END IF
 

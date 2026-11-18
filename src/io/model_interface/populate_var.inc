@@ -19,7 +19,7 @@ USE imgn_drive_mod, ONLY: imgn_drive
 USE imgn_vars_mod, ONLY: imgn_vars
 
 USE ancil_info, ONLY:                                                          &
-  dim_cslayer, land_pts, nsurft, nsoilt
+  dim_cslayer, dim_soil_n_pool, land_pts, nsurft, nsoilt
 
 USE model_grid_mod, ONLY:                                                      &
   grid_area_ij, latitude, longitude, projection_x_coord, projection_y_coord
@@ -30,17 +30,11 @@ USE coastal, ONLY:                                                             &
 USE prognostics, ONLY:                                                         &
   l_broadcast_soilt
 
-USE jules_rivers_mod, ONLY:                                                    &
-! 2D ancillary fields used during initialisation.
-  channel_depth_grid, channel_width_grid, mean_sea_level_grid,                 &
-  river_distance_grid, river_elevation_grid, river_length_grid,                &
-  river_manning_grid, river_nextx_grid, river_nexty_grid
-
 USE jules_soil_mod, ONLY:                                                      &
   sm_levels, l_tile_soil, l_broadcast_ancils
 
 USE overbank_inundation_mod, ONLY:                                             &
-  hypsometric_quantiles_grid, logn_mean, logn_stdev
+  logn_mean, logn_stdev
 
 USE aero, ONLY:                                                                &
   co2_mmr
@@ -56,9 +50,6 @@ USE metstats_mod, ONLY:                                                        &
 !Others
 USE data_cube_mod, ONLY:                                                       &
   data_cube, cube_get_data, cube_free, cube_create
-
-USE cube_interp_climatology_data_mod, ONLY:                                    &
-  cube_interp_climatology_data
 
 USE jules_surface_types_mod, ONLY: ncpft, nnpft, npft
 
@@ -2115,11 +2106,18 @@ CASE ( 'tl1_ij_anom_imgn' )
     imgn_drive%tl1_ij_anom(:,:,:) = const_val
   END IF
 
-CASE ( 'wind_ij_anom_imgn' )
+CASE ( 'uwind_ij_anom_imgn' )
   IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, imgn_drive%wind_ij_anom)
+    CALL cube_get_data(cube, imgn_drive%uwind_ij_anom)
   ELSE
-    imgn_drive%wind_ij_anom(:,:,:) = const_val
+    imgn_drive%uwind_ij_anom(:,:,:) = const_val
+  END IF
+
+CASE ( 'vwind_ij_anom_imgn' )
+  IF ( PRESENT(cube) ) THEN
+    CALL cube_get_data(cube, imgn_drive%vwind_ij_anom)
+  ELSE
+    imgn_drive%vwind_ij_anom(:,:,:) = const_val
   END IF
 
 CASE ( 'lwdown_ij_anom_imgn' )
@@ -2150,11 +2148,11 @@ CASE ( 'precip_ij_anom_imgn' )
     imgn_drive%precip_ij_anom(:,:,:) = const_val
   END IF
 
-CASE ( 'ql1_ij_anom_imgn' )
+CASE ( 'rh1p5m_ij_anom_imgn' )
   IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, imgn_drive%ql1_ij_anom)
+    CALL cube_get_data(cube, imgn_drive%rh1p5m_ij_anom)
   ELSE
-    imgn_drive%ql1_ij_anom(:,:,:) = const_val
+    imgn_drive%rh1p5m_ij_anom(:,:,:) = const_val
   END IF
 
 CASE ( 'pstar_ij_anom_imgn' )
@@ -2178,11 +2176,18 @@ CASE ( 'tl1_ij_patt_imgn' )
     imgn_drive%tl1_ij_patt(:,:,:) = const_val
   END IF
 
-CASE ( 'wind_ij_patt_imgn' )
+CASE ( 'uwind_ij_patt_imgn' )
   IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, imgn_drive%wind_ij_patt)
+    CALL cube_get_data(cube, imgn_drive%uwind_ij_patt)
   ELSE
-    imgn_drive%wind_ij_patt(:,:,:) = const_val
+    imgn_drive%uwind_ij_patt(:,:,:) = const_val
+  END IF
+
+CASE ( 'vwind_ij_patt_imgn' )
+  IF ( PRESENT(cube) ) THEN
+    CALL cube_get_data(cube, imgn_drive%vwind_ij_patt)
+  ELSE
+    imgn_drive%vwind_ij_patt(:,:,:) = const_val
   END IF
 
 CASE ( 'lwdown_ij_patt_imgn' )
@@ -2213,11 +2218,11 @@ CASE ( 'precip_ij_patt_imgn' )
     imgn_drive%precip_ij_patt(:,:,:) = const_val
   END IF
 
-CASE ( 'ql1_ij_patt_imgn' )
+CASE ( 'rh1p5m_ij_patt_imgn' )
   IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, imgn_drive%ql1_ij_patt)
+    CALL cube_get_data(cube, imgn_drive%rh1p5m_ij_patt)
   ELSE
-    imgn_drive%ql1_ij_patt(:,:,:) = const_val
+    imgn_drive%rh1p5m_ij_patt(:,:,:) = const_val
   END IF
 
 CASE ( 'pstar_ij_patt_imgn' )
@@ -2227,11 +2232,18 @@ CASE ( 'pstar_ij_patt_imgn' )
     imgn_drive%pstar_ij_patt(:,:,:) = const_val
   END IF
 
-CASE ( 'wind_ij_clim_imgn' )
+CASE ( 'uwind_ij_clim_imgn' )
   IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, imgn_drive%wind_ij_clim)
+    CALL cube_get_data(cube, imgn_drive%uwind_ij_clim)
   ELSE
-    imgn_drive%wind_ij_clim(:,:,:) = const_val
+    imgn_drive%uwind_ij_clim(:,:,:) = const_val
+  END IF
+
+CASE ( 'vwind_ij_clim_imgn' )
+  IF ( PRESENT(cube) ) THEN
+    CALL cube_get_data(cube, imgn_drive%vwind_ij_clim)
+  ELSE
+    imgn_drive%vwind_ij_clim(:,:,:) = const_val
   END IF
 
 CASE ( 'lwdown_ij_clim_imgn' )
@@ -2262,11 +2274,11 @@ CASE ( 'precip_ij_clim_imgn' )
     imgn_drive%precip_ij_clim(:,:,:) = const_val
   END IF
 
-CASE ( 'ql1_ij_clim_imgn' )
+CASE ( 'rh1p5m_ij_clim_imgn' )
   IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, imgn_drive%ql1_ij_clim)
+    CALL cube_get_data(cube, imgn_drive%rh1p5m_ij_clim)
   ELSE
-    imgn_drive%ql1_ij_clim(:,:,:) = const_val
+    imgn_drive%rh1p5m_ij_clim(:,:,:) = const_val
   END IF
 
 CASE ( 'pstar_ij_clim_imgn' )
@@ -2327,69 +2339,6 @@ CASE ( 'area' )
     rivers%rivers_dra(:,:) = const_val
   END IF
 
-CASE ( 'channel_depth_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, channel_depth_grid)
-  ELSE
-    channel_depth_grid(:,:) = const_val
-  END IF
-
-CASE ( 'channel_width_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, channel_width_grid)
-  ELSE
-    channel_width_grid(:,:) = const_val
-  END IF
-
-CASE ( 'mean_sea_level_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, mean_sea_level_grid)
-  ELSE
-    mean_sea_level_grid(:,:) = const_val
-  END IF
-
-CASE ( 'river_distance_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, river_distance_grid)
-  ELSE
-    river_distance_grid(:,:) = const_val
-  END IF
-
-CASE ( 'river_elevation_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, river_elevation_grid)
-  ELSE
-    river_elevation_grid(:,:) = const_val
-  END IF
-
-CASE ( 'river_length_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, river_length_grid)
-  ELSE
-    river_length_grid(:,:) = const_val
-  END IF
-
-CASE ( 'river_manning_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, river_manning_grid)
-  ELSE
-    river_manning_grid(:,:) = const_val
-  END IF
-
-CASE ( 'river_nextx_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, river_nextx_grid)
-  ELSE
-    river_nextx_grid(:,:) = const_val
-  END IF
-
-CASE ( 'river_nexty_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, river_nexty_grid)
-  ELSE
-    river_nexty_grid(:,:) = const_val
-  END IF
-
 CASE ( 'rivers_ygrid' )
   IF ( PRESENT(cube) ) THEN
     cube_land = cube_create([ SIZE(cube%values) ])
@@ -2408,35 +2357,12 @@ CASE ( 'rivers_xgrid' )
     rivers%rivers_xgrid(:) = const_val
   END IF
 
-CASE ( 'rivers_storage' )
-  IF ( PRESENT(cube) ) THEN
-    IF ( SIZE(cube%SHAPE) == 2 ) THEN
-      CALL cube_get_data(cube, rivers%rivers_storage)
-    ELSE IF ( SIZE(cube%SHAPE) == 3 ) THEN
-      ! Climatology ancil requires time interpolation
-      CALL cube_interp_climatology_data(cube, rivers%rivers_storage)
-    ELSE
-      CALL log_fatal("populate_var",                                           &
-                     "Unexpected rank of cube for rivers_storage")
-    END IF
-  ELSE
-    rivers%rivers_storage(:,:) = const_val
-  END IF
-
 CASE ( 'rivers_sto_rp' )
   IF ( PRESENT(cube) ) THEN
     cube_land = cube_create([ SIZE(cube%values) ])
     CALL cube_get_data(cube_land, rivers%rivers_sto_rp)
   ELSE
     rivers%rivers_sto_rp(:) = const_val
-  END IF
-
-CASE ( 'rivers_outflow_rp' )
-  IF ( PRESENT(cube) ) THEN
-    cube_land = cube_create([ SIZE(cube%values) ])
-    CALL cube_get_data(cube_land, rivers%rivers_outflow_rp)
-  ELSE
-    rivers%rivers_outflow_rp(:) = const_val
   END IF
 
 CASE ( 'rfm_surfstore_rp' )
@@ -2471,24 +2397,9 @@ CASE ( 'rfm_bflowin_rp' )
     rivers%rfm_bflowin_rp(:) = const_val
   END IF
 
-CASE ( 'sea_level_lp' )
-  IF ( PRESENT(cube) ) THEN
-    cube_land = map_to_land(cube)
-    CALL cube_get_data(cube_land, rivers%sea_level_lp)
-  ELSE
-    rivers%sea_level_lp(:) = const_val
-  END IF
-
   !-----------------------------------------------------------------------------
   ! Overbank inundation variables
   !-----------------------------------------------------------------------------
-
-CASE ( 'hypso_quantiles_grid' )
-  IF ( PRESENT(cube) ) THEN
-    CALL cube_get_data(cube, hypsometric_quantiles_grid)
-  ELSE
-    hypsometric_quantiles_grid(:,:,:) = const_val
-  END IF
 
 CASE ( 'logn_mean' )
   IF ( PRESENT(cube) ) THEN
@@ -2851,12 +2762,12 @@ CASE ( 'n_soil' )
   !-----------------------------------------------------------------------------
   ! Variables for water resource management.
   !-----------------------------------------------------------------------------
-CASE ( 'conv_loss_frac' )
+CASE ( 'conveyance_loss' )
   IF ( PRESENT(cube) ) THEN
     cube_land = map_to_land(cube)
-    CALL cube_get_data(cube_land, water_resources%conv_loss_frac)
+    CALL cube_get_data(cube_land, water_resources%conveyance_loss)
   ELSE
-    water_resources%conv_loss_frac(:) = const_val
+    water_resources%conveyance_loss(:) = const_val
   END IF
 
 CASE ( 'demand_rate_domestic' )
@@ -2889,6 +2800,14 @@ CASE ( 'demand_rate_transfers' )
     CALL cube_get_data(cube_land, water_resources%demand_rate_transfers)
   ELSE
     water_resources%demand_rate_transfers(:) = const_val
+  END IF
+
+CASE ( 'irrig_eff' )
+  IF ( PRESENT(cube) ) THEN
+    cube_land = map_to_land(cube)
+    CALL cube_get_data(cube_land, water_resources%irrig_eff)
+  ELSE
+    water_resources%irrig_eff(:) = const_val
   END IF
 
 CASE ( 'grid_area' )

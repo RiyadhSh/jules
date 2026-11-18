@@ -118,9 +118,6 @@ TYPE :: jules_vars_data_type
   REAL(KIND=real_jlslsm), ALLOCATABLE :: v_1_p_ij(:,:)
     ! V_1 on P-grid
 
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: blendht(:,:)
-    ! Blending height (m)
-
   REAL(KIND=real_jlslsm), ALLOCATABLE :: dtrdz_charney_grid_1_ij(:,:)
     ! -g.dt/dp for model layers
 
@@ -200,9 +197,6 @@ TYPE :: jules_vars_type
 
   REAL(KIND=real_jlslsm), POINTER :: v_1_p_ij(:,:)
     ! V_1 on P-grid
-
-  REAL(KIND=real_jlslsm), POINTER :: blendht(:,:)
-    ! Blending height (m)
 
   REAL(KIND=real_jlslsm), POINTER :: dtrdz_charney_grid_1_ij(:,:)
     ! -g.dt/dp for model layers
@@ -313,14 +307,11 @@ ALLOCATE(jules_vars_data%v_1_p_ij(pdims_s%i_start:pdims_s%i_end,               &
                                   pdims_s%j_start:pdims_s%j_end))
 ALLOCATE(jules_vars_data%dtrdz_charney_grid_1_ij(pdims%i_start:pdims%i_end,    &
                                   pdims%j_start:pdims%j_end))
-ALLOCATE(jules_vars_data%blendht(pdims%i_start:pdims%i_end,                    &
-                                 pdims%j_start:pdims%j_end))
 
 jules_vars_data%u_0_p_ij(:,:)    = 0.0
 jules_vars_data%v_0_p_ij(:,:)    = 0.0
 jules_vars_data%u_1_p_ij(:,:)    = 0.0
 jules_vars_data%v_1_p_ij(:,:)    = 0.0
-jules_vars_data%blendht(:,:)     = 0.0
 jules_vars_data%dtrdz_charney_grid_1_ij(:,:) = 0.0
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
@@ -372,7 +363,6 @@ DEALLOCATE(jules_vars_data%u_0_p_ij)
 DEALLOCATE(jules_vars_data%v_0_p_ij)
 DEALLOCATE(jules_vars_data%u_1_p_ij)
 DEALLOCATE(jules_vars_data%v_1_p_ij)
-DEALLOCATE(jules_vars_data%blendht)
 DEALLOCATE(jules_vars_data%dtrdz_charney_grid_1_ij)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
@@ -429,7 +419,6 @@ jules_vars%u_0_p_ij => jules_vars_data%u_0_p_ij
 jules_vars%v_0_p_ij => jules_vars_data%v_0_p_ij
 jules_vars%u_1_p_ij => jules_vars_data%u_1_p_ij
 jules_vars%v_1_p_ij => jules_vars_data%v_1_p_ij
-jules_vars%blendht  => jules_vars_data%blendht
 jules_vars%dtrdz_charney_grid_1_ij => jules_vars_data%dtrdz_charney_grid_1_ij
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
@@ -481,7 +470,6 @@ NULLIFY(jules_vars%u_0_p_ij)
 NULLIFY(jules_vars%v_0_p_ij)
 NULLIFY(jules_vars%u_1_p_ij)
 NULLIFY(jules_vars%v_1_p_ij)
-NULLIFY(jules_vars%blendht)
 NULLIFY(jules_vars%dtrdz_charney_grid_1_ij)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)

@@ -45,8 +45,6 @@ USE yomhook,      ONLY: lhook, dr_hook
 
 USE pftparm,                  ONLY:                                            &
   fef_co2, fef_co, fef_ch4, fef_nox, fef_so2, fef_oc, fef_bc,                  &
-  fef_c2h4, fef_c2h6, fef_c3h8, fef_hcho,                                      &
-  fef_mecho, fef_nh3, fef_dms,                                                 &
     ! PFT Emission factors from namelists
   ccleaf_min, ccleaf_max, ccwood_min, ccwood_max,                              &
     ! PFT Combustion completeness from namelists
@@ -148,19 +146,11 @@ REAL(KIND=real_jlslsm) ,   PARAMETER      ::                                   &
   fef_ch4_dpm = 3.92, fef_nox_dpm = 2.51,                                      &
   fef_so2_dpm = 0.40,                                                          &
   fef_oc_dpm  = 8.2,   fef_bc_dpm  = 0.56,                                     &
-  fef_c2h4_dpm = 0.0, fef_c2h6_dpm = 0.0,                                      &
-  fef_c3h8_dpm = 0.0 , fef_hcho_dpm = 0.0,                                     &
-  fef_mecho_dpm = 0.0,                                                         &
-  fef_nh3_dpm = 0.0 , fef_dms_dpm = 0.0,                                       &
     ! HARDCODED Emission factors for DPM in g kg-1
   fef_co2_rpm = 1489.0, fef_co_rpm  = 127.0,                                   &
   fef_ch4_rpm = 5.96,  fef_nox_rpm = 0.90,                                     &
   fef_so2_rpm = 0.40,                                                          &
   fef_oc_rpm  = 8.2,   fef_bc_rpm  = 0.56,                                     &
-  fef_c2h4_rpm = 0.0, fef_c2h6_rpm = 0.0,                                      &
-  fef_c3h8_rpm = 0.0 , fef_hcho_rpm = 0.0,                                     &
-  fef_mecho_rpm = 0.0,                                                         &
-  fef_nh3_rpm = 0.0 , fef_dms_rpm = 0.0,                                       &
     ! HARDCODED Emission factors for RPM in g kg-1
   pmtofuel    = 0.7,                                                           &
     ! Plant Material that is available as fuel (on the surface)
@@ -232,34 +222,6 @@ fire_vars%fire_em_BC(:)         = 0.0
 fire_vars%fire_em_BC_ft(:,:)    = 0.0
 fire_vars%fire_em_BC_DPM(:)     = 0.0
 fire_vars%fire_em_BC_RPM(:)     = 0.0
-fire_vars%fire_em_C2H4(:)       = 0.0
-fire_vars%fire_em_C2H4_ft(:,:)  = 0.0
-fire_vars%fire_em_C2H4_DPM(:)   = 0.0
-fire_vars%fire_em_C2H4_RPM(:)   = 0.0
-fire_vars%fire_em_C2H6(:)       = 0.0
-fire_vars%fire_em_C2H6_ft(:,:)  = 0.0
-fire_vars%fire_em_C2H6_DPM(:)   = 0.0
-fire_vars%fire_em_C2H6_RPM(:)   = 0.0
-fire_vars%fire_em_C3H8(:)       = 0.0
-fire_vars%fire_em_C3H8_ft(:,:)  = 0.0
-fire_vars%fire_em_C3H8_DPM(:)   = 0.0
-fire_vars%fire_em_C3H8_RPM(:)   = 0.0
-fire_vars%fire_em_HCHO(:)       = 0.0
-fire_vars%fire_em_HCHO_ft(:,:)  = 0.0
-fire_vars%fire_em_HCHO_DPM(:)   = 0.0
-fire_vars%fire_em_HCHO_RPM(:)   = 0.0
-fire_vars%fire_em_MeCHO(:)       = 0.0
-fire_vars%fire_em_MeCHO_ft(:,:)  = 0.0
-fire_vars%fire_em_MeCHO_DPM(:)   = 0.0
-fire_vars%fire_em_MeCHO_RPM(:)   = 0.0
-fire_vars%fire_em_NH3(:)        = 0.0
-fire_vars%fire_em_NH3_ft(:,:)   = 0.0
-fire_vars%fire_em_NH3_DPM(:)    = 0.0
-fire_vars%fire_em_NH3_RPM(:)    = 0.0
-fire_vars%fire_em_DMS(:)        = 0.0
-fire_vars%fire_em_DMS_ft(:,:)   = 0.0
-fire_vars%fire_em_DMS_DPM(:)    = 0.0
-fire_vars%fire_em_DMS_RPM(:)    = 0.0
 
 !---------------------------------------------------------------
 ! Get the available DPM and RPM using a scaling parameter
@@ -386,18 +348,12 @@ DO i = 1, npft
     !Array INTENT(IN)
     land_pts, fire_vars%emitted_carbon_ft(:,i),                                &
     fef_co2(i), fef_co(i), fef_ch4(i), fef_nox(i), fef_so2(i),                 &
-    fef_oc(i), fef_bc(i), fef_c2h4(i), fef_c2h6(i), fef_c3h8(i),               &
-    fef_hcho(i), fef_mecho(i),                                                 &
-    fef_nh3(i), fef_dms(i),                                                    &
+    fef_oc(i), fef_bc(i),                                                      &
     !Array INTENT(OUT)
     fire_vars%fire_em_CO2_ft(:,i), fire_vars%fire_em_CO_ft(:,i),               &
     fire_vars%fire_em_CH4_ft(:,i), fire_vars%fire_em_NOx_ft(:,i),              &
     fire_vars%fire_em_SO2_ft(:,i),                                             &
-    fire_vars%fire_em_OC_ft(:,i), fire_vars%fire_em_BC_ft(:,i),                &
-    fire_vars%fire_em_C2H4_ft(:,i), fire_vars%fire_em_C2H6_ft(:,i),            &
-    fire_vars%fire_em_C3H8_ft(:,i), fire_vars%fire_em_HCHO_ft(:,i),            &
-    fire_vars%fire_em_MeCHO_ft(:,i),                                           &
-    fire_vars%fire_em_NH3_ft(:,i), fire_vars%fire_em_DMS_ft(:,i) )
+    fire_vars%fire_em_OC_ft(:,i), fire_vars%fire_em_BC_ft(:,i) )
 
   ! We add pft-specific variables to the gridbox totals
   fire_vars%burnt_area(:)     = fire_vars%burnt_area(:)                        &
@@ -418,21 +374,6 @@ DO i = 1, npft
                       + frac(:,i) * fire_vars%fire_em_OC_ft(:,i)
   fire_vars%fire_em_BC(:)     = fire_vars%fire_em_BC(:)                        &
                       + frac(:,i) * fire_vars%fire_em_BC_ft(:,i)
-  fire_vars%fire_em_C2H4(:)   = fire_vars%fire_em_C2H4(:)                      &
-                      + frac(:,i) * fire_vars%fire_em_C2H4_ft(:,i)
-  fire_vars%fire_em_C2H6(:)   = fire_vars%fire_em_C2H6(:)                      &
-                      + frac(:,i) * fire_vars%fire_em_C2H6_ft(:,i)
-  fire_vars%fire_em_C3H8(:)   = fire_vars%fire_em_C3H8(:)                      &
-                      + frac(:,i) * fire_vars%fire_em_C3H8_ft(:,i)
-  fire_vars%fire_em_HCHO(:)   = fire_vars%fire_em_HCHO(:)                      &
-                      + frac(:,i) * fire_vars%fire_em_HCHO_ft(:,i)
-  fire_vars%fire_em_MeCHO(:)  = fire_vars%fire_em_MeCHO(:)                     &
-                      + frac(:,i) * fire_vars%fire_em_MeCHO_ft(:,i)
-  fire_vars%fire_em_NH3(:)    = fire_vars%fire_em_NH3(:)                       &
-                      + frac(:,i) * fire_vars%fire_em_NH3_ft(:,i)
-  fire_vars%fire_em_DMS(:)    = fire_vars%fire_em_DMS(:)                       &
-                      + frac(:,i) * fire_vars%fire_em_DMS_ft(:,i)
-
 END DO
 
 DO i = 1, npft
@@ -471,17 +412,11 @@ CALL calc_emission(                                                            &
   land_pts, fire_vars%emitted_carbon_DPM(:),                                   &
   fef_co2_dpm, fef_co_dpm, fef_ch4_dpm,                                        &
   fef_nox_dpm, fef_so2_dpm, fef_oc_dpm, fef_bc_dpm,                            &
-  fef_c2h4_dpm, fef_c2h6_dpm, fef_c3h8_dpm,                                    &
-  fef_hcho_dpm, fef_mecho_dpm,                                                 &
-  fef_nh3_dpm, fef_dms_dpm,                                                    &
   !Array INTENT(OUT)
   fire_vars%fire_em_CO2_DPM(:), fire_vars%fire_em_CO_DPM(:),                   &
   fire_vars%fire_em_CH4_DPM(:), fire_vars%fire_em_NOx_DPM(:),                  &
   fire_vars%fire_em_SO2_DPM(:), fire_vars%fire_em_OC_DPM(:),                   &
-  fire_vars%fire_em_BC_DPM(:), fire_vars%fire_em_C2H4_DPM(:),                  &
-  fire_vars%fire_em_C2H6_DPM(:), fire_vars%fire_em_C3H8_DPM(:),                &
-  fire_vars%fire_em_HCHO_DPM(:), fire_vars%fire_em_MeCHO_DPM(:),               &
-  fire_vars%fire_em_NH3_DPM(:), fire_vars%fire_em_DMS_DPM(:))
+  fire_vars%fire_em_BC_DPM(:))
 
 ! Resistant Plant Material
 CALL calc_emission(                                                            &
@@ -489,17 +424,11 @@ CALL calc_emission(                                                            &
   land_pts, fire_vars%emitted_carbon_RPM(:),                                   &
   fef_co2_rpm, fef_co_rpm, fef_ch4_rpm,                                        &
   fef_nox_rpm, fef_so2_rpm, fef_oc_rpm, fef_bc_rpm,                            &
-  fef_c2h4_rpm, fef_c2h6_rpm, fef_c3h8_rpm,                                    &
-  fef_hcho_rpm, fef_mecho_rpm,                                                 &
-  fef_nh3_rpm, fef_dms_rpm,                                                    &
   !Array INTENT(OUT)
   fire_vars%fire_em_CO2_RPM(:), fire_vars%fire_em_CO_RPM(:),                   &
   fire_vars%fire_em_CH4_RPM(:), fire_vars%fire_em_NOx_RPM(:),                  &
   fire_vars%fire_em_SO2_RPM(:), fire_vars%fire_em_OC_RPM(:),                   &
-  fire_vars%fire_em_BC_RPM(:), fire_vars%fire_em_C2H4_RPM(:),                  &
-  fire_vars%fire_em_C2H6_RPM(:), fire_vars%fire_em_C3H8_RPM(:),                &
-  fire_vars%fire_em_HCHO_RPM(:), fire_vars%fire_em_MeCHO_RPM(:),               &
-  fire_vars%fire_em_NH3_RPM(:), fire_vars%fire_em_DMS_RPM(:))
+  fire_vars%fire_em_BC_RPM(:))
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

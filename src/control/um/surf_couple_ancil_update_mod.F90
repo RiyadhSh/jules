@@ -24,7 +24,7 @@ USE jules_irrig_mod, ONLY: l_irrig_dmd
 USE assign_irrig_fraction_mod,  ONLY: assign_irrig_fraction
 USE update_irrig_variables_mod, ONLY: update_irrig_variables
 
-USE jules_soil_mod, ONLY: sm_levels
+USE nlsizes_namelist_mod, ONLY: sm_levels
 
 USE parkind1, ONLY: jprb, jpim
 USE yomhook,  ONLY: lhook, dr_hook

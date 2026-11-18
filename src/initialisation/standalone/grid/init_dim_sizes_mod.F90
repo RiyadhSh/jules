@@ -39,20 +39,14 @@ USE jules_sea_seaice_mod, ONLY: nice, nice_use
 USE jules_soil_mod, ONLY: sm_levels, ns_deep, l_tile_soil
 
 USE model_interface_mod, ONLY: bl_level_dim_size, bedrock_dim_size,            &
-                               pft_dim_size, quantile_dim_size,                &
-                               cpft_dim_size, nvg_dim_size,                    &
+                                pft_dim_size, cpft_dim_size, nvg_dim_size,     &
                                 type_dim_size, tile_dim_size, snow_dim_size,   &
                                 soil_dim_size, soilt_dim_size,                 &
                                 scpool_dim_size, ch4layer_dim_size,            &
                                 sclayer_dim_size, dep_species_dim_size,        &
-                                imogen_drive_dim_size, imogen_clim_dim_size,   &
-                                nmasst_dim_size
-
-USE imogen_run, ONLY: l_daily_metdata_climatol
+                                imogen_drive_dim_size, nmasst_dim_size
 
 USE nlsizes_namelist_mod, ONLY: bl_levels
-
-USE overbank_inundation_mod, ONLY: nquantile_hypso
 
 IMPLICIT NONE
 
@@ -127,7 +121,6 @@ END IF
 !-----------------------------------------------------------------------------
 bl_level_dim_size = bl_levels
 pft_dim_size      = npft
-quantile_dim_size = nquantile_hypso
 cpft_dim_size     = ncpft
 nvg_dim_size      = nnvg
 type_dim_size     = ntype
@@ -138,11 +131,6 @@ soil_dim_size     = sm_levels
 scpool_dim_size   = dim_cs1
 sclayer_dim_size  = dim_cslayer
 imogen_drive_dim_size = 12   ! number of months in year
-IF ( l_daily_metdata_climatol ) THEN
-  imogen_clim_dim_size = 360    ! number of days in year
-ELSE
-  imogen_clim_dim_size = imogen_drive_dim_size
-END IF
 ch4layer_dim_size = dim_ch4layer
 dep_species_dim_size = ndry_dep_species
 bedrock_dim_size  = ns_deep

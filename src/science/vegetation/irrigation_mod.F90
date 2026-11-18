@@ -69,7 +69,7 @@ USE atm_fields_bounds_mod, ONLY: tdims
 
 USE crop_vars_mod, ONLY: ndpy, nyav
 
-USE jules_rivers_mod, ONLY: rivers_type
+USE jules_rivers_mod,         ONLY: rivers_type
 
 ! Some usage inside ifdefs
 USE jules_irrig_mod, ONLY: irr_crop_doell, irr_crop, l_irrig_limit,            &
@@ -188,10 +188,10 @@ LOGICAL ::                                                                     &
 ! Initialise water applied through irrigation as zero:
 irrigwater_levels(:,:,:) = 0.0
 
+! Set the adjustment to 1.0 (no adjustment)
 IF ( l_irrig_limit ) THEN
-  ! Set the adjustment to 1.0 (no adjustment).
   rivers_adj_on_landpts(:) = 1.0
-END IF
+END IF ! l_irrig_limit
 
 ! Update irrigation every nstep_irrig timesteps
 IF ( MOD(a_step, nstep_irrig) == 0 .AND. ( a_step > 1 ) ) THEN

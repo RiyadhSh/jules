@@ -34,8 +34,6 @@ USE missing_data_mod, ONLY: rmdi
 USE jules_surface_mod, ONLY: h_blend_max, h_blend_min, fd_stability_dep, on,   &
     orog_drag_param
 USE sf_diags_mod, ONLY: strnewsfdiag
-USE stochastic_physics_run_mod, ONLY: l_rp2, i_rp_scheme, i_rp2b, rp_idx,      &
-                                      orog_drag_param_rp
 USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
 IMPLICIT NONE
@@ -102,10 +100,6 @@ REAL(KIND=jprb)               :: zhook_handle
 CHARACTER(LEN=*), PARAMETER :: RoutineName='SF_OROG_GB'
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
-
-IF ( l_rp2 .AND. i_rp_scheme == i_rp2b ) THEN
-  orog_drag_param = orog_drag_param_rp(rp_idx)
-END IF
 
 !$OMP PARALLEL                                                                 &
 !$OMP DEFAULT(NONE)                                                            &

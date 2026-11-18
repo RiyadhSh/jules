@@ -20,14 +20,12 @@
 ###############################################################################
 ## Build jobs
 ###############################################################################
-#
+# 
 
 {%- if COVERAGE == true %}
 
     [[fcm_make_nci_intel_coverage]]
-        inherit = NCI_EXTRACT, NCI_INTEL_BUILD
-        # Use env-script so inherited pre-script isn't changed
-        env-script = mkdir -p $CYLC_SUITE_SHARE_DIR/coverage
+        inherit = NCI_EXTRACT
         [[[environment]]]
             JULES_PLATFORM = nci-intel
             JULES_BUILD = normal
@@ -35,24 +33,54 @@
             JULES_FFLAGS_EXTRA  = -prof-gen=srcpos -prof-dir $CYLC_SUITE_SHARE_DIR/coverage
             JULES_LDFLAGS_EXTRA = -prof-gen=srcpos -prof-dir $CYLC_SUITE_SHARE_DIR/coverage
 
+    [[fcm_make2_nci_intel_coverage]]
+        inherit = NCI_INTEL_BUILD
+        # Use env-script so inherited pre-script isn't changed
+        env-script = mkdir -p $CYLC_SUITE_SHARE_DIR/coverage
+        [[[environment]]]
+            JULES_PLATFORM = nci-intel
+            JULES_BUILD = normal
+            JULES_OMP = noomp
+
 {%- else %}
 
     [[fcm_make_nci_intel_debug]]
-        inherit = NCI_EXTRACT, NCI_INTEL_BUILD
+        inherit = NCI_EXTRACT
+        [[[environment]]]
+            JULES_PLATFORM = nci-intel
+            JULES_BUILD = debug
+            JULES_OMP = noomp
+	    
+    [[fcm_make2_nci_intel_debug]]
+        inherit = NCI_INTEL_BUILD
         [[[environment]]]
             JULES_PLATFORM = nci-intel
             JULES_BUILD = debug
             JULES_OMP = noomp
 
     [[fcm_make_nci_intel_omp]]
-        inherit = NCI_EXTRACT, NCI_INTEL_BUILD
+        inherit = NCI_EXTRACT
+        [[[environment]]]
+            JULES_PLATFORM = nci-intel
+            JULES_BUILD = normal
+            JULES_OMP = omp
+
+    [[fcm_make2_nci_intel_omp]]
+        inherit = NCI_INTEL_BUILD
         [[[environment]]]
             JULES_PLATFORM = nci-intel
             JULES_BUILD = normal
             JULES_OMP = omp
 
     [[fcm_make_nci_intel_omp_rivers-only]]
-        inherit = NCI_EXTRACT, EXTRACT_RIVER, NCI_INTEL_BUILD
+        inherit = NCI_EXTRACT, EXTRACT_RIVER
+        [[[environment]]]
+            JULES_PLATFORM = nci-intel
+            JULES_BUILD = normal
+            JULES_OMP = omp
+
+    [[fcm_make2_nci_intel_omp_rivers-only]]
+        inherit = NCI_INTEL_BUILD
         [[[environment]]]
             JULES_PLATFORM = nci-intel
             JULES_BUILD = normal
@@ -309,22 +337,20 @@
             BUILD_NAME = fcm_make_nci_intel_omp
 {%- endif %}
 
-# GSWP2 rivers
+# GSWP2 rivers 
     [[nci_intel_gswp2_rivers]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = NCI_INTEL_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers
 
-# GSWP2 rivers spinup
+# GSWP2 rivers spinup 
     [[nci_intel_gswp2_rivers_spinup]]
         inherit = NCI_INTEL_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers_spinup
 
-# GSWP2 rivers restart
+# GSWP2 rivers restart 
     [[nci_intel_gswp2_rivers_restart]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = NCI_INTEL_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers_restart
@@ -332,7 +358,6 @@
 
 # GSWP2 rivers (rivers-only)
    [[nci_intel_gswp2_rivers_rivers-only]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = NCI_INTEL_GSWP2_RIVERS_ONLY
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers
@@ -346,14 +371,13 @@
             ROSE_TASK_APP = gswp2_rivers
             ROSE_APP_OPT_CONF_KEYS = overbank_hypso
 
-# GSWP2 trip
+# GSWP2 trip 
     [[nci_intel_gswp2_trip]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = NCI_INTEL_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip
 
-# GSWP2 trip spinup
+# GSWP2 trip spinup 
     [[nci_intel_gswp2_trip_spinup]]
         inherit = NCI_INTEL_GSWP2
         [[[environment]]]
@@ -361,7 +385,6 @@
 
 # GSWP2 trip restart
     [[nci_intel_gswp2_trip_restart]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = NCI_INTEL_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip_restart
@@ -369,7 +392,6 @@
 
 # GSWP2 trip (rivers-only)
    [[nci_intel_gswp2_trip_rivers-only]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = NCI_INTEL_GSWP2_RIVERS_ONLY
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip
@@ -382,14 +404,14 @@
         [[[environment]]]
             ROSE_TASK_APP = gswp2_irrig_limit_low_river_storage
             DUMP_FILE = ../nci_intel_gswp2_trip_spinup/output/nci_intel_gswp2_trip_spinup.dump.19820701.10800.nc
-
+            
 # GSWP2 irrig limit high river storage
     [[nci_intel_gswp2_irrig_limit_high_river_storage]]
         inherit = NCI_INTEL_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_irrig_limit_high_river_storage
             DUMP_FILE = ../nci_intel_gswp2_trip_spinup/output/nci_intel_gswp2_trip_spinup.dump.19820701.10800.nc
-
+            
 # GSWP2 closures
     [[nci_intel_gswp2_closures]]
         inherit = NCI_INTEL_GSWP2
@@ -473,27 +495,6 @@
         inherit = NCI_INTEL_IMOGEN
         [[[environment]]]
             ROSE_TASK_APP = imogen_layeredc
-            DUMP_FILE = ../nci_intel_imogen_layeredc_spinup/output/nci_intel_imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[nci_intel_imogen_layeredc_co2conc]]
-        inherit = NCI_INTEL_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = co2conc
-            DUMP_FILE = ../nci_intel_imogen_layeredc_spinup/output/nci_intel_imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[nci_intel_imogen_layeredc_dtempg]]
-        inherit = NCI_INTEL_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = dtempg
-            DUMP_FILE = ../nci_intel_imogen_layeredc_spinup/output/nci_intel_imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[nci_intel_imogen_layeredc_ch4]]
-        inherit = NCI_INTEL_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = ch4
             DUMP_FILE = ../nci_intel_imogen_layeredc_spinup/output/nci_intel_imogen_layeredc_spinup.dump.18650101.0.nc
 
 {%- if COVERAGE == true %}
@@ -704,7 +705,7 @@
         inherit = NCI_INTEL_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../nci_intel_gswp2_trip_restart/output
-
+    
     [[nccmp_nci_intel_gswp2_trip_rivers-only]]
         inherit = NCI_INTEL_NETCDF_COMPARISON
         [[[environment]]]
@@ -719,7 +720,7 @@
         inherit = NCI_INTEL_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../nci_intel_gswp2_irrig_limit_high_river_storage/output
-
+            
     [[nccmp_nci_intel_gswp2_closures]]
         inherit = NCI_INTEL_NETCDF_COMPARISON
         [[[environment]]]
@@ -779,21 +780,6 @@
         inherit = NCI_INTEL_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../nci_intel_imogen_layeredc/output
-
-    [[nccmp_nci_intel_imogen_layeredc_co2conc]]
-        inherit = NCI_INTEL_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../nci_intel_imogen_layeredc_co2conc/output
-
-    [[nccmp_nci_intel_imogen_layeredc_dtempg]]
-        inherit = NCI_INTEL_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../nci_intel_imogen_layeredc_dtempg/output
-
-    [[nccmp_nci_intel_imogen_layeredc_ch4]]
-        inherit = NCI_INTEL_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../nci_intel_imogen_layeredc_ch4/output
 
 ###############################################################################
 ## Housekeeping jobs
@@ -1042,12 +1028,12 @@
         inherit = NCI_INTEL_HOUSEKEEPING
         [[[environment]]]
             DIR1 = ../nci_intel_gswp2_irrig_limit_low_river_storage
-
+            
     [[housekeep_nci_intel_gswp2_irrig_limit_high_river_storage]]
         inherit = NCI_INTEL_HOUSEKEEPING
         [[[environment]]]
             DIR1 = ../nci_intel_gswp2_irrig_limit_high_river_storage
-
+            
     [[housekeep_nci_intel_gswp2_closures]]
         inherit = NCI_INTEL_HOUSEKEEPING
         [[[environment]]]
@@ -1112,18 +1098,3 @@
         inherit = NCI_INTEL_HOUSEKEEPING
         [[[environment]]]
             DIR1 = ../nci_intel_imogen_layeredc
-
-    [[housekeep_nci_intel_imogen_layeredc_co2conc]]
-        inherit = NCI_INTEL_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../nci_intel_imogen_layeredc_co2conc
-
-    [[housekeep_nci_intel_imogen_layeredc_dtempg]]
-        inherit = NCI_INTEL_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../nci_intel_imogen_layeredc_dtempg
-
-    [[housekeep_nci_intel_imogen_layeredc_ch4]]
-        inherit = NCI_INTEL_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../nci_intel_imogen_layeredc_ch4

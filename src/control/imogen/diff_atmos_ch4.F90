@@ -8,16 +8,14 @@
 !
 ! [Met Office Ref SC0237]
 !******************************COPYRIGHT**************************************
-SUBROUTINE diff_atmos_ch4(d_land_atmos_ch4, ch4_ppbv)
+SUBROUTINE diff_atmos_ch4(d_land_atmos_ch4, conv, ch4_ppbv)
 
 USE io_constants, ONLY: imogen_unit
-USE conversions_mod, ONLY: conv_gtc_to_ppm, ppm_to_ppb, pg_to_kg
 USE imogen_constants, ONLY: nyr_max
 USE imogen_run, ONLY: file_ch4_n2o, nyr_ch4_n2o, ch4_ppbv_ref, tau_ch4_ref
 USE model_time_mod, ONLY: main_run_start, current_time
 USE jules_print_mgr, ONLY: jules_message, jules_print
 USE parallel_mod, ONLY: is_master_task
-USE logging_mod, ONLY: log_fatal
 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------
@@ -26,8 +24,9 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------
 
 REAL, INTENT(IN) ::                                                            &
-  d_land_atmos_ch4
-        ! Additional methane accumulated flux (kgC/year)
+  d_land_atmos_ch4,                                                            &
+        ! Additional methane ACCUMULATED flux (kgC/year)
+  conv  ! Converts global emission of C (Gt) into change in atmospheric C (ppm)
 
 REAL, INTENT(IN OUT) :: ch4_ppbv
         ! ch4 concentration in ppbv
@@ -55,26 +54,19 @@ REAL ::                                                                        &
   tau_ch4
         ! lifetime of methane for current year
 
+REAL, PARAMETER :: ppm_to_ppb = 1.0e3
+REAL, PARAMETER :: pg_to_kg = 1.0e12
 
 INTEGER ::                                                                     &
   i, iy, itm, iinit
-
-INTEGER :: io_error
 
 !-----------------------------------------------------------------------------
 ! Read in file of ch4 and n2o atmospheric concentrations if required
 !-----------------------------------------------------------------------------
 OPEN(imogen_unit, FILE=file_ch4_n2o, STATUS = 'old',                           &
-      POSITION = 'rewind', ACTION = 'read', IOSTAT=io_error)
-IF (io_error /= 0) THEN
-  CALL log_fatal("diff_atmos_ch4", ': file_ch4_n2o not found')
-END IF
-
+       POSITION = 'rewind', ACTION = 'read')
 DO i = 1, nyr_ch4_n2o
-  READ(imogen_unit, *, IOSTAT = io_error) yr_ref(i), ch4_ref(i), n2o_ref
-  IF (io_error /= 0) THEN
-    CALL log_fatal("diff_atmos_ch4", ': error reading file_ch4_n2o')
-  END IF
+  READ(imogen_unit, *) yr_ref(i), ch4_ref(i), n2o_ref
 END DO
 CLOSE(imogen_unit)
 
@@ -97,8 +89,7 @@ IF (itm <= 0) THEN
   itm = i
 END IF
 
-d_land_atmos_ch4_ppbv = d_land_atmos_ch4 *                                     &
-                        conv_gtc_to_ppm * ppm_to_ppb / pg_to_kg
+d_land_atmos_ch4_ppbv = d_land_atmos_ch4 * conv * ppm_to_ppb / pg_to_kg
 
 ! CH4 atmospheric decay factor based on decay factor at ref year, 2000.
 ! https://www.ipcc.ch/site/assets/uploads/2018/03/WGI_TAR_full_report.pdf p251

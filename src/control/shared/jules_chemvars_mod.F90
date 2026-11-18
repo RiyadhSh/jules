@@ -67,8 +67,6 @@ TYPE :: chemvars_data_type
       ! non-stomatal component
   REAL(KIND=real_jlslsm), ALLOCATABLE :: dep_vd_ij(:,:,:,:)
       ! Surface deposition velocity term for trace gases (m s-1)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: dep_vd_gb(:,:,:)
-      ! Surface deposition velocity term for trace gases (m s-1) on gridbox
   REAL(KIND=real_jlslsm), ALLOCATABLE :: dep_loss_rate_ij(:,:,:)
       ! First-order loss rate for trace gases (s-1)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: dep_flux_ij(:,:,:)
@@ -104,7 +102,6 @@ TYPE :: chemvars_type
   REAL(KIND=real_jlslsm), POINTER :: dep_rc_stom_ij(:,:,:,:)
   REAL(KIND=real_jlslsm), POINTER :: dep_rc_nonstom_ij(:,:,:,:)
   REAL(KIND=real_jlslsm), POINTER :: dep_vd_ij(:,:,:,:)
-  REAL(KIND=real_jlslsm), POINTER :: dep_vd_gb(:,:,:)
   REAL(KIND=real_jlslsm), POINTER :: dep_loss_rate_ij(:,:,:)
   REAL(KIND=real_jlslsm), POINTER :: dep_flux_ij(:,:,:)
   REAL(KIND=real_jlslsm), POINTER :: dep_vd_so4_ij(:,:)
@@ -194,8 +191,6 @@ IF (l_deposition) THEN
     ndry_dep_species))
   ALLOCATE(chemvars_data%dep_vd_ij(t_i_length,t_j_length,ntype,                &
     ndry_dep_species))
-  ALLOCATE(chemvars_data%dep_vd_gb(t_i_length,t_j_length,                      &
-    ndry_dep_species))
   ALLOCATE(chemvars_data%dep_loss_rate_ij(t_i_length,t_j_length,               &
     ndry_dep_species))
   ALLOCATE(chemvars_data%dep_vd_so4_ij(t_i_length,t_j_length))
@@ -208,7 +203,6 @@ IF (l_deposition) THEN
   chemvars_data%dep_rc_stom_ij(:,:,:,:)    = 0.0
   chemvars_data%dep_rc_nonstom_ij(:,:,:,:) = 0.0
   chemvars_data%dep_vd_ij(:,:,:,:)         = 0.0
-  chemvars_data%dep_vd_gb(:,:,:)           = 0.0
   chemvars_data%dep_loss_rate_ij(:,:,:)    = 0.0
   chemvars_data%dep_vd_so4_ij(:,:)         = 0.0
   chemvars_data%dep_surfconc_ij(:,:,:)     = 0.0
@@ -274,7 +268,6 @@ IF ( ALLOCATED(chemvars_data%dep_ra_ij) ) THEN
   DEALLOCATE(chemvars_data%dep_rc_stom_ij)
   DEALLOCATE(chemvars_data%dep_rc_nonstom_ij)
   DEALLOCATE(chemvars_data%dep_vd_ij)
-  DEALLOCATE(chemvars_data%dep_vd_gb)
   DEALLOCATE(chemvars_data%dep_loss_rate_ij)
   DEALLOCATE(chemvars_data%dep_vd_so4_ij)
   DEALLOCATE(chemvars_data%dep_surfconc_ij)
@@ -345,7 +338,6 @@ IF ( ALLOCATED(chemvars_data%dep_ra_ij) ) THEN
   chemvars%dep_rc_stom_ij    => chemvars_data%dep_rc_stom_ij
   chemvars%dep_rc_nonstom_ij => chemvars_data%dep_rc_nonstom_ij
   chemvars%dep_vd_ij         => chemvars_data%dep_vd_ij
-  chemvars%dep_vd_gb         => chemvars_data%dep_vd_gb
   chemvars%dep_loss_rate_ij  => chemvars_data%dep_loss_rate_ij
   chemvars%dep_vd_so4_ij     => chemvars_data%dep_vd_so4_ij
   chemvars%dep_surfconc_ij   => chemvars_data%dep_surfconc_ij
@@ -404,7 +396,6 @@ NULLIFY(chemvars%dep_rc_ij)
 NULLIFY(chemvars%dep_rc_stom_ij)
 NULLIFY(chemvars%dep_rc_nonstom_ij)
 NULLIFY(chemvars%dep_vd_ij)
-NULLIFY(chemvars%dep_vd_gb)
 NULLIFY(chemvars%dep_loss_rate_ij)
 NULLIFY(chemvars%dep_vd_so4_ij)
 ! Deposition variables

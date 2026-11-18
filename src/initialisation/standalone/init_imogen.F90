@@ -6,8 +6,7 @@
 ! *****************************COPYRIGHT**************************************
 
 
-SUBROUTINE init_imogen(nml_dir, progs_data, trifctltype, imgn_drive,           &
-                       imgn_vars, ainfo)
+SUBROUTINE init_imogen(nml_dir,progs_data, trifctltype, imgn_drive, imgn_vars, ainfo)
 
 USE io_constants, ONLY: max_file_name_len, imogen_unit, namelist_unit
 
@@ -19,25 +18,36 @@ USE model_time_mod, ONLY: main_run_start, is_spinup, timesteps_in_day
 
 USE read_dump_mod, ONLY: read_dump
 
-USE fill_variables_from_file_mod, ONLY: fill_variables_from_file
-
 USE update_mod, ONLY: l_imogen, diff_frac_const
 
 USE ancil_info, ONLY: land_pts
 
-USE imogen_time, ONLY: nsdmax
+USE imogen_constants, ONLY: drive_month, n_imogen_land
 
-USE imogen_run, ONLY: imogen_run_list, c_emissions,                            &
+USE imogen_map, ONLY: sgindinv, get_imogen_map
+
+USE imogen_time, ONLY: step_day, nsdmax, mm, md
+
+USE imogen_run, ONLY: imogen_run_list, file_points_order, c_emissions,         &
                       include_co2, include_non_co2_radf, land_feed_co2,        &
-                      land_feed_ch4, ocean_feed, nyr_emiss,                    &
+                      land_feed_ch4, ocean_feed, anlg, anom, nyr_emiss,        &
                       file_scen_emits, ch4_init_ppbv, co2_init_ppmv,           &
-                      initialise_from_dump, dump_file, l_change_metdata,       &
-                      change_metdata_method, initial_co2_ch4_year,             &
-                      l_daily_metdata_climatol,                                &
+                      initialise_from_dump, dump_file,                         &
+                      l_drive_with_global_temps, initial_co2_ch4_year,         &
                       fch4_ref, yr_fch4_ref, tau_ch4_ref, ch4_ppbv_ref
 
-USE imogen_anlg_vals, ONLY: imogen_anlg_vals_list, file_clim, file_patt,       &
+USE imogen_anlg_vals, ONLY: imogen_anlg_vals_list, dir_clim,                   &
                             diff_frac_const_imogen
+
+USE imogen_clim, ONLY: t_clim, rainfall_clim, snowfall_clim, rh15m_clim,       &
+                       uwind_clim, vwind_clim, dtemp_clim, pstar_ha_clim,      &
+                       sw_clim, lw_clim, f_wet_clim, lat,                      &
+                       longmin_clim, latmin_clim, longmax_clim, latmax_clim,   &
+                       LONG
+
+USE imogen_drive_vars, ONLY: t_out, conv_rain_out, conv_snow_out, ls_rain_out, &
+                             ls_snow_out, qhum_out, wind_out, pstar_out,       &
+                             sw_out, lw_out
 
 USE imogen_io_vars, ONLY: nyr_max, yr_emiss, c_emiss
 
@@ -55,6 +65,9 @@ USE trifctl, ONLY: trifctl_type
 USE imgn_drive_mod, ONLY: imgn_drive_type
 USE imgn_vars_mod, ONLY: imgn_vars_type
 USE ancil_info, ONLY: ainfo_type
+
+USE theta_field_sizes, ONLY: t_i_length
+
 
 IMPLICIT NONE
 
@@ -80,50 +93,11 @@ TYPE(imgn_drive_type), INTENT(IN OUT) :: imgn_drive
 TYPE(imgn_vars_type), INTENT(IN OUT)   :: imgn_vars
 TYPE(ainfo_type), INTENT(IN) :: ainfo
 
-INTEGER, PARAMETER :: nvars = 8
-INTEGER :: i ! Loop counter
+! Work variables
+CHARACTER(LEN=max_file_name_len) :: file_clim  ! File to read IMOGEN
+                                               ! climatology from
 
-CHARACTER(LEN=24), DIMENSION(nvars) ::                                         &
-  imgn_name_clim = ['tl1_ij_clim_imgn        ',                                &
-                    'ql1_ij_clim_imgn        ',                                &
-                    'wind_ij_clim_imgn       ',                                &
-                    'lwdown_ij_clim_imgn     ',                                &
-                    'swdown_ij_clim_imgn     ',                                &
-                    'precip_ij_clim_imgn     ',                                &
-                    'pstar_ij_clim_imgn      ',                                &
-                    'diurnal_tl1_ij_clim_imgn']
-
-CHARACTER(LEN=24), DIMENSION(nvars) ::                                         &
-  imgn_name_patt = ['tl1_ij_patt_imgn        ',                                &
-                    'ql1_ij_patt_imgn        ',                                &
-                    'wind_ij_patt_imgn       ',                                &
-                    'lwdown_ij_patt_imgn     ',                                &
-                    'swdown_ij_patt_imgn     ',                                &
-                    'precip_ij_patt_imgn     ',                                &
-                    'pstar_ij_patt_imgn      ',                                &
-                    'diurnal_tl1_ij_patt_imgn']
-
-CHARACTER(LEN=14), DIMENSION(nvars) ::                                         &
-  nc_name_clim = ['tl1_clim      ',                                            &
-                  'ql1_clim      ',                                            &
-                  'wind_clim     ',                                            &
-                  'lwdown_clim   ',                                            &
-                  'swdown_clim   ',                                            &
-                  'precip_clim   ',                                            &
-                  'pstar_clim    ',                                            &
-                  'range_tl1_clim']
-
-CHARACTER(LEN=14), DIMENSION(nvars) ::                                         &
-  nc_name_patt = ['tl1_patt      ',                                            &
-                  'ql1_patt      ',                                            &
-                  'wind_patt     ',                                            &
-                  'lwdown_patt   ',                                            &
-                  'swdown_patt   ',                                            &
-                  'precip_patt   ',                                            &
-                  'pstar_patt    ',                                            &
-                  'range_tl1_patt']
-
-INTEGER :: n  ! Index variables
+INTEGER :: i,j,l,n,im,ijk  ! Index variables
 
 INTEGER :: ERROR, error_sum, errorstatus  ! Error indicator
 CHARACTER(LEN=errormessagelength) :: iomessage
@@ -174,7 +148,7 @@ IF ( ERROR /= 0 )                                                              &
 !-----------------------------------------------------------------------------
 ! check all variables are set in imogen_run
 !-----------------------------------------------------------------------------
-! co2_init_ppmv
+!co2_init_ppmv
 IF ( ABS( co2_init_ppmv - rmdi ) < EPSILON(1.0) ) THEN
   errorstatus = 101
   CALL ereport(RoutineName, errorstatus, "co2_init_ppmv not found")
@@ -194,13 +168,6 @@ IF ( ocean_feed ) THEN
   END IF
 END IF
 
-! change_metdata_method
-IF ( l_change_metdata ) THEN
-  IF ( ABS( change_metdata_method - imdi ) < EPSILON(1.0) ) THEN
-    errorstatus = 101
-    CALL ereport(RoutineName, errorstatus, "change_metdata_method not found")
-  END IF
-END IF
 
 ! yr_fch4_ref, ch4_init_ppbv, fch4_ref, tau_ch4_ref, ch4_ppbv_ref
 IF ( land_feed_ch4 ) THEN
@@ -230,7 +197,7 @@ IF ( land_feed_ch4 ) THEN
 
   IF ( ABS( tau_ch4_ref - rmdi ) < EPSILON(1.0) ) THEN
     errorstatus = 101
-    CALL ereport(RoutineName, errorstatus, "tau_ch4_ref not found")
+    CALL ereport(RoutineName, errorstatus, "fch4tau_ch4_ref_ref not found")
   ELSE IF ( tau_ch4_ref < 0.1 .OR. tau_ch4_ref > 100.0 ) THEN
     CALL ereport(RoutineName, errorstatus,                                     &
                  "tau_ch4_ref must lie in the range 0.1 to 100.0")
@@ -265,6 +232,95 @@ IF ( main_run_start%TIME /= 0 .OR. main_run_start%day /= 1 .OR.                &
 IF (timesteps_in_day > nsdmax)                                                 &
   CALL log_fatal(RoutineName, "Too many timesteps per day")
 
+!-----------------------------------------------------------------------------
+! Find corresponding land sites from the imogen grid 'sgind'.
+!-----------------------------------------------------------------------------
+CALL get_imogen_map(file_points_order)
+
+!-----------------------------------------------------------------------------
+! Allocate imogen arrays
+!-----------------------------------------------------------------------------
+error_sum = 0
+ALLOCATE(t_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(rainfall_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(snowfall_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(rh15m_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(uwind_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(vwind_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(dtemp_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(pstar_ha_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(sw_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(lw_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(f_wet_clim(land_pts,mm), STAT = ERROR )
+error_sum = error_sum + ERROR
+
+ALLOCATE(t_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(conv_rain_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(conv_snow_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(ls_rain_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(ls_snow_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(qhum_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(wind_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(pstar_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(sw_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(lw_out(land_pts,mm,md,nsdmax), STAT = ERROR )
+error_sum = error_sum + ERROR
+
+ALLOCATE(lat(land_pts), STAT = ERROR )
+error_sum = error_sum + ERROR
+ALLOCATE(LONG(land_pts), STAT = ERROR )
+error_sum = error_sum + ERROR
+
+! Check for error.
+IF ( error_sum /= 0 ) THEN
+  CALL log_fatal(RoutineName, "Error allocating IMOGEN arrays")
+ELSE
+  ! Initialise.
+  t_clim(:,:)        = 0.0
+  rainfall_clim(:,:) = 0.0
+  snowfall_clim(:,:) = 0.0
+  rh15m_clim(:,:)    = 0.0
+  uwind_clim(:,:)    = 0.0
+  vwind_clim(:,:)    = 0.0
+  dtemp_clim(:,:)    = 0.0
+  pstar_ha_clim(:,:) = 0.0
+  sw_clim(:,:)       = 0.0
+  lw_clim(:,:)       = 0.0
+  f_wet_clim(:,:)    = 0.0
+
+  t_out(:,:,:,:)         = 0.0
+  conv_rain_out(:,:,:,:) = 0.0
+  conv_snow_out(:,:,:,:) = 0.0
+  ls_rain_out(:,:,:,:)   = 0.0
+  ls_snow_out(:,:,:,:)   = 0.0
+  qhum_out(:,:,:,:)      = 0.0
+  wind_out(:,:,:,:)      = 0.0
+  pstar_out(:,:,:,:)     = 0.0
+  sw_out(:,:,:,:)        = 0.0
+  lw_out(:,:,:,:)        = 0.0
+
+  lat(:)   = 0.0
+  LONG(:)  = 0.0
+END IF
 
 !-----------------------------------------------------------------------------
 ! Check that the configurations proposed are valid.
@@ -274,7 +330,7 @@ IF (timesteps_in_day > nsdmax)                                                 &
 !-----------------------------------------------------------------------------
 CALL imogen_check(                                                             &
   c_emissions, include_co2, include_non_co2_radf, land_feed_co2,               &
-  land_feed_ch4, ocean_feed, change_metdata_method, l_change_metdata)
+  land_feed_ch4, ocean_feed, anlg, anom, l_drive_with_global_temps)
 
 !-----------------------------------------------------------------------------
 ! Now get the emissions/CO2 concentrations.
@@ -283,24 +339,17 @@ CALL imogen_check(                                                             &
 ! in a file of CO2 concentrations for "Hydrology 20th Century" simulation
 !-----------------------------------------------------------------------------
 IF (nyr_emiss > nyr_max) THEN
-  CALL log_fatal(RoutineName, "Time series of emissions is " //                &
-                 "longer than allocated array"               //                &
+  CALL log_fatal("init_imogen", "Time series of emissions is " //              &
+                 "longer than allocated array"                 //              &
                  "check nyr_emiss and nyr_max")
 END IF
 
-IF ( c_emissions .AND. include_co2 .AND. l_change_metdata                      &
-     .AND. change_metdata_method == 1 ) THEN
+IF ( c_emissions .AND. include_co2 .AND. anom .AND. anlg ) THEN
   OPEN(imogen_unit, FILE=file_scen_emits,                                      &
-          STATUS='old', POSITION='rewind', ACTION='read', IOSTAT=ERROR)
-  IF (ERROR /= 0) THEN
-    CALL log_fatal(RoutineName, ': file_scen_emits not found')
-  END IF
+                    STATUS='old', POSITION='rewind', ACTION='read')
 
   DO n = 1,nyr_emiss
-    READ(imogen_unit,*, IOSTAT=ERROR) yr_emiss(n),c_emiss(n)
-    IF (ERROR /= 0) THEN
-      CALL log_fatal(RoutineName, ': error reading file_scen_emits')
-    END IF
+    READ(imogen_unit,*) yr_emiss(n),c_emiss(n)
   END DO
 
   CLOSE(imogen_unit)
@@ -309,27 +358,43 @@ END IF
 !-----------------------------------------------------------------------
 ! Read in monthly climatology of climate data.
 !-----------------------------------------------------------------------
-! In the following call, is_climatology adds a 12-month time dimension to the
-! size of the input variable in order to interpolate to the appropriate start
-! time for initial conditions. It is therefore .FALSE. in these calls.
-CALL fill_variables_from_file( file_clim, imgn_name_clim, nc_name_clim,        &
-                               is_climatology = [ (.FALSE., i=1, nvars) ] )
+DO im = 1,mm
+  file_clim = TRIM(dir_clim) // drive_month(im)
 
-IF ( (l_change_metdata) .AND.                                                  &
-       (change_metdata_method ==1 .OR. change_metdata_method ==3) ) THEN
-  !-----------------------------------------------------------------------
-  ! Read in spatial climate patterns (/K) - only read in once
-  ! there is a value for every grid cell and every month
-  ! patterns used for the driving climate data for the following cases:
-  !    - driving directly with global temperatures
-  !      (l_change_metdata=.TRUE. and change_metdata_method=3)
-  !    - anomalies prescribed from patterns using the analogue model where
-  !      the global temperature change is calculated from the change in
-  !      radiative forcing (l_change_metdata=.TRUE. and change_metdata_method=1)
-  !-----------------------------------------------------------------------
-  CALL fill_variables_from_file( file_patt, imgn_name_patt, nc_name_patt,      &
-                                 is_climatology = [ (.FALSE., i=1, nvars) ] )
-END IF
+  OPEN(imogen_unit, FILE=file_clim,                                            &
+                    STATUS='old', POSITION='rewind', ACTION='read')
+
+  READ(imogen_unit,*) longmin_clim,latmin_clim,longmax_clim, latmax_clim
+
+  DO ijk = 1,n_imogen_land
+    IF (sgindinv(ijk) > 0) THEN
+      l = sgindinv(ijk)
+      READ(imogen_unit,*) LONG(l), lat(l), t_clim(l,im), rh15m_clim(l,im),     &
+                          uwind_clim(l,im), vwind_clim(l,im), lw_clim(l,im),   &
+                          sw_clim(l,im), dtemp_clim(l,im),                     &
+                          rainfall_clim(l,im), snowfall_clim(l,im),            &
+                          pstar_ha_clim(l,im), f_wet_clim(l,im)
+
+      j = (ainfo%land_index(l) - 1) / t_i_length + 1
+      i = ainfo%land_index(l) - (j-1) * t_i_length
+
+      imgn_drive%tl1_ij_clim(i,j,im)=t_clim(l,im)
+      imgn_drive%rh1p5m_ij_clim(i,j,im)=rh15m_clim(l,im)
+      imgn_drive%uwind_ij_clim(i,j,im)=uwind_clim(l,im)
+      imgn_drive%vwind_ij_clim(i,j,im)=vwind_clim(l,im)
+      imgn_drive%lwdown_ij_clim(i,j,im)=lw_clim(l,im)
+      imgn_drive%swdown_ij_clim(i,j,im)=sw_clim(l,im)
+      imgn_drive%precip_ij_clim(i,j,im)=rainfall_clim(l,im)+snowfall_clim(l,im)
+      imgn_drive%pstar_ij_clim(i,j,im)=pstar_ha_clim(l,im)
+      imgn_drive%diurnal_tl1_ij_clim(i,j,im)=dtemp_clim(l,im)
+
+    ELSE
+      READ(imogen_unit,*)
+    END IF
+  END DO
+
+  CLOSE(imogen_unit)
+END DO
 
 !-----------------------------------------------------------------------------
 ! Set up the initial conditions and intialise values
@@ -342,8 +407,8 @@ imgn_vars%co2_ppmv(:) = co2_init_ppmv
 
 IF ( include_co2 ) imgn_vars%co2_change_ppmv(:) = 0.0
 
-IF (l_change_metdata .AND. change_metdata_method ==1 ) THEN
-  imgn_vars%dtemp_o(:) = 0.0   ! anlg_model
+IF ( anlg ) THEN
+  imgn_vars%dtemp_o(:) = 0.0
 
   IF ( include_co2 .AND. ocean_feed .AND. c_emissions ) THEN
     imgn_vars%fa_ocean(:)=0.0

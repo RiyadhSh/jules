@@ -90,11 +90,6 @@ TYPE :: trifctl_data_type
     ! Structural carbon growth rate (kg C/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: growth_sug_pft(:,:)
     ! Structural carbon growth rate on PFT (kg C/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: lwp_c_pft(:,:)
-    ! Diagnostic for canopy leaf water potential
-    ! in the SOX stomatal model (MPa)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: psi_root_zone_pft(:,:)
-    ! (Negative) soil water potential in the root zone (Pa)
 END TYPE
 
 !===============================================================================
@@ -129,8 +124,6 @@ TYPE :: trifctl_type
   REAL(KIND=real_jlslsm), POINTER :: frac_agr_gb(:)
   REAL(KIND=real_jlslsm), POINTER :: growth_sug_gb(:)
   REAL(KIND=real_jlslsm), POINTER :: growth_sug_pft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: lwp_c_pft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: psi_root_zone_pft(:,:)
 END TYPE
 
 CONTAINS
@@ -188,8 +181,6 @@ ALLOCATE(trifctl_data%resp_s_dr_out_gb(land_pts,dim_cslayer,5))
 ALLOCATE(trifctl_data%frac_agr_gb(land_pts))
 ALLOCATE(trifctl_data%growth_sug_gb(land_pts))
 ALLOCATE(trifctl_data%growth_sug_pft(land_pts,npft))
-ALLOCATE(trifctl_data%lwp_c_pft(land_pts,npft))
-ALLOCATE(trifctl_data%psi_root_zone_pft(land_pts,npft))
 
 trifctl_data%g_leaf_acc_pft(:,:)       = 0.0
 trifctl_data%npp_acc_pft(:,:)          = 0.0
@@ -219,8 +210,6 @@ trifctl_data%resp_s_dr_out_gb(:,:,:)   = 0.0
 trifctl_data%frac_agr_gb(:)            = 0.0
 trifctl_data%growth_sug_gb(:)          = 0.0
 trifctl_data%growth_sug_pft(:,:)       = 0.0
-trifctl_data%lwp_c_pft(:,:)            = 0.0
-trifctl_data%psi_root_zone_pft(:,:)    = 0.0
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
@@ -279,8 +268,6 @@ DEALLOCATE(trifctl_data%resp_s_dr_out_gb)
 DEALLOCATE(trifctl_data%frac_agr_gb)
 DEALLOCATE(trifctl_data%growth_sug_gb)
 DEALLOCATE(trifctl_data%growth_sug_pft)
-DEALLOCATE(trifctl_data%lwp_c_pft)
-DEALLOCATE(trifctl_data%psi_root_zone_pft)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
@@ -345,8 +332,6 @@ trifctl%resp_s_dr_out_gb   => trifctl_data%resp_s_dr_out_gb
 trifctl%frac_agr_gb            => trifctl_data%frac_agr_gb
 trifctl%growth_sug_gb        => trifctl_data%growth_sug_gb
 trifctl%growth_sug_pft       => trifctl_data%growth_sug_pft
-trifctl%lwp_c_pft            => trifctl_data%lwp_c_pft
-trifctl%psi_root_zone_pft    => trifctl_data%psi_root_zone_pft
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
@@ -406,8 +391,7 @@ NULLIFY(trifctl%resp_s_dr_out_gb)
 NULLIFY(trifctl%frac_agr_gb)
 NULLIFY(trifctl%growth_sug_gb)
 NULLIFY(trifctl%growth_sug_pft)
-NULLIFY(trifctl%lwp_c_pft)
-NULLIFY(trifctl%psi_root_zone_pft)
+
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

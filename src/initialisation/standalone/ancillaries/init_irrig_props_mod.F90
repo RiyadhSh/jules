@@ -81,8 +81,8 @@ REAL :: const_irrfrac_irrtiles = rmdi
 
 CHARACTER(LEN=*), PARAMETER :: RoutineName='INIT_IRRIG_PROPS'
 
-NAMELIST  /jules_irrig_props/ read_from_dump, irrig_frac_file, read_file,      &
-                       var_name, const_frac_irr, const_irrfrac_irrtiles
+NAMELIST  / jules_irrig_props/ read_from_dump, irrig_frac_file, read_file, var_name, const_frac_irr, &
+                       const_irrfrac_irrtiles
 
 !-----------------------------------------------------------------------------
 
@@ -144,8 +144,7 @@ IF ( .NOT. ancil_dump_read%irrig) THEN !we read from the ancil file
     IF ( LEN_TRIM(irrig_frac_file) == 0 )                                      &
       CALL log_fatal(RoutineName, "No file name provided")
 
-    CALL fill_variables_from_file(irrig_frac_file, [ 'frac_irrig' ],           &
-       [ var_name ], is_climatology = [ .FALSE. ])
+    CALL fill_variables_from_file(irrig_frac_file, [ 'frac_irrig' ], [ var_name ])
   ELSE
     ! If the variable is being set as a constant, populate it here.
     IF ( set_irrfrac_on_irrtiles ) THEN

@@ -10,55 +10,8 @@
 MODULE urban_param_mod
 
 USE um_types, ONLY: real_jlslsm
-USE missing_data_mod, ONLY: rmdi
 
 IMPLICIT NONE
-
-!===============================================================================
-
-! Urban anthropogenic heat source taken from the digest of UK energy
-! statistics (1995 - 2003), monthly averaged over 9 years, converted
-! to W/m2 and adjusted to fraction dissipated in urban areas.
-! Used in anthrop_heat_option == 0 (dukes)
-
-REAL(KIND=real_jlslsm), PARAMETER ::                                           &
-   urban_month(12) = [ 25.1447, 23.4529, 24.6175, 20.7802, 18.8677, 18.1567,   &
-                       17.1881, 16.6732, 18.5490, 20.7435, 22.9870, 26.1500 ]
-                     ! Monthly values of anthropogenic
-                     ! contribution to surface heat fluxes W/m2
-
-!===============================================================================
-
-! Parameters associated with the urban anthropogenic heat algorithms
-! from Flanner 2009 Geophysical Research Letters 36: L02801. Table A1.
-! Used in anthrop_heat_option == 1 (flanner)
-
-! Diurnal cycle parameters
-REAL(KIND=real_jlslsm), PARAMETER ::                                           &
-   fl_b1    = 0.451,     & ! Daytime amplification
-   fl_b2    = 0.8,       & ! Daytime amplification
-   fl_sigma = 0.18,      & ! Slope of evening tapering
-   fl_mu    = 0.5,       & ! Timing of morning and evening ramps
-   fl_a1    = -0.3,      & ! Amplitude of morning and evening traffic maxima
-   fl_f     = 2.0,       & ! Timing of morning and evening traffic maxima
-   fl_alpha = 10.0,      & ! Slope of morning increase
-   fl_eps   = 0.25,      & ! Timing of morning and evening ramps
-   fl_norm  = 1.21235      ! Normalisation term calculated as integral of
-                           ! diurnal weighting over 24 hours, used as a
-                           ! normalisation to ensure the diurnal weighting
-                           ! means to 1. This term would need to be
-                           ! recalculated if any of the above fl_ parameter
-                           ! values are modified.
-
-! Seasonal cycle parameters
-REAL(KIND=real_jlslsm), PARAMETER ::                                           &
-   fl_latlim = 33.0,     & ! Only apply seasonality to latitudes further from
-                           ! the equator than this latitude value
-   fl_n      = 25.0,     & ! Seasonal amplification term
-   fl_off    = 0.25        ! Offset applied to day of year. 0.25 gives
-                           ! peak/trough on day 0 in NH and SH respectively
-
-!===============================================================================
 
 ! Parameters for the MacDonald et al. (2008) formulation of displacement height
 ! and effective roughness length for momentum

@@ -1,9 +1,6 @@
+import rose.upgrade
 import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 class UpgradeError(Exception):
 
@@ -19,7 +16,7 @@ class UpgradeError(Exception):
     __str__ = __repr__
 
 
-class vn62_t1084(MacroUpgrade):
+class vn62_t1084(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -45,7 +42,7 @@ class vn62_t1084(MacroUpgrade):
 
         return config, self.reports
 
-class vn62_t1142(MacroUpgrade):
+class vn62_t1142(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Phil Harris"""
 
@@ -111,7 +108,7 @@ class vn62_t1142(MacroUpgrade):
 
         return config, self.reports
 
-class vn62_t1206(MacroUpgrade):
+class vn62_t1206(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Martin Best"""
 
@@ -148,7 +145,7 @@ class vn62_t1206(MacroUpgrade):
 
         return config, self.reports
 
-class vn62_t1077(MacroUpgrade):
+class vn62_t1077(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -195,7 +192,7 @@ class vn62_t1077(MacroUpgrade):
 
         return config, self.reports
 
-class vn62_t1214(MacroUpgrade):
+class vn62_t1214(rose.upgrade.MacroUpgrade):
     """Upgrade macro from JULES by Eleanor Burke"""
 
     BEFORE_TAG = "vn6.2_t1077"
@@ -221,7 +218,7 @@ class vn62_t1214(MacroUpgrade):
 
         return config, self.reports
 
-class vn62_t1234(MacroUpgrade):
+class vn62_t1234(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eleanor Burke"""
 
@@ -248,7 +245,7 @@ class vn62_t1234(MacroUpgrade):
         return config, self.reports
 
 
-class vn62_t1195(MacroUpgrade):
+class vn62_t1195(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -265,7 +262,7 @@ class vn62_t1195(MacroUpgrade):
                             ["namelist:jules_surface", "srf_ex_cnv_gust"])
         return config, self.reports
 
-class vn62_t1094(MacroUpgrade):
+class vn62_t1094(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Helen Johnson"""
 
@@ -279,12 +276,12 @@ class vn62_t1094(MacroUpgrade):
         return config, self.reports
 
 
-class vn62_vn63(MacroUpgrade):
+class vn62_vn63(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn6.2_t1094"
     AFTER_TAG = "vn6.3"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

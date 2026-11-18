@@ -20,10 +20,6 @@
         [[[environment]]]
             HDF5_USE_FILE_LOCKING = FALSE
 
-    [[remote_init_xc50]]
-        inherit = NIWA_XC50_SL
-        script = true
-
 # XC50 node setup
 # Single OpenMP thread
     [[NIWA_XC50_PARALLEL_THREADS_1]]
@@ -299,6 +295,7 @@
         inherit = NIWA_XC50_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../niwa_xc50_intel_gswp2_es_${CYLC_TASK_PARAM_gswp2_es_1p1}/output
+            CMD_CMP = nccmp --var-diff-count 5 --global --data --force --metadata --nans-are-equal --buffer-entire-var --statistics
 
     # Eraint variants
     [[nccmp_niwa_xc50_intel_eraint<eraint_tests>]]

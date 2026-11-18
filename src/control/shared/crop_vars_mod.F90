@@ -142,7 +142,7 @@ TYPE :: crop_vars_data_type
           ! Interactive canopy conductance (m s-1).
   REAL(KIND=real_jlslsm), ALLOCATABLE ::  resfs_irr_surft(:,:)
           ! Combined soil, stomatal and aerodynamic resistance factor for
-          ! fraction 1-fracaero
+          ! fraction 1-FRACA
   REAL(KIND=real_jlslsm), ALLOCATABLE ::  ext_irr_soilt(:,:,:)
           ! Extraction of water from each soil layer over irrigation
           ! (kg m-2 s-1).

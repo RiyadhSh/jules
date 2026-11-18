@@ -1,13 +1,8 @@
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-    from rose.config import ConfigNode
-else:
-    from metomi.rose.upgrade import MacroUpgrade
-    from metomi.rose.config import ConfigNode
+import rose.upgrade
+from rose.config import ConfigNode
 
 
-class vn40_t160(MacroUpgrade):
+class vn40_t160(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #160 by Matt Pryor"""
 
@@ -16,25 +11,25 @@ class vn40_t160(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
+        
         # Just add the new compulsory namelist item with its default value
         self.add_setting(config, ["namelist:jules_time", "l_leap"], ".true.")
-
+                
         return config, self.reports
 
 
-class vn40_t116(MacroUpgrade):
+class vn40_t116(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for ticket #116 by Gerd Folberth"""
-
+    
     BEFORE_TAG = "vn4.0_t160"
     AFTER_TAG = "vn4.0_t116"
-
+    
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
 
         RMDI = str(-2**30)
-
+        
         npft = int(self.get_setting_value(config, ["namelist:jules_surface_types", "npft"]))
 
         # Add sensible values for the first (up to) 5 pfts and missing data for the rest
@@ -45,11 +40,11 @@ class vn40_t116(MacroUpgrade):
 
         gpp_st_io = ["1.29E-07", "2.58E-08", "2.07E-07", "3.42E-07", "1.68E-007"] + ([RMDI] * (npft - 5))
         self.add_setting(config, ["namelist:jules_pftparm", "gpp_st_io"], ", ".join(gpp_st_io[:npft]))
-
+        
         return config, self.reports
 
 
-class vn40_t79(MacroUpgrade):
+class vn40_t79(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #79 by Kate Halladay."""
 
@@ -58,7 +53,7 @@ class vn40_t79(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
+     
         # Just add the new compulsory namelist item with its default value
         self.add_setting(config, ["namelist:jules_vegetation", "l_irrig_dmd"], ".false.")
 
@@ -66,22 +61,22 @@ class vn40_t79(MacroUpgrade):
         self.add_setting(config, ["namelist:jules_irrig"], state = ConfigNode.STATE_USER_IGNORED)
         source = self.get_setting_value(config, ["file:ancillaries.nml","source"])
         if source:
-            self.change_setting_value(config, ["file:ancillaries.nml","source"],
-                                              source.replace("namelist:jules_co2",
-                                                             "(namelist:jules_irrig) namelist:jules_co2"))
+            self.change_setting_value(config, ["file:ancillaries.nml","source"], 
+                                              source.replace("namelist:jules_co2", 
+                                                             "(namelist:jules_irrig) namelist:jules_co2"))        
 
         return config, self.reports
 
 
-class vn40_t167(MacroUpgrade):
+class vn40_t167(rose.upgrade.MacroUpgrade):
     """Upgrade macro for JULES - Andy Wiltshire """
-
+    
     BEFORE_TAG = "vn4.0_t79"
     AFTER_TAG = "vn4.0_t167"
-
+    
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
+        
         # ADD the trait parameters to pft_params namelist
         self.add_setting(config, ["namelist:jules_pftparm", "kn_io"],   "5*0.78")
         self.add_setting(config, ["namelist:jules_pftparm", "q10_leaf_io"], "5*2.00")
@@ -97,14 +92,14 @@ class vn40_t167(MacroUpgrade):
         self.remove_setting(config, ["namelist:jules_surface", "q10_leaf"])
 
         return config, self.reports
-
-
-class vn40_vn41(MacroUpgrade):
+        
+        
+class vn40_vn41(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn4.0_t167"
     AFTER_TAG = "vn4.1"
-
+    
     def upgrade(self, config, meta_config=None):
         # Nothing to do
         return config, self.reports

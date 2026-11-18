@@ -1,8 +1,13 @@
-!-----------------------------------------------------------------------------
-! (C) Crown copyright Met Office. All rights reserved.
-! The file LICENCE, distributed with this code, contains details of the terms
-! under which the code may be used.
-!-----------------------------------------------------------------------------
+!******************************COPYRIGHT********************************************
+! (c) CSIRO 2022.
+! All rights reserved.
+!
+! This routine has been licensed to the other JULES partners for use and
+! distribution under the JULES collaboration agreement, subject to the terms and
+! conditions set out therein.
+!
+! [Met Office Ref SC0237]
+!******************************COPYRIGHT********************************************
 MODULE progs_cbl_vars_mod
 
 !------------------------------------------------------------------------------
@@ -84,6 +89,9 @@ SUBROUTINE progs_cbl_vars_alloc(land_pts, nsurft, sm_levels, lsm_id, cable,    &
 ! Description:
 !   Allocate the CABLE prognostic data variables in the derived type structure
 
+!Replacements for the argument list
+USE grid_constants_mod_cbl,       ONLY: nsnl
+
 !Common Non-science modules
 USE parkind1,                 ONLY: jprb, jpim
 USE yomhook,                  ONLY: lhook, dr_hook
@@ -101,10 +109,6 @@ TYPE(progs_cbl_vars_data_type), INTENT(IN OUT) :: progs_cbl_vars_data
 !-----------------------------------------------------------------------
 ! Local variables for error trapping
 !-----------------------------------------------------------------------
-! CABLE constant, to be replaced once compilation with CABLE
-! library works. ccc25
-INTEGER, PARAMETER :: nsnl = 3 !# of snow layers
-
 INTEGER ::                                                                     &
   ERROR        = 0,                                                            &
                        ! Variable for trapping the error from each

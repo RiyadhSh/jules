@@ -10,7 +10,8 @@
     [[METO_EX1A_GFORTRAN_BUILD]]
         inherit = None, METO_EX1A_GFORTRAN_ENV, METO_EX1A_QUEUE, BUILD
         [[[directives]]]
-            -l select=1:ncpus=8:mem=2G
+            -l ncpus = 8
+            -l mem = 2GB
         [[[environment]]]
             ROSE_TASK_N_JOBS = 8
             JULES_PLATFORM = meto-ex1a-gfortran
@@ -65,7 +66,7 @@
         inherit = LOOBOS, COMPUTE, METO_EX1A_GFORTRAN_ENV, METO_EX1A_CORES_1, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_1
         [[[environment]]]
             BUILD_NAME = fcm_make_meto_ex1a_gfortran_debug
-            LOOBOS_INSTALL_DIR = {{jules_install_dir}}/datasets/loobos
+            LOOBOS_INSTALL_DIR = /common/jules/datasets/loobos
 
     [[meto_ex1a_gfortran_loobos_gl7]]
         inherit = METO_EX1A_GFORTRAN_LOOBOS
@@ -118,7 +119,7 @@
         [[[environment]]]
             ROSE_TASK_APP = loobos_ukv
             ROSE_APP_OPT_CONF_KEYS = deposition-dd2
-
+    
     [[meto_ex1a_gfortran_loobos_trif_spinup]]
         inherit = METO_EX1A_GFORTRAN_LOOBOS
         [[[environment]]]
@@ -146,7 +147,7 @@
         [[[environment]]]
             ROSE_TASK_APP = loobos_jules_c1p1
             DUMP_FILE = ../meto_ex1a_gfortran_loobos_julesc_spinup/output/meto_ex1a_gfortran_loobos_julesc_spinup.dump.19971231.82800.nc
-
+            
     [[meto_ex1a_gfortran_loobos_jules_c1p1_fire]]
         inherit = METO_EX1A_GFORTRAN_LOOBOS
         [[[environment]]]
@@ -227,14 +228,7 @@
             ROSE_TASK_APP = loobos_jules_es_1p0_deposition
             ROSE_APP_OPT_CONF_KEYS = deposition-dd2
             DUMP_FILE = ../meto_ex1a_gfortran_loobos_jules_es_1p0_deposit_spinup/output/meto_ex1a_gfortran_loobos_jules_es_1p0_deposit_spinup.dump.19971231.82800.nc
-
-    [[meto_ex1a_gfortran_loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = METO_EX1A_GFORTRAN_LOOBOS
-        [[[environment]]]
-            ROSE_TASK_APP = loobos_jules_es_1p0_deposition
-            ROSE_APP_OPT_CONF_KEYS = deposition-dd2h2
-            DUMP_FILE = ../meto_ex1a_gfortran_loobos_jules_es_1p0_deposit_spinup/output/meto_ex1a_gfortran_loobos_jules_es_1p0_deposit_spinup.dump.19971231.82800.nc
-
+       
     [[meto_ex1a_gfortran_loobos_crops]]
         inherit = METO_EX1A_GFORTRAN_LOOBOS
         [[[environment]]]
@@ -312,17 +306,16 @@
         pre-script = gen_gswp2_drive_file
         [[[environment]]]
             BUILD_NAME = fcm_make_meto_ex1a_gfortran_omp
-            GSWP2_INSTALL_DIR = {{jules_install_dir}}/datasets/gswp2
+            GSWP2_INSTALL_DIR = /common/jules/datasets/gswp2
 
     [[METO_EX1A_GFORTRAN_ERAINT]]
         inherit = ERAINT, COMPUTE, METO_EX1A_GFORTRAN_ENV
         [[[environment]]]
             BUILD_NAME = fcm_make_meto_ex1a_gfortran_omp
-            ERAINT_INSTALL_DIR = {{jules_install_dir}}/datasets/eraint
+            ERAINT_INSTALL_DIR = /common/jules/datasets/eraint
 
 # For GSWP2 rivers, use MPI
     [[meto_ex1a_gfortran_gswp2_rivers]]
-        pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = METO_EX1A_GFORTRAN_GSWP2, METO_EX1A_CORES_32, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_32
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers
@@ -335,7 +328,6 @@
 
 # For GSWP2 rivers restart, use MPI
     [[meto_ex1a_gfortran_gswp2_rivers_restart]]
-        pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = METO_EX1A_GFORTRAN_GSWP2, METO_EX1A_CORES_32, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_32
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers_restart
@@ -350,7 +342,6 @@
 
 # For GSWP2 trip, use MPI
     [[meto_ex1a_gfortran_gswp2_trip]]
-        pre-script = gen_gswp2_rivers_props_trip_file
         inherit = METO_EX1A_GFORTRAN_GSWP2, METO_EX1A_CORES_32, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_32
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip
@@ -363,19 +354,9 @@
 
 # For GSWP2 trip restart, use MPI
     [[meto_ex1a_gfortran_gswp2_trip_restart]]
-        pre-script = gen_gswp2_rivers_props_trip_file
         inherit = METO_EX1A_GFORTRAN_GSWP2, METO_EX1A_CORES_32, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_32
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip_restart
-            DUMP_FILE = ../meto_ex1a_gfortran_gswp2_trip_spinup/output/meto_ex1a_gfortran_gswp2_trip_spinup.dump.19820701.10800.nc
-
-# For GSWP2 trip restart initial river storage, use MPI
-    [[meto_ex1a_gfortran_gswp2_trip_restart_init_storage]]
-        pre-script = gen_gswp2_rivers_props_trip_file_init_storage
-        inherit = METO_EX1A_GFORTRAN_GSWP2, METO_EX1A_CORES_32, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_32
-        [[[environment]]]
-            ROSE_TASK_APP = gswp2_trip_restart
-            ROSE_APP_OPT_CONF_KEYS = rivers-init-storage
             DUMP_FILE = ../meto_ex1a_gfortran_gswp2_trip_spinup/output/meto_ex1a_gfortran_gswp2_trip_spinup.dump.19820701.10800.nc
 
 # For GSWP2 irrig limit low river storage, use MPI
@@ -409,12 +390,6 @@
         inherit = METO_EX1A_GFORTRAN_GSWP2, METO_EX1A_CORES_32, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_32
         [[[environment]]]
             ROSE_TASK_APP = gswp2_gl7
-
-    [[meto_ex1a_gfortran_gswp2_gl7_flanner]]
-        inherit = METO_EX1A_GFORTRAN_GSWP2, METO_EX1A_CORES_32, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_32
-        [[[environment]]]
-            ROSE_TASK_APP = gswp2_gl7
-            ROSE_APP_OPT_CONF_KEYS = flanner
 
 # For GSWP2 gl4, use MPI
     [[meto_ex1a_gfortran_gswp2_gl4]]
@@ -476,7 +451,7 @@
         inherit = IMOGEN, COMPUTE, METO_EX1A_GFORTRAN_ENV
         [[[environment]]]
             BUILD_NAME = fcm_make_meto_ex1a_gfortran_omp
-            IMOGEN_INSTALL_DIR = {{jules_install_dir}}/rose-stem-inputs/imogen
+            IMOGEN_INSTALL_DIR = /common/jules/rose-stem-inputs/imogen
 
    [[meto_ex1a_gfortran_imogen_layeredc_spinup]]
         inherit = METO_EX1A_GFORTRAN_IMOGEN, METO_EX1A_CORES_8, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_8
@@ -489,37 +464,16 @@
             ROSE_TASK_APP = imogen_layeredc
             DUMP_FILE = ../meto_ex1a_gfortran_imogen_layeredc_spinup/output/meto_ex1a_gfortran_imogen_layeredc_spinup.dump.18650101.0.nc
 
-    [[meto_ex1a_gfortran_imogen_layeredc_co2conc]]
-        inherit = METO_EX1A_GFORTRAN_IMOGEN, METO_EX1A_CORES_8, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_8
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = co2conc
-            DUMP_FILE = ../meto_ex1a_gfortran_imogen_layeredc_spinup/output/meto_ex1a_gfortran_imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[meto_ex1a_gfortran_imogen_layeredc_dtempg]]
-        inherit = METO_EX1A_GFORTRAN_IMOGEN, METO_EX1A_CORES_8, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_8
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = dtempg
-            DUMP_FILE = ../meto_ex1a_gfortran_imogen_layeredc_spinup/output/meto_ex1a_gfortran_imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[meto_ex1a_gfortran_imogen_layeredc_ch4]]
-        inherit = METO_EX1A_GFORTRAN_IMOGEN, METO_EX1A_CORES_8, METO_EX1A_OMPTHREADS_1, METO_EX1A_MPITASKS_8
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = ch4
-            DUMP_FILE = ../meto_ex1a_gfortran_imogen_layeredc_spinup/output/meto_ex1a_gfortran_imogen_layeredc_spinup.dump.18650101.0.nc
-
-
 ###############################################################################
 ## Comparison jobs
 ###############################################################################
     [[METO_EX1A_NETCDF_COMPARISON]]
         inherit = KGO_CHECK, COMPARISON, METO_EX1A_GFORTRAN_ENV, METO_EX1A_QUEUE
-        execution time limit = PT5M
+        [[[job]]]
+            execution time limit = PT5M
         [[[environment]]]
-            CMD_CMP = nccmp -d --force -S -B
-            KGO_DIR = {{jules_install_dir}}/rose-stem-kgo/{{ KGO_VERSION }}
+            CMD_CMP = nccmp -d --force -S
+            KGO_DIR = /common/jules/rose-stem-kgo/{{ KGO_VERSION }}
 
     [[nccmp_meto_ex1a_gfortran_loobos_gl7]]
         inherit = METO_EX1A_NETCDF_COMPARISON
@@ -570,7 +524,7 @@
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_loobos_ukv_deposition/output
-
+    
     [[nccmp_meto_ex1a_gfortran_loobos_trif]]
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
@@ -630,12 +584,7 @@
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_loobos_jules_es_1p0_deposition_dd2/output
-
-    [[nccmp_meto_ex1a_gfortran_loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = METO_EX1A_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../meto_ex1a_gfortran_loobos_jules_es_1p0_deposition_dd2h2/output
-
+    
     [[nccmp_meto_ex1a_gfortran_loobos_fire]]
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
@@ -726,21 +675,16 @@
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_trip_restart/output
 
-    [[nccmp_meto_ex1a_gfortran_gswp2_trip_restart_init_storage]]
-        inherit = METO_EX1A_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_trip_restart_init_storage/output
-
     [[nccmp_meto_ex1a_gfortran_gswp2_irrig_limit_low_river_storage]]
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_irrig_limit_low_river_storage/output
-
+    
     [[nccmp_meto_ex1a_gfortran_gswp2_irrig_limit_high_river_storage]]
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_irrig_limit_high_river_storage/output
-
+    
     [[nccmp_meto_ex1a_gfortran_gswp2_closures]]
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
@@ -755,11 +699,6 @@
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_gl7/output
-
-    [[nccmp_meto_ex1a_gfortran_gswp2_gl7_flanner]]
-        inherit = METO_EX1A_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_gl7_flanner/output
 
     [[nccmp_meto_ex1a_gfortran_gswp2_gl4]]
         inherit = METO_EX1A_NETCDF_COMPARISON
@@ -796,36 +735,24 @@
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_es_1p1/output
+            CMD_CMP = nccmp --var-diff-count 5 --global --data --force --metadata --nans-are-equal --buffer-entire-var --statistics
 
     [[nccmp_meto_ex1a_gfortran_gswp2_es_curr]]
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_es_curr/output
+            CMD_CMP = nccmp --var-diff-count 5 --global --data --force --metadata --nans-are-equal --buffer-entire-var --statistics
 
     [[nccmp_meto_ex1a_gfortran_gswp2_es_beta]]
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_gswp2_es_beta/output
+            CMD_CMP = nccmp --var-diff-count 5 --global --data --force --metadata --nans-are-equal --buffer-entire-var --statistics
 
     [[nccmp_meto_ex1a_gfortran_imogen_layeredc]]
         inherit = METO_EX1A_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../meto_ex1a_gfortran_imogen_layeredc/output
-
-    [[nccmp_meto_ex1a_gfortran_imogen_layeredc_co2conc]]
-        inherit = METO_EX1A_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../meto_ex1a_gfortran_imogen_layeredc_co2conc/output
-
-    [[nccmp_meto_ex1a_gfortran_imogen_layeredc_dtempg]]
-        inherit = METO_EX1A_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../meto_ex1a_gfortran_imogen_layeredc_dtempg/output
-
-    [[nccmp_meto_ex1a_gfortran_imogen_layeredc_ch4]]
-        inherit = METO_EX1A_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../meto_ex1a_gfortran_imogen_layeredc_ch4/output
 
 
 ###############################################################################
@@ -833,7 +760,8 @@
 ###############################################################################
     [[METO_EX1A_HOUSEKEEPING]]
         inherit = HOUSEKEEPING, METO_EX1A_GFORTRAN_ENV, METO_EX1A_QUEUE
-        execution time limit = PT5M
+        [[[job]]]
+            execution time limit = PT5M
 
     [[housekeep_meto_ex1a_gfortran_loobos_gl7]]
         inherit = METO_EX1A_HOUSEKEEPING
@@ -883,8 +811,8 @@
     [[housekeep_meto_ex1a_gfortran_loobos_ukv_deposition]]
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
-            DIR1 = ../meto_ex1a_gfortran_loobos_ukv_deposition
-
+            DIR1 = ../meto_ex1a_gfortran_loobos_ukv_deposition        
+    
     [[housekeep_meto_ex1a_gfortran_loobos_trif_spinup]]
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
@@ -979,12 +907,7 @@
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
             DIR1 = ../meto_ex1a_gfortran_loobos_jules_es_1p0_deposition_dd2
-
-    [[housekeep_meto_ex1a_gfortran_loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = METO_EX1A_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../meto_ex1a_gfortran_loobos_jules_es_1p0_deposition_dd2h2
-
+    
     [[housekeep_meto_ex1a_gfortran_loobos_crops]]
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
@@ -1090,11 +1013,6 @@
         [[[environment]]]
             DIR1 = ../meto_ex1a_gfortran_gswp2_trip_restart
 
-    [[housekeep_meto_ex1a_gfortran_gswp2_trip_restart_init_storage]]
-        inherit = METO_EX1A_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../meto_ex1a_gfortran_gswp2_trip_restart_init_storage
-
     [[housekeep_meto_ex1a_gfortran_gswp2_irrig_limit_low_river_storage]]
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
@@ -1104,7 +1022,7 @@
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
             DIR1 = ../meto_ex1a_gfortran_gswp2_irrig_limit_high_river_storage
-
+                
     [[housekeep_meto_ex1a_gfortran_gswp2_closures]]
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
@@ -1119,11 +1037,6 @@
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
             DIR1 = ../meto_ex1a_gfortran_gswp2_gl7
-
-    [[housekeep_meto_ex1a_gfortran_gswp2_gl7_flanner]]
-        inherit = METO_EX1A_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../meto_ex1a_gfortran_gswp2_gl7_flanner
 
     [[housekeep_meto_ex1a_gfortran_gswp2_gl4]]
         inherit = METO_EX1A_HOUSEKEEPING
@@ -1174,18 +1087,3 @@
         inherit = METO_EX1A_HOUSEKEEPING
         [[[environment]]]
             DIR1 = ../meto_ex1a_gfortran_imogen_layeredc
-
-    [[housekeep_meto_ex1a_gfortran_imogen_layeredc_co2conc]]
-        inherit = METO_EX1A_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../meto_ex1a_gfortran_imogen_layeredc_co2conc
-
-    [[housekeep_meto_ex1a_gfortran_imogen_layeredc_dtempg]]
-        inherit = METO_EX1A_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../meto_ex1a_gfortran_imogen_layeredc_dtempg
-
-    [[housekeep_meto_ex1a_gfortran_imogen_layeredc_ch4]]
-        inherit = METO_EX1A_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../meto_ex1a_gfortran_imogen_layeredc_ch4

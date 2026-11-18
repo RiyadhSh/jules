@@ -37,7 +37,7 @@ SUBROUTINE im_sf_pt2 (                                                         &
 )
 
 #if defined(UM_JULES)
-USE model_domain_mod, ONLY: model_type, mt_single_column, mt_lfric
+USE model_domain_mod, ONLY: model_type, mt_single_column
 #endif
 
 USE atm_fields_bounds_mod, ONLY: tdims, pdims, udims, vdims, udims_s, vdims_s
@@ -297,7 +297,7 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !JULES standalone never knew about ENDGAME so no offset.
 offset = 0
 #if defined(UM_JULES)
-IF ((model_type /= mt_single_column) .AND. (model_type /= mt_lfric)) THEN
+IF (model_type /= mt_single_column) THEN
   offset = 1
 END IF
 #endif
@@ -370,7 +370,7 @@ IF ( .NOT. l_correct ) THEN
   ! This makes v-at-poles/ENDGAME formulation consistent with the current
   ! formulation
 #if defined(UM_JULES)
-  IF ((model_type /= mt_single_column) .AND. (model_type /= mt_lfric)) THEN
+  IF (model_type /= mt_single_column) THEN
 !$OMP DO SCHEDULE(STATIC)
     DO j = vdims%j_start,vdims%j_end
       DO i = vdims%i_start,vdims%i_end
@@ -871,7 +871,7 @@ ELSE ! IF L_CORRECT==TRUE THEN:
   ! This makes v-at-poles/ENDGAME formulation consistent with the current
   ! formulation
 #if defined(UM_JULES)
-  IF ((model_type /= mt_single_column) .AND. (model_type /= mt_lfric)) THEN
+  IF (model_type /= mt_single_column) THEN
 !$OMP DO SCHEDULE(STATIC)
     DO j = vdims%j_start,vdims%j_end
       DO i = vdims%i_start,vdims%i_end

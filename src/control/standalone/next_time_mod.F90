@@ -246,13 +246,16 @@ END IF
 !   * We are at the end of the run
 !-----------------------------------------------------------------------------
 
-IF ( current_time == spinup_start .OR. current_time == main_run_start .OR.     &
-   ( dump_period_unit == dump_period_year .AND.                                &
-   start_of_year .AND. MOD(current_time%year,dump_period) == 0 )  .OR.         &
-   ( dump_period_unit == dump_period_time .AND.                                &
-   MOD(current_time%TIME,dump_period) == 0 ) .OR.                              &
-   end_of_run ) THEN
-  CALL write_dump()
+! Standalone Rivers: Ignore dumps for now
+IF ( lsm_id /= rivers ) THEN
+  IF ( current_time == spinup_start .OR. current_time == main_run_start .OR.   &
+     ( dump_period_unit == dump_period_year .AND.                              &
+     start_of_year .AND. MOD(current_time%year,dump_period) == 0 )  .OR.       &
+     ( dump_period_unit == dump_period_time .AND.                              &
+     MOD(current_time%TIME,dump_period) == 0 ) .OR.                            &
+     end_of_run ) THEN
+    CALL write_dump()
+  END IF
 END IF
 RETURN
 

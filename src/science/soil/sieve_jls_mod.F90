@@ -21,18 +21,15 @@ CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='SIEVE_MOD'
 
 CONTAINS
 
-SUBROUTINE sieve ( npnts, surft_pts, curr_surft, nsurft, n_wtrac_jls,          &
-                   timestep, surft_index, area, can_cpy, r, r_wtrac, frac,     &
-                   can_wcnt, tot_tfall, tot_tfall_surft,                       &
-                   can_wcnt_wtrac, tot_tfall_wtrac, tot_tfall_surft_wtrac )
+SUBROUTINE sieve ( npnts, surft_pts, curr_surft, timestep, surft_index,        &
+                   area, can_cpy, r, frac,                                     &
+                   can_wcnt, tot_tfall, tot_tfall_surft )
 
 USE yomhook, ONLY: lhook, dr_hook
 USE parkind1, ONLY: jprb, jpim
 
 USE jules_surface_mod, ONLY: l_flake_model
 USE jules_surface_types_mod, ONLY: lake
-
-USE jules_water_tracers_mod, ONLY: l_wtrac_jls
 
 USE um_types, ONLY: real_jlslsm
 
@@ -46,12 +43,8 @@ INTEGER, INTENT(IN) ::                                                         &
     ! Total number of land points.
   surft_pts,                                                                   &
     ! Number of tile points.
-  curr_surft,                                                                  &
+  curr_surft
     ! Current surface tile
-  nsurft,                                                                      &
-    ! Number of tiles (only used by water tracers)
-  n_wtrac_jls
-    ! Number of water tracers
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   timestep
@@ -71,8 +64,6 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     ! Canopy capacity (kg/m2).
   r(npnts),                                                                    &
     ! Water fall rate (kg/m2/s).
-  r_wtrac(npnts,n_wtrac_jls),                                                  &
-    ! Water tracer fall rate (kg/m2/s).
   frac(npnts)
     ! Tile fraction.
 
@@ -84,28 +75,17 @@ REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
     ! Canopy water content (kg/m2).
   tot_tfall(npnts),                                                            &
     ! Cumulative canopy throughfall (kg/m2/s).
-  tot_tfall_surft(npnts),                                                      &
+  tot_tfall_surft(npnts)
     ! Throughfall contributions for this tile (kg/m2/s).
-  can_wcnt_wtrac(npnts,nsurft,n_wtrac_jls),                                    &
-    ! Canopy water tracer content (kg/m2) for all tiles.
-    ! (Note, unlike the water equivalent, this is the full field containing
-    !  all tiles)
-  tot_tfall_wtrac(npnts,n_wtrac_jls),                                          &
-    ! Cummulative canopy water tracer throughfall (kg/m2/s).
-  tot_tfall_surft_wtrac(npnts,nsurft,n_wtrac_jls)
-    ! Water tracer throughfall contributions for all tiles (kg/m2/s).
-    ! (Note, unlike the water equivalent, this is the full field containing
-    !  all tiles)
 
 !-----------------------------------------------------------------------------
 ! Local scalar variables:
 !-----------------------------------------------------------------------------
 INTEGER ::                                                                     &
-  i, j, i_wt
+  i, j
     ! Loop counters:
     ! i for land point
     ! j for tile point
-    ! i_wt for water tracers
 
 REAL(KIND=real_jlslsm) ::                                                      &
   aexp,                                                                        &
@@ -123,10 +103,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
 REAL(KIND=real_jlslsm) ::                                                      &
   tfall(npnts)
     ! Local throughfall (kg/m2/s).
-
-REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
-  tfall_wtrac(:,:)
-    ! Local water tracer throughfall (kg/m2/s).
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
@@ -175,50 +151,6 @@ DO j = 1,surft_pts
 
 END DO
 !$OMP END PARALLEL DO
-
-! Repeat for water tracers
-IF (l_wtrac_jls) THEN
-
-  ALLOCATE(tfall_wtrac(npnts,n_wtrac_jls))
-
-!$OMP PARALLEL DO DEFAULT(NONE) PRIVATE(j, i, i_wt)                            &
-!$OMP SHARED(surft_pts, surft_index, can_cpy, r, r_wtrac, smallp, timestep,    &
-!$OMP        can_wcnt_wtrac, tfall, tfall_wtrac, tot_tfall_wtrac, frac,        &
-!$OMP        tot_tfall_surft_wtrac, l_flake_model, lake, curr_surft,           &
-!$OMP        n_wtrac_jls)                                                      &
-!$OMP SCHEDULE(STATIC)
-  DO j = 1,surft_pts
-    i = surft_index(j)
-    IF ( can_cpy(i)  >  0.0 .AND. r(i) > smallp ) THEN
-      DO i_wt = 1, n_wtrac_jls
-        tfall_wtrac(i,i_wt) = (r_wtrac(i,i_wt)/r(i)) * tfall(i)
-      END DO
-    ELSE
-      DO i_wt = 1, n_wtrac_jls
-        tfall_wtrac(i,i_wt) = r_wtrac(i,i_wt)
-      END DO
-    END IF
-
-    DO i_wt = 1, n_wtrac_jls
-      can_wcnt_wtrac(i,curr_surft,i_wt)  = can_wcnt_wtrac(i,curr_surft,i_wt)   &
-                                + (r_wtrac(i,i_wt) - tfall_wtrac(i,i_wt))      &
-                                * timestep
-
-      IF ( .NOT. ((l_flake_model) .AND. (curr_surft == lake)) ) THEN
-        tot_tfall_wtrac(i,i_wt) = tot_tfall_wtrac(i,i_wt)                      &
-                                  + frac(i) * tfall_wtrac(i,i_wt)
-      END IF
-
-      ! Increment the tile throughfall for this precip type
-      tot_tfall_surft_wtrac(i,curr_surft,i_wt) =                               &
-                                     tot_tfall_surft_wtrac(i,curr_surft,i_wt)  &
-                                      + tfall_wtrac(i,i_wt)
-    END DO
-  END DO
-!$OMP END PARALLEL DO
-
-  DEALLOCATE(tfall_wtrac)
-END IF ! l_wtrac_jls
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

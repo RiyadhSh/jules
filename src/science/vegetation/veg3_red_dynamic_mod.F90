@@ -136,8 +136,8 @@ DO k = 1,nmasst
 
         ! Partition the growth
         p(l,n) = veg_state%frac(l,n) * growth(l,n)
-        P_s(l,n) = red_parms%alpha_recrt(n) * p(l,n)
-        g(l,n) = (1.0 - red_parms%alpha_recrt(n)) * p(l,n)
+        P_s(l,n) = red_parms%alpha(n) * p(l,n)
+        g(l,n) = (1.0 - red_parms%alpha(n)) * p(l,n)
 
         IF (plantNumDensity_g_sum(l,n) > 0) THEN
           g0(l,n) = g(l,n) / plantNumDensity_g_sum(l,n)

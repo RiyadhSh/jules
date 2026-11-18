@@ -53,8 +53,8 @@ CONTAINS
 
 !###############################################################################
 ! subroutine get_rivers_len_rp
-!     Driver routine that calls a procedure to calculate distances between
-!     gridpoints, given latitude and longitude.
+!     Driver routine that calls procedures that calculates distance
+!     between gridpoints, given latitude and longitude.
 
 SUBROUTINE get_rivers_len_rp( np_rivers, rivers_next, lat, lon, length )
 
@@ -99,9 +99,6 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='GET_RIVERS_LEN_RP'
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
-! Note that it is assumed that rivers_dx and rivers_dy are increments of
-! latitude and longitude (not some other coordinate system).
-
 ! Only calculate length at rivers grid points with valid flow direction
 DO ip = 1,np_rivers
   !   Get coords of this point and any point immediately downstream
@@ -111,7 +108,7 @@ DO ip = 1,np_rivers
     !     There is an outflow direction, and the downstream point is on the grid
     length(ip) = givelength( lat(ip), lon(ip), lat(jp), lon(jp) )
 
-  ELSE IF ( jp == river_mouth .OR. jp == inland_drainage ) THEN
+  ELSE IF ( jp == -river_mouth .OR. jp == -inland_drainage ) THEN
     !     Outflow to sea, or no outflow (pit or depression).
     !     This is relatively common, hence treatment separately from flow across
     !     grid edge. Use distance to an adjacent point at the same latitude
@@ -215,13 +212,13 @@ REAL(KIND=real_jlslsm) ::  length   !  distance (m)
 
 !  Scalars with intent (in)
 REAL(KIND=real_jlslsm), INTENT(IN) ::  lat1
-                            ! latitude of first point (degrees)
+                            ! latitude of southern edge of strip (degrees)
 REAL(KIND=real_jlslsm), INTENT(IN) ::  lat2
-                            ! latitude of second point (degrees)
+                            ! latitude of northern edge of strip (degrees)
 REAL(KIND=real_jlslsm), INTENT(IN) ::  lon1
-                            ! longitude of first point (degrees)
+                            ! longitude of western edge of strip (degrees)
 REAL(KIND=real_jlslsm), INTENT(IN) ::  lon2
-                            ! longitude of second point (degrees)
+                            ! longitude of eastern edge of strip (degrees)
 
 !  Local scalars
 REAL(KIND=real_jlslsm) ::  dlat   !  difference in latitude (degrees)
@@ -248,26 +245,20 @@ END IF
 dlat = ABS( lat2 - lat1 )
 
 IF ( dlon < EPSILON( dlon ) ) THEN
-  ! Constant longitude. Use an effective latitude.
+  !   Constant longitude.
   lat = ( lat1 + lat2 ) * 0.5
   length = givelatlength(lat) * dlat
 ELSE IF ( dlat < EPSILON(dlat) ) THEN
-  ! Constant latitude.
+  !   Constant latitude.
   length = givelonlength( lat1 ) * dlon
 ELSE
-  ! Both lat and lon change.
-  ! Use equation A8 of Oki and Sud, 1998, Earth Interactions, Vol.2, Paper 1
+  !   Both lat and lon change.
+  !   Use equation A8 of Oki and Sud, 1998, Earth Interactions, Vol.2, Paper 1
   lat = ( lat1 + lat2 ) * 0.5
   radius = giveearthradius( lat )
   dx = givelonlength( lat ) * dlon / radius
   dy = givelatlength( lat ) * dlat / radius
   length = ACOS( COS(dx) * COS(dy) ) * radius
-  ! Avoid returning a length of zero if dx and/or dy are small.
-  ! 0.1 metre is an arbitrary length but is much smaller than the expected
-  ! gridbox size of applications.
-  IF ( length < 0.1 ) THEN
-    length = MAX( givelonlength(lat) * dlon, givelatlength(lat) * dlat )
-  END IF
 END IF
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)

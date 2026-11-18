@@ -176,7 +176,6 @@ def main():
     amp_column = opts.col
 
     failed = False
-    modified = []
 
     if opts.bdiff:
         if len(args) > 0:
@@ -293,8 +292,6 @@ def main():
                         reiterate = False
 
                 if failed is False:
-                    if modify_lines != lines:
-                        modified.append(input_file)
                     file_in.write("\n".join(modify_lines))
                     file_in.truncate()
 
@@ -403,12 +400,8 @@ def main():
             print("\nThis utilises clang-format,"
                   " which is not available on this system")
 
-    if failed:
+    if failed is True:
         sys.exit(1)
-    if modified:
-        for item in modified:
-            print(f"\nModified: {item}\n", file=sys.stderr)
-        raise Exception("Some files were modified, see stderr for info")
 
 
 if __name__ == "__main__":

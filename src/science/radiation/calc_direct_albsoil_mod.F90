@@ -7,7 +7,12 @@ MODULE calc_direct_albsoil_mod
 
 USE um_types, ONLY: real_jlslsm
 
+USE parkind1,                 ONLY: jprb, jpim
+USE yomhook,                  ONLY: lhook, dr_hook
+
 IMPLICIT NONE
+
+CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='CALC_DIRECT_ALBSOIL_MOD'
 
 CONTAINS
 
@@ -29,7 +34,15 @@ REAL(KIND=real_jlslsm) ::                                                      &
   albdif_app
     ! Approximate diffuse albedo
 
+INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
+INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
+REAL(KIND=jprb)               :: zhook_handle
+
+CHARACTER(LEN=*), PARAMETER :: RoutineName='CALC_DIRECT_ALBSOIL'
+
 !End of header
+IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
+
 
 !           Pade approximant to the isotropic similarity parameter
 !           using the diffuse albedo.
@@ -45,6 +58,10 @@ albdir = (albdif / albdif_app) *                                               &
                  (1.0 - gamma_sim) /                                           &
                  (1.0+2.0 * gamma_sim * cosz)
 
+IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 END FUNCTION calc_direct_albsoil
 
+
 END MODULE calc_direct_albsoil_mod
+
+

@@ -67,22 +67,21 @@ REAL, INTENT(OUT) ::                                                           &
 REAL ::                                                                        &
 ! Basic orbital constants
       r_gamma,                                                                 &
-             ! Supplement of the longitude of the perihelion
+             ! Gamma
       e,                                                                       &
-             ! Eccentricity of the orbit
+             ! e
       tau0,                                                                    &
              ! True date of perihelion
       sinobl,                                                                  &
-             ! Sin (obliquity of the orbit)
+             ! Sin (obliquity)
 ! Derived orbital constants
       tau1,                                                                    &
-             !
       e1,e2,                                                                   &
              ! Coefficients for 3.1.2
       e3,                                                                      &
       e4,                                                                      &
              ! Constant for 3.1.4
-      twopi  ! 2 * pi
+      twopi  ! 2pi
 
 REAL :: diny      ! Number of days in the year
 REAL :: m,v       ! Mean & true anomaly
@@ -97,9 +96,6 @@ PARAMETER(                                                                     &
   tau0   = 2.5,                                                                &
   sinobl = 0.397789                                                            &
 )
-
-! Calculate the coefficients in the equation of the centre and
-! thence derive the true anomaly.
 PARAMETER (                                                                    &
   e1 = e * (2.0-0.25 * e * e),                                                 &
   e2 = 1.25 * e * e,                                                           &
@@ -120,13 +116,6 @@ PARAMETER(                                                                     &
 m = twopi * (REAL(day) - tau1) / diny                        ! Eq 3.1.1
 v = m + e1 * SIN(m) + e2 * SIN(2.0 * m) + e3 * SIN(3.0 * m)  ! Eq 3.1.2
 scs = e4 * ( 1.0 + e * COS(v) )**2                           ! Eq 3.1.4
-
-! sin(solar declination) (UMDP23 Eq 3.1.5)
-! Solar declination is related to true longitude of earth (lambda) by:
-!  sindec = sin(obliquity) * sin(lambda)
-! Lambda is counted counterclockwise from vernal equinox
-!  and is related to v (the true anomaly) through
-!  lambda = v + (longitude of perihelion)
 sindec = sinobl * SIN (v - r_gamma)                          ! Eq 3.1.6
 
 RETURN

@@ -75,7 +75,7 @@ TYPE :: imgn_vars_data_type
   REAL, ALLOCATABLE :: co2_change_ppmv(:)
             ! Change in CO2 between restarts (ppmv)
   REAL, ALLOCATABLE :: ch4_ppbv(:)
-            ! Atmospheric CH4 concentration (ppbv)
+            ! Atmospheric CH2 concentration (ppbv)
 
 END TYPE imgn_vars_data_type
 

@@ -30,12 +30,11 @@ USE jules_vegetation_mod, ONLY: jules_vegetation, photo_acclim_model,          &
                                 l_phenol, l_triffid,                           &
                                 l_veg_compete, l_ht_compete, l_crop,           &
                                 can_rad_mod, can_model, photo_model,           &
-                                photo_collatz, photo_farquhar,                 &
-                                photo_sox_collatz, photo_adapt,photo_acclim,   &
-                                photo_adapt_acclim, photo_act_model,           &
-                                photo_act_pft, photo_act_gb, photo_jv_model,   &
-                                jv_scale, jv_ntotal, stomata_model,            &
-                                stomata_jacobs, stomata_medlyn, stomata_sox,   &
+                                photo_collatz, photo_farquhar, photo_adapt,    &
+                                photo_acclim, photo_adapt_acclim,              &
+                                photo_act_model, photo_act_pft, photo_act_gb,  &
+                                photo_jv_model, jv_scale, jv_ntotal,           &
+                                stomata_model, stomata_jacobs, stomata_medlyn, &
                                 l_inferno, l_trif_eq, triffid_period,          &
                                 ignition_method, check_jules_vegetation,       &
                                 ignition_constant, ignition_vary_natural,      &
@@ -115,10 +114,6 @@ CASE ( photo_collatz )
 CASE ( photo_farquhar )
   CALL log_info("init_vegetation",                                             &
                 "C3 plants use the Farquhar model of photosynthesis.")
-CASE ( photo_sox_collatz )
-  CALL log_info("init_vegetation",                                             &
-                "C3 plants use the Collatz model of photosynthesis "//         &
-                "as derived for use with the SOX stomata model.")
 END SELECT
 CALL log_info("init_vegetation",                                               &
               "C4 plants use the Collatz model of photosynthesis.")
@@ -171,9 +166,6 @@ CASE ( stomata_jacobs )
 CASE ( stomata_medlyn )
   CALL log_info("init_vegetation",                                             &
                 "Using the Medlyn et al. model of stomatal conductance.")
-CASE ( stomata_sox )
-  CALL log_info("init_vegetation",                                             &
-                "Using the SOX model of stomatal conductance.")
 END SELECT
 
 IF ( l_inferno ) THEN

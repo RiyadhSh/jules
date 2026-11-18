@@ -40,7 +40,7 @@ CONTAINS
 
 
 SUBROUTINE calc_irrigation_demand( plant_n_gb, dvi_cpft, frac_irr_soilt,       &
-             frac_soilt, land_area, smcl_soilt, smvccl_soilt,                  &
+             frac_soilt, irrig_eff, land_area, smcl_soilt, smvccl_soilt,       &
              smvcst_soilt,                                                     &
              sthf_soilt, sthu_irr_soilt, sthu_soilt, demand_irrig,             &
              demand_irrig_layer, demand_irrig_soilt )
@@ -73,6 +73,9 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     ! Irrigation fraction.
   frac_soilt(land_pts,nsoilt),                                                 &
     !  Fraction of gridbox for each soil tile.
+  irrig_eff(land_pts),                                                         &
+    ! Irrigation efficiency i.e. the fraction of the water withdrawn for
+    ! irrigation that is demanded by the crop scheme.
   land_area(land_pts),                                                         &
     ! Area of land in each gridbox (m2).
   smcl_soilt(land_pts,nsoilt,sm_levels),                                       &
@@ -149,9 +152,14 @@ CALL irrigation_demand( land_pts, sm_levels, plant_n_gb,                       &
          demand_irrig_layer, smcl_target, sthu_irr_target,                     &
          sthu_target, l_irrigate_now )
 
-! Get the total demand over all layers, converting from kg m-2 to kg.
+! Increase the demand from irrigation to account for the (in)efficiency of
+! irrigation. Get the total demand over all layers, converting from kg m-2
+! to kg.
 DO m = 1,nsoilt
   DO l = 1,land_pts
+    ! Account for efficiency.
+    demand_irrig_layer(l,m,1:nlayer_irrig) =                                   &
+      demand_irrig_layer(l,m,1:nlayer_irrig) * ( 2.0 - irrig_eff(l) )
     ! Sum over soil layers.
     demand_irrig_soilt(l,m) = SUM( demand_irrig_layer(l,m,1:nlayer_irrig) )
     ! Add to gridbox total.
@@ -279,8 +287,8 @@ DO m = 1,nsoilt
         IF ( demand_irrig_layer(l,m,n) > 0.0 ) THEN
           ! The available water is partitioned between layers according to the
           ! demand from each layer.
-          supplied_layer = ( demand_irrig_layer(l,m,n)                         &
-                             / demand_irrig_soilt(l,m) ) * supplied
+          supplied_layer = demand_irrig_layer(l,m,n)                           &
+                           / demand_irrig_soilt(l,m) * supplied
 
           ! Update the soil wetness in the irrigated area.
           ! We assume that no other processes have increased soil moisture

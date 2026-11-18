@@ -39,23 +39,23 @@ SUBROUTINE sf_stom  (land_pts,land_index                                       &
 ,                    co2_dim_row,l_co2_interactive                             &
 ,                    fsmc,veg_state,ht,ipar,lai                                &
 ,                    canht,pstar                                               &
-,                    q1,ra,tstar,o3,t_home_gb,t_growth_gb                      &
-,                    can_rad_mod,ilayers,faparv                                &
-,                    psi_root_zone,lwp_c                                       &
-,                    gpp,npp,resp_p,resp_l,resp_r,resp_w                       &
+,                    q1,ra,tstar,o3,t_home_gb,t_growth_gb,psi_root_zone        &
+,                    can_rad_mod,ilayers,leaf_flux_mod,som_base_parm,faparv    &
+,                    el,gpp,npp,resp_p,resp_l,resp_r,resp_w                    &
 ,                    growth_sug, f_nsc                                         &
 ,                    n_leaf,n_root,n_stem,lai_bal,gc                           &
 ,                    fapar_sun,fapar_shd,fsun                                  &
-,                    flux_o3,fo3,fapar_diag,apar_diag                          &
+,                    flux_o3,fo3,fapar_diag,apar_diag,psi_leaf,cica_ratio      &
+,                    leaf_k                                                    &
 ,                    isoprene,terpene,methanol,acetone                         &
-,                    open_index,open_pts,                                      &
+,                    open_index,open_pts                                       &
+,                    carbon_gain,hydraulic_cost, psi_soil_pd                   &
                     !New arguments replacing USE statements
                     !crop_vars_mod (IN)
-                    dvi_cpft,rootc_cpft)
+,                   dvi_cpft,rootc_cpft)
 
 USE leaf_mod, ONLY: leaf
 USE leaf_limits_mod, ONLY: leaf_limits
-USE leaf_processes_sox_mod, ONLY: leaf_processes_sox
 USE bvoc_emissions_mod, ONLY: bvoc_emissions
 
 USE conversions_mod, ONLY: zerodegc
@@ -64,15 +64,16 @@ USE theta_field_sizes, ONLY: t_i_length
 USE jules_surface_types_mod, ONLY: nnpft, ncpft
 
 USE jules_vegetation_mod, ONLY:                                                &
+! imported model ids. JBaguley
+    leaf_flux_fsmc, leaf_flux_stom_opt,                                        &
 ! imported parameters
-    photo_collatz, photo_farquhar, photo_sox_collatz, stomata_medlyn,          &
-    stomata_sox, photo_adapt, photo_acclim, photo_adapt_acclim,                &
+    photo_collatz, photo_farquhar, stomata_medlyn,                             &
+    photo_adapt, photo_acclim, photo_adapt_acclim,                             &
     photo_act_model, photo_act_pft, photo_act_gb, n_photo_coef,                &
 ! imported scalars that are not changed
     dsj_coef, dsv_coef, jv25_coef, act_j_coef, act_v_coef,                     &
     l_bvoc_emis, l_fapar_diag, l_trait_phys, l_stem_resp_fix, l_o3_damage,     &
-    l_scale_resp_pm, photo_acclim_model, photo_model, stomata_model, l_sugar,  &
-    l_red
+    l_scale_resp_pm, photo_acclim_model, photo_model, stomata_model, l_sugar
 
 USE CN_utils_mod, ONLY:                                                        &
 ! imported procedures
@@ -109,8 +110,11 @@ USE ereport_mod, ONLY: ereport
 
 USE veg3_field_mod, ONLY: veg_state_type
 
+USE veg3_parm_mod, ONLY: l_veg3
+
 USE sugar_mod, ONLY: sugar
 
+USE stom_opt_jls_mod, ONLY: stom_opt_mod
 IMPLICIT NONE
 
 !-----------------------------------------------------------------------------
@@ -140,8 +144,13 @@ LOGICAL, INTENT(IN) :: l_co2_interactive   ! switch for 3D CO2 field
 INTEGER, INTENT(IN) ::                                                         &
   can_rad_mod                                                                  &
 !                           !Switch for canopy radiation model
- ,ilayers
+ ,ilayers                                                                      &
 !                           !No of layers in canopy radiation model
+ ,leaf_flux_mod                                                                &
+!                           !Switch for leaf flux model
+ ,som_base_parm
+!                           !Switch for stomatal optimisation model base
+!                           !   physical parameter.
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
  co2                                                                           &
@@ -184,8 +193,7 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
                             ! IN Running mean (growth) temperature for
                             ! acclimation of photosynthesis (K).
 ,psi_root_zone(land_pts)
-                            ! IN (negative) soil water potential (in Pa)
-                            ! in root zone. Only required when SOX is used
+                            ! IN Root zone water potential (Pa)
 
 TYPE(veg_state_type), INTENT(IN OUT) :: veg_state
 
@@ -193,7 +201,10 @@ TYPE(veg_state_type), INTENT(IN OUT) :: veg_state
 ! Arguments with INTENT(out).
 !-----------------------------------------------------------------------------
 REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
- gpp(land_pts)                                                                 &
+ el(land_pts)                                                                  &
+                            ! OUT Transpiration rate (mol m-2 s-1) from the
+                            !      stomatal optimisation model.
+,gpp(land_pts)                                                                 &
                             ! OUT Gross Primary Productivity
 !                                 !     (kg C/m2/s).
 ,npp(land_pts)                                                                 &
@@ -222,17 +233,23 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
                             ! OUT FAPAR diagnostic
 ,apar_diag(land_pts)                                                           &
                             ! OUT APAR diagnostic
-,lwp_c(land_pts)
-                            ! OUT Canopy leaf water potential (MPa)
+,psi_leaf(land_pts)                                                            &
+                            ! OUT Leaf water potential (Pa)
+,cica_ratio(land_pts)                                                          &
+                            ! OUT Ratio of intecellular and atmospheric CO2
+,leaf_k(land_pts)
+                            ! OUT Xylem conductance at leaf level (m/s).
 
 
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
  gc(land_pts)                                                                  &
                             ! INOUT Canopy resistance to H2O (m/s).
                             ! The input value is only used if can_rad_mod=1.
-,f_nsc(land_pts)
+,f_nsc(land_pts)                                                               &
                             ! INOUT Non-structural carbohydrate mass fraction
                             !      (kgC/kgC)
+,psi_soil_pd(land_pts)
+                            ! MGDK, empirical g1_stress implementation, 28 Apr, 2026
 
 ! BVOC variables
 REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
@@ -251,6 +268,13 @@ open_index(land_pts)                                                           &
 !                                 !      with open stomata.
 ,open_pts                   ! OUT Number of land points
 !                                 !      with open stomata.
+
+! TEMPORARY: output variables for testing
+REAL(KIND=real_jlslsm) ::                                                      &
+ carbon_gain(land_pts)                                                         &
+                            ! Carbon gain for each leaf state
+,hydraulic_cost(land_pts)
+                            ! Hydraulic cost for each leaf state
 
 !New arguments replacing USE statements
 !crop_vars_mod (IN)
@@ -591,8 +615,7 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !$OMP PARALLEL DO IF(land_pts > 1)                                             &
 !$OMP DEFAULT(NONE)                                                            &
 !$OMP SHARED(land_pts,l_o3_damage,fo3,flux_o3,isoprene,                        &
-!$OMP        terpene,methanol,acetone,fsmc_scale,                              &
-!$OMP        stomata_model,lwp_c)                                              &
+!$OMP        terpene,methanol,acetone,fsmc_scale)                              &
 !$OMP PRIVATE(l)                                                               &
 !$OMP SCHEDULE(STATIC)
 DO l = 1, land_pts
@@ -615,11 +638,7 @@ DO l = 1, land_pts
   acetone(l)    = 0.0
 
   fsmc_scale(l) = 1.0  !  Value used if l_scale_resp_pm =.FALSE..
-  ! leaf water potential variables for lwp_c diagnostic if SOX is used
-  IF ( stomata_model == stomata_sox ) THEN
-    ! initialise to zero to allow accumulation
-    lwp_c(l) = 0.0
-  END IF
+
 END DO
 !$OMP END PARALLEL DO
 
@@ -658,9 +677,6 @@ CASE ( photo_farquhar )
   ELSE
     pft_photo_model = photo_collatz
   END IF
-CASE ( photo_sox_collatz )
-  pft_photo_model = photo_collatz
-  ! For the purposes of initialisation these are both photo_collatz
 END SELECT
 
 !-----------------------------------------------------------------------------
@@ -695,7 +711,7 @@ END IF
 CALL qsat(qs,tstar,pstar,land_pts)
 
 ! Set the minimum-allowed humidity deficit.
-IF ( ( stomata_model == stomata_medlyn ) .OR. ( stomata_model == stomata_sox ) ) THEN
+IF ( stomata_model == stomata_medlyn ) THEN
   ! Avoid dq=0 as this would cause the model to blow up.
   dq_min = 0.0001
 ELSE
@@ -1059,7 +1075,8 @@ CASE ( 4 )
 ,                       acr, apar, ca, ccp, dqc, fsmc, je, kc, km, ko, oa      &
 ,                       pstar, vcmax                                           &
 ,                       clos_pts, open_pts, clos_index, open_index             &
-,                       ci, wcarb, wexpt, wlite )
+,                       ci, wcarb, wexpt, wlite, psi_root_zone, psi_soil_pd,   &
+                        leaf_flux_mod )
 
 !$OMP PARALLEL DO IF(open_pts > 1) DEFAULT(NONE) PRIVATE(l, m)                 &
 !$OMP             SHARED(acr, apar, faparv, faparv_layer, ipar, land_index,    &
@@ -1083,7 +1100,7 @@ CASE ( 4 )
       CALL leaf (clos_pts, ft, land_pts, open_pts, pft_photo_model, veg_pts    &
 ,                clos_index, open_index, veg_index                             &
 ,                ca, ci, fsmc, o3mol, ra, tstar, wcarb, wexpt, wlitev, rd      &
-,                anetl, flux_o3_l, fo3_l, gl)
+,                anetl, flux_o3_l, fo3_l, gl, leaf_flux_mod)
 
     END DO                 ! K-ITER
 
@@ -1232,7 +1249,8 @@ CASE ( 5, 6 )
 ,                       acr, apar, ca, ccp, dqc, fsmc, je, kc, km, ko, oa      &
 ,                       pstar, vcmax                                           &
 ,                       clos_pts, open_pts, clos_index, open_index             &
-,                       ci, wcarb, wexpt, wlite)
+,                       ci, wcarb, wexpt, wlite, psi_root_zone, psi_soil_pd,   &
+                        leaf_flux_mod)
 
 !$OMP PARALLEL IF(veg_pts > 1)                                                 &
 !$OMP DEFAULT(NONE)                                                            &
@@ -1283,13 +1301,13 @@ CASE ( 5, 6 )
 ,                clos_index, open_index, veg_index                             &
 ,                ca, ci, fsmc, o3mol, ra, tstar                                &
 ,                wcarb, wexpt, wlitev_sun, rd_sun                              &
-,                anetl_sun, flux_o3_l_sun, fo3_l_sun, gl_sun)
+,                anetl_sun, flux_o3_l_sun, fo3_l_sun, gl_sun, leaf_flux_mod)
 
       CALL leaf (clos_pts, ft, land_pts, open_pts, pft_photo_model, veg_pts    &
 ,                clos_index, open_index, veg_index                             &
 ,                ca, ci, fsmc, o3mol, ra, tstar                                &
 ,                wcarb, wexpt, wlitev_shd, rd_shd                              &
-,                anetl_shd, flux_o3_l_shd, fo3_l_shd, gl_shd)
+,                anetl_shd, flux_o3_l_shd, fo3_l_shd, gl_shd, leaf_flux_mod)
 
       !-----------------------------------------------------------------------
       ! Update layer conductance.
@@ -1381,67 +1399,132 @@ CASE ( 1 )
       dqc(l)   = dq(l) / (1.0 + ra_rc(l))
     END DO
 
-    !-------------------------------------------------------------------------
-    ! Calculate leaf fluxes.
-    !-------------------------------------------------------------------------
-    IF (stomata_model == stomata_sox) THEN
-      CALL leaf_processes_sox(ft, land_pts, veg_pts, veg_index                 &
-,                             acr, apar, ca, ccp, dqc, kc, ko, oa              &
-,                             pstar, vcmax, tstar, ht, psi_root_zone, rd       &
-,                             clos_pts, open_pts, clos_index, open_index       &
-,                             ci, o3mol, ra, anetl, flux_o3_l                  &
-,                             fo3_l, gl, lwp_c, pft_photo_model)
+    SELECT CASE ( leaf_flux_mod)
+       CASE (leaf_flux_fsmc, 3) !! MDK added to drop in here
 
-    ELSE
-      !-----------------------------------------------------------------------
-      ! Calculate the limiting factors for leaf photosynthesis.
-      !-----------------------------------------------------------------------
-      CALL leaf_limits (ft, land_pts, pft_photo_model, veg_pts, veg_index      &
-,                       acr, apar, ca, ccp, dqc, fsmc, je, kc, km, ko, oa      &
-,                       pstar, vcmax                                           &
-,                       clos_pts, open_pts, clos_index, open_index             &
-,                       ci, wcarb, wexpt, wlite)
 
-      !-----------------------------------------------------------------------
-      ! Calculate leaf-level fluxes.
-      !-----------------------------------------------------------------------
-      CALL leaf (clos_pts, ft, land_pts, open_pts, pft_photo_model, veg_pts    &
-,                clos_index, open_index, veg_index                             &
-,                ca, ci, fsmc, o3mol, ra, tstar, wcarb, wexpt, wlite, rd       &
-,                anetl, flux_o3_l, fo3_l, gl)
-    END IF ! stomata_model
+        !---------------------------------------------------------------------
+        ! Calculate the limiting factors for leaf photosynthesis.
+        !---------------------------------------------------------------------
+        CALL leaf_limits (ft, land_pts, pft_photo_model, veg_pts, veg_index    &
+        ,                 acr, apar, ca, ccp, dqc, fsmc, je, kc, km, ko, oa    &
+        ,                 pstar, vcmax                                         &
+        ,                 clos_pts, open_pts, clos_index, open_index           &
+        ,                 ci, wcarb, wexpt, wlite, psi_root_zone, psi_soil_pd, &
+                          leaf_flux_mod)
 
-    !-------------------------------------------------------------------------
-    ! Scale to canopy level.
-    !-------------------------------------------------------------------------
-    DO m = 1,veg_pts
-      l = veg_index(m)
-      gc(l) = fpar(l) * gl(l)
-    END DO
+        !---------------------------------------------------------------------
+        ! Calculate leaf-level fluxes.
+        !---------------------------------------------------------------------
+        CALL leaf (clos_pts, ft, land_pts, open_pts, pft_photo_model, veg_pts  &
+        ,          clos_index, open_index, veg_index                           &
+        ,          ca, ci, fsmc, o3mol, ra, tstar, wcarb, wexpt, wlite, rd     &
+        ,          anetl, flux_o3_l, fo3_l, gl, leaf_flux_mod)
+
+        !-------------------------------------------------------------------------
+        ! Scale to canopy level.
+        !-------------------------------------------------------------------------
+        DO m = 1,veg_pts
+          l = veg_index(m)
+          gc(l) = fpar(l) * gl(l)
+        END DO
+
+      CASE (leaf_flux_stom_opt)
+
+        ! Identify locations with no par and hence closed stomata.
+        clos_pts = 0
+        open_pts = 0
+        DO i = 1,veg_pts
+          l = veg_index(i)
+          ! NOTE: fsmc is not used by the stomatal optimisation model, hence
+          !       no need to check it here.
+          IF ( apar(l) == 0.0 ) THEN
+            clos_pts = clos_pts + 1
+            clos_index(clos_pts) = i
+          ELSE
+            open_pts = open_pts + 1
+            open_index(open_pts) = i
+          END IF
+        END DO
+
+        !-------------------------------------------------------------------------
+        ! Scale to canopy level.
+        !-------------------------------------------------------------------------
+        DO m = 1,veg_pts
+          l = veg_index(m)
+          rdc(l) = rd(l) * fpar(l)
+          vcmax(l) = vcmax(l) * fpar(l)
+          jmax(l) = jmax(l) * fpar(l)
+
+          ! Recalculate je now that jmax has been scaled up.
+          ! This is done here to keep the canopy scaling in a similar place to
+          ! the scaling in the leaf_flux_fsmc model.
+          IF ( pft_photo_model == photo_farquhar ) THEN
+            ! Calculate the electron flux.
+            CALL calc_electron_flux( land_pts, veg_pts, veg_index, i2, jmax, je)
+          END IF
+        END DO
+
+        CALL stom_opt_mod (                                                  &
+              ! IN
+                land_pts, som_base_parm, ft, open_pts, open_index,           &
+                pft_photo_model, veg_index,                                  &
+                ca, psi_root_zone, acr, apar, oa, vcmax, kc, ko, ccp, pstar, &
+                km, dqc, qs, je, tstar,                                      &
+              ! IN OUT
+                rdc,                                                           &
+              ! OUT
+                ci, anetc, el, flux_o3, fo3, gc, psi_leaf,                     &
+                carbon_gain, hydraulic_cost, leaf_k                            &
+        )
+
+      CASE DEFAULT
+        errcode = 101  !  a hard error
+        CALL ereport(RoutineName, errcode,                                     &
+               'leaf_flux_mod should be 1 fsmc regulated or 2 stomatal optimisation')
+    END SELECT ! leaf_flux_model
 
   END DO   ! End of iteration loop
 
   !---------------------------------------------------------------------------
   ! Calculate canopy-level fluxes.
   !---------------------------------------------------------------------------
-  DO m = 1,veg_pts
-    l = veg_index(m)
+  SELECT CASE (leaf_flux_mod)
+    CASE (leaf_flux_fsmc, 3) ! MDK
+    !CASE (leaf_flux_fsmc)
+      DO m = 1,veg_pts
+        l = veg_index(m)
 
-    anetc(l) = anetl(l) * fpar(l)
-    rdc(l)   = rd(l) * fpar(l)
+        anetc(l) = anetl(l) * fpar(l)
+        rdc(l)   = rd(l) * fpar(l)
 
-    IF ( lai(l) > EPSILON(0.0) ) THEN
-      rdmean(l) = rd(l) * fpar(l) / lai(l)
-    ELSE
-      rdmean(l) = rd(l)
-    END IF
+        IF ( lai(l) > EPSILON(0.0) ) THEN
+          rdmean(l) = rd(l) * fpar(l) / lai(l)
+        ELSE
+          rdmean(l) = rd(l)
+        END IF
 
-    IF (l_o3_damage) THEN
-      flux_o3(l) = flux_o3_l(l) * fpar(l)
-      fo3(l)     = fo3_l(l)
-    END IF
+        IF (l_o3_damage) THEN
+          flux_o3(l) = flux_o3_l(l) * fpar(l)
+          fo3(l)     = fo3_l(l)
+        END IF
 
-  END DO
+      END DO
+
+    ! The stomatal optimiastion model is already scaled to canopy.
+    ! Only need to calculate rdmean from rdc
+    CASE (leaf_flux_stom_opt)
+      DO m = 1,veg_pts
+        l = veg_index(m)
+
+        IF ( lai(l) > EPSILON(0.0) ) THEN
+          rdmean(l) = rdc(l)/ lai(l)
+        ELSE
+          rdmean(l) = rdc(l)
+        END IF
+      END DO
+  END SELECT
+
 
 CASE DEFAULT
   errcode = 101  !  a hard error
@@ -1449,6 +1532,17 @@ CASE DEFAULT
                'can_rad_mod should be 1, 4, 5 or 6')
 
 END SELECT  ! can_rad_mod
+
+!-----------------------------------------------------------------------------
+! Calculate ratio of intercellular CO2 to canpoy level atmospheric CO2
+!  concentration. Only used as output.
+!  Note: TINY is used to avoid division by zero.
+!-----------------------------------------------------------------------------
+!TODO: Add OMP
+DO m = 1,veg_pts
+  l = veg_index(m)
+  cica_ratio(l) = ci(l) / (ca(l) + TINY(ca(l)))
+END DO
 
 !-----------------------------------------------------------------------------
 ! Calculate plant-level respiration, NPP and GPP.
@@ -1476,7 +1570,7 @@ DO m = 1,veg_pts
   lai_bal(l) = (a_ws(ft) * eta_sl(ft) * ht(l) / a_wl(ft))                      &
                **(1.0 / (b_wl(ft) - 1.0))
 
-  IF (l_red) lai_bal(l) = veg_state%lai_bal(l,ft)
+  IF (l_veg3) lai_bal(l) = veg_state%lai_bal(l,ft)
 
   !---------------------------------------------------------------------------
   ! Calculate the total nitrogen content of the leaf, root and stem
@@ -1523,7 +1617,7 @@ DO m = 1,veg_pts
       !Initial calculation of N content in respiring stem wood
       n_stem(l) = eta_sl(ft) * ht(l) * lai_bal(l) * nsw(ft)
       !USE veg3 allometry
-      IF (l_red) n_stem(l) = veg_state%woodC(l,ft) / a_ws(ft) * nsw(ft)
+      IF (l_veg3) n_stem(l) = veg_state%woodC(l,ft) / a_ws(ft) * nsw(ft)
 
       !Reduce n_stem for consistency with non-trait n_stem for now
       !This must be done to achieve realistic respiration rates.
@@ -1569,13 +1663,13 @@ DO m = 1,veg_pts
       leafc(l)     = lma(ft) * lai(l) * cmass
       leafc_bal(l) = lma(ft) * lai_bal(l) * cmass
 
-      IF ( l_red ) THEN
+      IF ( l_veg3 ) THEN
         rootc(l) = veg_state%rootC(l,ft)
         woodc(l) = veg_state%woodC(l,ft)
       ELSE
         rootc(l) = lma(ft) * lai_bal(l) * cmass
         woodc(l) = a_ws(ft) * eta_sl(ft) * ht(l) * lai_bal(l)
-      END IF ! ( l_red )
+      END IF ! ( l_veg3 )
 
     ELSE
 

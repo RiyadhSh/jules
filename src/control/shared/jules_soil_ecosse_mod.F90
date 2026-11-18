@@ -192,12 +192,11 @@ NAMELIST  / jules_soil_ecosse/                                                 &
 CHARACTER(LEN=*), PARAMETER, PRIVATE ::                                        &
   ModuleName = 'JULES_SOIL_ECOSSE_MOD'
 
-#if !defined(RIVERS_ONLY)
-
 CONTAINS
 
 !#############################################################################
 
+#if !defined(RIVERS_ONLY)
 SUBROUTINE check_jules_soil_ecosse()
 
 USE conversions_mod, ONLY:                                                     &

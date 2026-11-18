@@ -14,16 +14,13 @@ CONTAINS
 SUBROUTINE fill_model_grid_arrays( ainfo_data, coastal_data )
 
 USE model_grid_mod, ONLY: projection_x_coord, projection_x_coord_land,         &
-                          projection_y_coord, projection_y_coord_land,         &
-                          latitude, longitude
+                          projection_y_coord, projection_y_coord_land
 
 USE coastal, ONLY: flandg
 
 USE theta_field_sizes, ONLY: t_i_length, t_j_length
 
 USE ancil_info, ONLY: land_pts
-
-USE datetime_mod,  ONLY: l_local_solar_time
 
 !TYPE definitions
 USE ancil_info,    ONLY: ainfo_data_type
@@ -50,16 +47,6 @@ TYPE(coastal_data_type), INTENT(IN OUT) :: coastal_data
 INTEGER :: i, j, l  ! Index variables
 
 ainfo_data%land_mask(:,:) = ( flandg(:,:) > EPSILON(1.0) )
-
-ainfo_data%latitude(:,:)  = latitude(:,:)
-IF (l_local_solar_time) THEN
-  ! If local time given instead of UTC, overwrite longitude to remove any
-  ! longitude-dependent offsets, so that diagnostics are in local time as well
-  ! (as done in the UM for single column model with local_time)
-  ainfo_data%longitude(:,:) = 0.0
-ELSE
-  ainfo_data%longitude(:,:) = longitude(:,:)
-END IF
 
 ALLOCATE( projection_x_coord_land(land_pts) )
 ALLOCATE( projection_y_coord_land(land_pts) )

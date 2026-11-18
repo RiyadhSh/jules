@@ -60,12 +60,15 @@ CHARACTER(LEN=20), PUBLIC ::                                                   &
                             ! List of fields sent via coupling
    receive_fields(maxFields)=''
                             ! List of fields received via coupling
+CHARACTER(LEN=max_file_name_len), PUBLIC :: riv_number_file
+                      ! The name of the file given for reading river number
+                      ! at each grid point
 !-----------------------------------------------------------------------------
 ! Single namelist definition for UM and standalone
 !-----------------------------------------------------------------------------
 
 NAMELIST  / oasis_rivers /                                                     &
-  np_receive, np_send, cpl_freq, send_fields, receive_fields
+  np_receive, np_send, cpl_freq, send_fields, receive_fields, riv_number_file
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='OASIS_RIVERS_MOD'
 
@@ -75,11 +78,11 @@ CONTAINS
 
 SUBROUTINE check_oasis_rivers()
 
-USE jules_rivers_mod,            ONLY: l_outflow_per_river
+USE jules_rivers_mod, ONLY: l_riv_number
 USE jules_model_environment_mod, ONLY: l_oasis_rivers
-USE model_time_mod,              ONLY: timestep_len
-USE ereport_mod,                 ONLY: ereport
-USE jules_print_mgr,             ONLY: jules_message
+USE model_time_mod,   ONLY: timestep_len
+USE ereport_mod,      ONLY: ereport
+USE jules_print_mgr,  ONLY: jules_message
 
 !-----------------------------------------------------------------------------
 ! Description:
@@ -181,10 +184,15 @@ ELSE
     END IF
 
     SELECT CASE(TRIM(send_fields(i)))
-    CASE ('outflow_per_river')
+    CASE ('rflow_outflow')
       cpl_send(i)%field_name = TRIM(send_fields(i))
-      l_runoff_1d         = .TRUE. ! 1d runoff partition required
-      l_outflow_per_river = .TRUE. ! Check river number ancillary is given
+      l_runoff_1d  = .TRUE. ! 1d runoff partition required
+      l_riv_number = .TRUE. ! Ancillary needed for river flow coupling
+      IF ( LEN_TRIM(riv_number_file) == 0 ) THEN
+        errcode = 116
+        CALL ereport(RoutineName, errcode,                                     &
+                       "No name given for riv_number_file.")
+      END IF
     CASE DEFAULT
       errcode = 117
       CALL ereport(RoutineName, errcode,                                       &
@@ -203,7 +211,7 @@ ELSE
     END IF
 
     SELECT CASE(TRIM(receive_fields(i)))
-    CASE ('sub_surf_roff', 'surf_roff')
+    CASE ('sub_surf_roff_rp', 'surf_roff_rp')
       cpl_receive(i)%field_name = TRIM(receive_fields(i))
     CASE DEFAULT
       errcode = 119
@@ -238,6 +246,8 @@ WRITE(lineBuffer,*)' send_fields = ', (TRIM(send_fields(i))//',',i=1,maxFields)
 CALL jules_print('oasis_rivers',lineBuffer)
 WRITE(lineBuffer,*)' receive_fields = ',                                       &
                                    (TRIM(receive_fields(i))//',',i=1,maxFields)
+CALL jules_print('oasis_rivers',lineBuffer)
+WRITE(lineBuffer,*)' riv_number_file = ', (TRIM(riv_number_file))
 CALL jules_print('oasis_rivers',lineBuffer)
 
 CALL jules_print('oasis_rivers_mod',                                           &

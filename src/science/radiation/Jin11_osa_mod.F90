@@ -308,15 +308,23 @@ END IF
 !$OMP DO SCHEDULE(STATIC)
 DO ipt = 1, nd_points
   xx2_bb(ipt) = SQRT(1.0 - (1.0 - cosz(ipt)**2) / bb_refm**2)
+END DO
+!$OMP END DO
 
-  ! rrr, the fresnel reflectance for at each point, for the broadband refm:
+! rrr, the fresnel reflectance for at each point, for the broadband refm:
+!$OMP DO SCHEDULE(STATIC)
+DO ipt = 1, nd_points
   rrr(ipt) = 0.5 * ( ( ( xx2_bb(ipt) - (bb_refm * cosz(ipt)) ) /               &
                        ( xx2_bb(ipt) + (bb_refm * cosz(ipt)) ) )**2 +          &
                      ( ( cosz(ipt) - (bb_refm * xx2_bb(ipt)) ) /               &
                        ( cosz(ipt) + (bb_refm * xx2_bb(ipt)) ) )**2 )
+END DO
+!$OMP END DO NOWAIT
 
-  ! the foam/whitecap fraction. (Eq 16 of Jin 2011, from Koepke 1984,
-  ! doi:10.1364/AO.23.001816)
+! the foam/whitecap fraction. (Eq 16 of Jin 2011, from Koepke 1984,
+! doi:10.1364/AO.23.001816)
+!$OMP DO SCHEDULE(STATIC)
+DO ipt = 1, nd_points
   foam_frac(ipt) = MIN(1.0, (2.95e-6) * ws_10m(ipt)**3.52 )
 END DO
 !$OMP END DO
@@ -328,20 +336,26 @@ DO iwl = 1, nd_wl
   ! angle and refm term in fresnel reflectance:
   DO ipt = 1, nd_points
     xx2(ipt) = SQRT(1.0 - (1.0 - cosz(ipt)**2) / refm(iwl)**2)
+  END DO
 
-    ! fresnel reflection, at current solar zenith angle and wavelength:
+  ! fresnel reflection, at current solar zenith angle and wavelength:
+  DO ipt = 1, nd_points
     rr0(ipt) = 0.5 * ( ( ( xx2(ipt) - (refm(iwl) * cosz(ipt)) ) /              &
                          ( xx2(ipt) + (refm(iwl) * cosz(ipt)) ) )**2 +         &
                        ( ( cosz(ipt) - (refm(iwl) * xx2(ipt)) ) /              &
                          ( cosz(ipt) + (refm(iwl) * xx2(ipt)) ) )**2 )
+  END DO
 
-    ! This gives the direct surface albedo (eq 1 in Jin 2011):
+
+  ! This gives the direct surface albedo (eq 1 in Jin 2011):
+  DO ipt = 1, nd_points
     alb_s_dr(ipt) = rr0(ipt) - ( (rr0(ipt) / rrr(ipt)) * zmod_cosz(ipt) )
+  END DO
 
-    ! and this is the surface diffuse (Eq 5a in Jin 2011):
+  ! and this is the surface diffuse (Eq 5a in Jin 2011):
+  DO ipt = 1, nd_points
     alb_s_df(ipt) = s_df_fit(1) + s_df_fit(2) * sigma(ipt) +                   &
-                    s_df_fit(3) * refm(iwl) + s_df_fit(4) * sigma(ipt) *       &
-                    refm(iwl)
+                    s_df_fit(3) * refm(iwl) + s_df_fit(4) * sigma(ipt) * refm(iwl)
   END DO
 
   ! subsurface albedos, complicated for spectral case,
@@ -376,8 +390,10 @@ DO iwl = 1, nd_wl
     DO ipt = 1, nd_points
       r11_cosz_e(ipt) = rr0_cosz_e(1) - zmod_cosz_e(ipt) * rr0_cosz_e(1) /     &
                                                    rrr_cosz_e(1)
+    END DO
 
-      ! now combine to give the diffuse sub-surface/water leaving albedo:
+    ! now combine to give the diffuse sub-surface/water leaving albedo:
+    DO ipt = 1, nd_points
       alb_w_df(ipt) = r00_cosz_e(ipt) * (1.0 - r22(ipt)) *                     &
                      (1.0 - r11_cosz_e(ipt)) / (1.0 - r00_cosz_e(ipt) *        &
                       r22(ipt))
@@ -397,13 +413,16 @@ DO iwl = 1, nd_wl
   DO ipt = 1, nd_points
     alb_dr_wl(ipt,iwl) = (1.0 - foam_frac(ipt)) * (alb_s_dr(ipt) + alb_w_dr(ipt)) + &
                           foam_frac(ipt) * albedo_whitecap
-    ! then diffuse:
+  END DO
+  ! then diffuse:
+  DO ipt = 1, nd_points
     alb_df_wl(ipt,iwl) = (1.0 - foam_frac(ipt)) * (alb_s_df(ipt) + alb_w_df(ipt)) + &
                           foam_frac(ipt) * albedo_whitecap
   END DO
 
 END DO ! ends main wavelength loop:
-!$OMP END DO NOWAIT
+!$OMP END DO
+
 
 !---------------------------------------------------------------------
 ! Section 3: combine the subsampled wavelengths back onto bands
@@ -443,7 +462,11 @@ IF (i_aggregate_method == 1) THEN
         DO ipt = 1, nd_points
           alb_dr_tmp(ipt) = alb_dr_tmp(ipt) +                                  &
                             alb_dr_wl(ipt,ind_band_wls(ibd,iwl))
-          ! add the values up:
+        END DO
+      END DO
+      ! add the values up:
+      DO iwl = 1, n_band_subsample
+        DO ipt = 1, nd_points
           alb_df_tmp(ipt) = alb_df_tmp(ipt) +                                  &
                             alb_df_wl(ipt,ind_band_wls(ibd,iwl))
         END DO
@@ -451,6 +474,8 @@ IF (i_aggregate_method == 1) THEN
       ! and now divide by n_band_subsample to give the final values:
       DO ipt = 1, nd_points
         osa(ipt, 1, ibd) = alb_dr_tmp(ipt) / n_band_subsample
+      END DO
+      DO ipt = 1, nd_points
         osa(ipt, 2, ibd) = alb_df_tmp(ipt) / n_band_subsample
       END DO
     END DO ! ends loop over bands to aggregate albedos from wavelengths:
@@ -1108,7 +1133,9 @@ ylmd = EXP( 0.014 * (440.0 - wl_nm(1) ) )
 DO ipt = 1, nd_points
   ap(ipt) = (0.06 * chlabs(1) * (chloro_mgm3(ipt)**0.65)) +                    &
               0.2 * (aw440+0.06 * (chloro_mgm3(ipt)**0.65)) * ylmd
+END DO
 
+DO ipt = 1, nd_points
   bp550(ipt) =  0.416 * chloro_mgm3(ipt)**0.766
 END DO
 

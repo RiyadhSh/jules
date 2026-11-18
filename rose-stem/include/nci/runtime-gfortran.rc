@@ -21,14 +21,28 @@
 ###############################################################################
 # 
     [[fcm_make_nci_gfortran_debug]]
-        inherit = NCI_EXTRACT, NCI_GFORTRAN_BUILD
+        inherit = NCI_EXTRACT
+        [[[environment]]]
+            JULES_PLATFORM = nci-gfortran
+            JULES_BUILD = debug
+            JULES_OMP = noomp
+	    
+    [[fcm_make2_nci_gfortran_debug]]
+        inherit = NCI_GFORTRAN_BUILD
         [[[environment]]]
             JULES_PLATFORM = nci-gfortran
             JULES_BUILD = debug
             JULES_OMP = noomp
 
     [[fcm_make_nci_gfortran_omp]]
-        inherit = NCI_EXTRACT, NCI_GFORTRAN_BUILD
+        inherit = NCI_EXTRACT
+        [[[environment]]]
+            JULES_PLATFORM = nci-gfortran
+            JULES_BUILD = normal
+            JULES_OMP = omp
+
+     [[fcm_make2_nci_gfortran_omp]]
+        inherit = NCI_GFORTRAN_BUILD
         [[[environment]]]
             JULES_PLATFORM = nci-gfortran
             JULES_BUILD = normal
@@ -261,7 +275,6 @@
 
 # GSWP2 rivers
     [[nci_gfortran_gswp2_rivers]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = NCI_GFORTRAN_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers
@@ -274,7 +287,6 @@
 
 # GSWP2 rivers restart
     [[nci_gfortran_gswp2_rivers_restart]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = NCI_GFORTRAN_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers_restart
@@ -289,7 +301,6 @@
 
 # GSWP2 trip
     [[nci_gfortran_gswp2_trip]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = NCI_GFORTRAN_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip
@@ -302,7 +313,6 @@
 
 # GSWP2 trip restart
     [[nci_gfortran_gswp2_trip_restart]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = NCI_GFORTRAN_GSWP2
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip_restart
@@ -401,27 +411,6 @@
         inherit = NCI_GFORTRAN_IMOGEN
         [[[environment]]]
             ROSE_TASK_APP = imogen_layeredc
-            DUMP_FILE = ../nci_gfortran_imogen_layeredc_spinup/output/nci_gfortran_imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[nci_gfortran_imogen_layeredc_co2conc]]
-        inherit = NCI_GFORTRAN_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = co2conc
-            DUMP_FILE = ../nci_gfortran_imogen_layeredc_spinup/output/nci_gfortran_imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[nci_gfortran_imogen_layeredc_dtempg]]
-        inherit = NCI_GFORTRAN_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = dtempg
-            DUMP_FILE = ../nci_gfortran_imogen_layeredc_spinup/output/nci_gfortran_imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[nci_gfortran_imogen_layeredc_ch4]]
-        inherit = NCI_GFORTRAN_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = ch4
             DUMP_FILE = ../nci_gfortran_imogen_layeredc_spinup/output/nci_gfortran_imogen_layeredc_spinup.dump.18650101.0.nc
 
 ###############################################################################
@@ -680,21 +669,6 @@
         [[[environment]]]
             OUTPUT_DIR = ../nci_gfortran_imogen_layeredc/output
 
-    [[nccmp_nci_gfortran_imogen_layeredc_co2conc]]
-        inherit = NCI_GFORTRAN_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../nci_gfortran_imogen_layeredc_co2conc/output
-            
-    [[nccmp_nci_gfortran_imogen_layeredc_dtempg]]
-        inherit = NCI_GFORTRAN_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../nci_gfortran_imogen_layeredc_dtempg/output
-            
-    [[nccmp_nci_gfortran_imogen_layeredc_ch4]]
-        inherit = NCI_GFORTRAN_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../nci_gfortran_imogen_layeredc_ch4/output
-            
 ###############################################################################
 ## Housekeeping jobs
 ###############################################################################
@@ -1002,18 +976,3 @@
         inherit = NCI_GFORTRAN_HOUSEKEEPING
         [[[environment]]]
             DIR1 = ../nci_gfortran_imogen_layeredc
-
-    [[housekeep_nci_gfortran_imogen_layeredc_co2conc]]
-        inherit = NCI_GFORTRAN_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../nci_gfortran_imogen_layeredc_co2conc
-
-    [[housekeep_nci_gfortran_imogen_layeredc_dtempg]]
-        inherit = NCI_GFORTRAN_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../nci_gfortran_imogen_layeredc_dtempg
-
-    [[housekeep_nci_gfortran_imogen_layeredc_ch4]]
-        inherit = NCI_GFORTRAN_HOUSEKEEPING
-        [[[environment]]]
-            DIR1 = ../nci_gfortran_imogen_layeredc_ch4

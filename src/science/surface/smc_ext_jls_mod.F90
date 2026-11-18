@@ -17,9 +17,9 @@ CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='SMC_EXT_MOD'
 CONTAINS
 
 SUBROUTINE smc_ext (npnts,nshyd,surft_pts,surft_index,ft                       &
-,                   f_root,sthu,v_open,v_sat,v_close                           &
-,                   bexp, sathh                                                &
-,                   wt_ext,fsmc,psi_root_zone_sox)
+,                   f_root,k_sat,sthu,v_open,v_sat,v_close           &
+,                   bexp,sathh                                                 &
+,                   psi,soil_k,soil_to_root_k,wt_ext,fsmc,psi_root_zone)
 !---------------------------------------------------------------------
 
 ! Description:
@@ -29,9 +29,11 @@ SUBROUTINE smc_ext (npnts,nshyd,surft_pts,surft_index,ft                       &
 
 ! Documentation : UM Documentation Paper 25
 !---------------------------------------------------------------------
-USE pftparm, ONLY: fsmc_mod
-USE hyd_psi_mod, ONLY: psi_from_sthu
-USE jules_vegetation_mod, ONLY: fsmc_shape,stomata_model,stomata_sox
+USE pftparm, ONLY: calc_rz_psi, fsmc_mod, root_psi_crit
+USE hyd_psi_mod, ONLY: psi_from_sthu, bound_soil_psi
+USE jules_vegetation_mod, ONLY: fsmc_shape, leaf_flux_mod, leaf_flux_stom_opt
+USE hyd_con_ic_mod, ONLY: hyd_con_ic
+USE jules_soil_mod, ONLY: l_bound_soil_wp, ds_psi, dzsoil
 
 IMPLICIT NONE
 
@@ -54,6 +56,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
  f_root(npnts,nshyd)                                                           &
                       ! Fraction of roots in each soil
 !                     !    layer.
+,k_sat(npnts,0:nshyd)                                                          &
+!                     ! The saturated hydraulic conductivity (kg/m2/s)
 ,sthu(npnts,nshyd)                                                             &
                       ! Unfrozen soil moisture content of
 !                     !    each layer as a fraction of
@@ -88,17 +92,23 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
                       ! (in m-1) is a parameter in the van Genuchten model
 
 REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
- wt_ext(npnts,nshyd)  ! Cumulative fraction of transpiration
+ psi(npnts,nshyd)                                                              &
+!                     ! Negative soil water potential in each soil layer
+!                     ! (Pa)
+,soil_k(npnts,nshyd)                                                           &
+!                     ! Soil layer conductivity (kg m-2 s-1)
+,soil_to_root_k(npnts,nshyd)                                                   &
+!                     ! Soil to root conductance (kg m-2 s-1)
+,wt_ext(npnts,nshyd)
+!                     ! Cumulative fraction of transpiration
 !                     !    extracted from each soil layer
 !                     !    (kg/m2/s).
 
 REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
- fsmc(npnts)                                                                   &
-                      ! Soil moisture availability
-!                     ! factor.
-,psi_root_zone_sox(npnts)
-                      ! (negative) Soil water potential in root zone (Pa)
-                      ! To be passed up for use by SOX in sf_stom.
+ psi_root_zone(npnts)                                                          &
+!                     ! (negative) soil water potential (in Pa) in root zone
+,fsmc(npnts)
+!                     ! Soil moisture availability factor.
 
 ! work
 INTEGER ::                                                                     &
@@ -108,17 +118,38 @@ REAL(KIND=real_jlslsm) ::                                                      &
  fsmc_l(npnts,nshyd)                                                           &
 !                     ! Soil moisture availability
 !                     !    factor for each soil layer.
-,v_layer(npnts,nshyd)                                                          &
+,psi_open(npnts,nshyd)                                                         &
+!                     ! (negative) soil water potential (in Pa)
+!                     !    of layers above which stomatal
+!                     !    aperture is not limited by soil
+!                     !    water.
+,psi_close(npnts,nshyd)                                                        &
+!                     ! (negative) soil water potential (in Pa)
+!                     !    of layers above which stomatal
+!                     !    aperture is not limited by soil
+!                     !    water.
+,soil_dk_dthk(npnts,nshyd)                                                     &
+!                     ! The rate of change of soil_k with sthu
+!                     !    (kg/m2/s) for each soil layer.
+,sthu_open(npnts,nshyd)                                                        &
+!                     ! Unfrozen soil moisture content of
+!                     !    each layer as a fraction of
+!                     !    saturation, above which stomatal
+!                     !    aperture is not limited by soil
+!                     !    water.
+,sthu_close(npnts,nshyd)                                                       &
+!                     ! Unfrozen soil moisture content of
+!                     !    each layer as a fraction of
+!                     !    saturation, below which stomata
+!                     !    are closed.
+,v_layer(npnts,nshyd)
 !                     ! Volumetric soil moisture
 !                     !    concentration of layer
 !                     !    (m3 H2O/m3 soil).
-,psi(npnts,nshyd)                                                              &
-!                     ! (negative) soil water potential (in Pa) on layers
-,psi_root_zone(npnts)
-!                     ! (negative) soil water potential (in Pa) in root zone
+
 
 REAL(KIND=real_jlslsm) ::                                                      &
- v_root_zone(npnts)                                                            &
+v_root_zone(npnts)                                                             &
 !                     ! Volumetric soil moisture
 !                     !    concentration of root zone
 !                     !    (m3 H2O/m3 soil)
@@ -126,11 +157,13 @@ REAL(KIND=real_jlslsm) ::                                                      &
 !                     ! Volumetric soil moisture
 !                     !    concentration of root zone below which
 !                     !    stomata close (m3 H2O/m3 soil)
-,v_open_root_zone(npnts)
+,v_open_root_zone(npnts)                                                       &
 !                     ! Volumetric soil moisture
 !                     !    concentration above which stomatal aperture is
 !                     !    not limited by soil water.
 !                     !    (m3 H2O/m3 soil).
+,soil_weights(nshyd)
+!                     ! Weightings for soil layer height.
 
 REAL(KIND=real_jlslsm), PARAMETER :: sthu_min = 0.01 ! required by psi_from_sthu
 
@@ -150,12 +183,13 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !$OMP PARALLEL                                                                 &
 !$OMP DEFAULT(NONE)                                                            &
 !$OMP PRIVATE(n,i)                                                             &
-!$OMP SHARED(nshyd,npnts,psi,v_layer,sthu,v_sat,wt_ext,psi_root_zone,fsmc,ones,&
-!$OMP        psi_root_zone_sox)
+!$OMP SHARED(nshyd,npnts,psi,v_layer,sthu,v_sat,wt_ext,psi_root_zone,fsmc,ones,soil_k, soil_to_root_k)
 DO n = 1,nshyd
 !$OMP DO SCHEDULE(STATIC)
   DO i = 1,npnts
     psi(i,n)     = 0.0
+    soil_k(i,n)  = 0.0
+    soil_to_root_k(i,n)   = 0.0
     v_layer(i,n) = sthu(i,n) * v_sat(i,n)
     wt_ext(i,n)  = 0.0
   END DO
@@ -165,7 +199,6 @@ END DO
 !$OMP DO SCHEDULE(STATIC)
 DO i = 1,npnts
   psi_root_zone(i)  = 0.0
-  psi_root_zone_sox(i) = 0.0
   fsmc(i)           = 0.0
   ones(i)           = 1.0
 END DO
@@ -181,7 +214,9 @@ IF ( fsmc_mod(ft) == 1 ) THEN
   v_open_root_zone  = calc_weighted_mean(npnts, nshyd, surft_pts,              &
                                          surft_index, v_open, f_root)
 
-  IF ( fsmc_shape == 1 ) THEN
+  IF ( fsmc_shape == 1 .OR. leaf_flux_mod == leaf_flux_stom_opt                &
+       .OR. leaf_flux_mod == 3                                                 &
+       .OR. calc_rz_psi(ft)) THEN
 !$OMP PARALLEL DO                                                              &
 !$OMP SCHEDULE(STATIC)                                                         &
 !$OMP DEFAULT(NONE)                                                            &
@@ -198,29 +233,9 @@ IF ( fsmc_mod(ft) == 1 ) THEN
 !$OMP END PARALLEL DO
   END IF
 
-  IF ( stomata_model == stomata_sox ) THEN
-!$OMP PARALLEL DO                                                              &
-!$OMP SCHEDULE(STATIC)                                                         &
-!$OMP DEFAULT(NONE)                                                            &
-!$OMP PRIVATE(j,i)                                                             &
-!$OMP SHARED(surft_pts,surft_index,psi_root_zone_sox,v_root_zone,v_sat,sathh,  &
-!$OMP        bexp)
-    DO j = 1,surft_pts
-      i = surft_index(j)
-      ! If SOX is being used psi_root_zone is needed. fsmc_shape is not
-      ! be used in sox - fsmc will be set to 1.0 always
-      psi_root_zone_sox(i) = psi_from_sthu(v_root_zone(i) / v_sat(i,1),        &
-                                       sathh(i,1), bexp(i,1), sthu_min)
-
-    END DO
-!$OMP END PARALLEL DO
-
-    fsmc(:) = 1.0
-
-  ELSE
-    fsmc = fsmc_layer(npnts, surft_pts, surft_index, ft, v_root_zone,          &
-                      v_close_root_zone, v_open_root_zone, ones, psi_root_zone)
-  END IF !stomata_model
+  fsmc = fsmc_layer(npnts,surft_pts,surft_index,                               &
+                    ft, v_root_zone, v_close_root_zone,                        &
+                    v_open_root_zone, ones, psi_root_zone)
 
 !$OMP PARALLEL                                                                 &
 !$OMP DEFAULT(NONE)                                                            &
@@ -241,8 +256,151 @@ IF ( fsmc_mod(ft) == 1 ) THEN
   wt_ext = calc_norm_weights(npnts, nshyd, surft_pts, surft_index,             &
                              wt_ext)
 
+ELSE IF (fsmc_mod(ft) == 2) THEN
+  ! ----------------------------------------------------------------------
+  ! Calculate the soil moisture availability factor for each layer from
+  ! the soil to root resistivity.
+  !
+  ! Refrence G. B. Bonan et al 2014
+  ! Note: This implimentation dose not use the root to stem conductance
+  !       (equation A24) when calculating the below ground resitivity
+  !       (equation A25) only the soil to root conductance (equation A23).
+  !
+  ! Jake Baguley 16/11/23
+  ! ----------------------------------------------------------------------
+
+  ! Calculat the soil moisture concentration limits
+!$OMP PARALLEL                                                                 &
+!$OMP DEFAULT(NONE)                                                            &
+!$OMP PRIVATE(j,i,n)                                                           &
+!$OMP SHARED(surft_pts,surft_index,sthu_open,V_open,V_sat,sthu_close,V_close,nshyd)
+  DO n = 1,nshyd
+!$OMP DO SCHEDULE(STATIC)
+    DO j = 1,surft_pts
+      i = surft_index(j)
+      sthu_open(i,n)  = V_open(i,n)  / V_sat(i,n)
+      sthu_close(i,n) = V_close(i,n) / V_sat(i,n)
+    END DO
+!$OMP END DO NOWAIT
+  END DO
+!$OMP END PARALLEL
+
+  ! Calculate the soil water potential for each layer
+!$OMP PARALLEL                                                                 &
+!$OMP DEFAULT(NONE)                                                            &
+!$OMP PRIVATE(j,i,n)                                                           &
+!$OMP SHARED(surft_pts,surft_index,psi,sthu,sathh,bexp,sthu_min,nshyd)
+  DO n = 1,nshyd
+!$OMP DO SCHEDULE(STATIC)
+    DO j = 1,surft_pts
+      i = surft_index(j)
+      psi(i,n) = psi_from_sthu(sthu(i,n), sathh(i,n), bexp(i,n), sthu_min)
+    END DO
+!$OMP END DO NOWAIT
+  END DO
+!$OMP END PARALLEL
+
+  ! Apply boundry conditions to soil water potentials
+  IF (l_bound_soil_wp) THEN
+!$OMP PARALLEL                                                                 &
+!$OMP DEFAULT(NONE)                                                            &
+!$OMP PRIVATE(j,i,n)                                                           &
+!$OMP SHARED(surft_pts,surft_index,sathh,bexp,sthu_min,psi_open,sthu_open,     &
+!$OMP        psi_close,sthu_close,nshyd)
+    DO n = 1,nshyd
+!$OMP DO SCHEDULE(STATIC)
+      DO j = 1,surft_pts
+      i = surft_index(j)
+      psi_open(i,n)  = psi_from_sthu(sthu_open(i,n),  sathh(i,n),              &
+                                     bexp(i,n), sthu_min)
+      psi_close(i,n) = psi_from_sthu(sthu_close(i,n), sathh(i,n),              &
+                                     bexp(i,n), sthu_min)
+      END DO
+!$OMP END DO NOWAIT
+    END DO
+!$OMP END PARALLEL
+    CALL bound_soil_psi(npnts,nshyd,surft_pts,surft_index,ft,                  &
+                        psi_close, psi_open, psi,                              &
+                        sthu, sthu_close)
+  END IF
+
+  ! NOTE: Inside hyd_con_ic it is designed to iterate over soil_points. By
+  !       substituting surft_pts for soil_pts, and surft_index for soil_index
+  !       this call makes it iterate over surface points.
+  DO n = 1,nshyd
+    CALL hyd_con_ic( npnts, surft_pts, surft_index,                            &
+                     bexp(:,n), k_sat(:,n), sthu(:,n),                         &
+                     soil_k(:,n), soil_dk_dthk(:,n))
+  END DO
+
+  soil_to_root_k = soil_to_root_conductance(npnts,nshyd,surft_pts,surft_index, &
+                                           ft,f_root,                          &
+                                           soil_k)
+
+!$OMP PARALLEL                                                                 &
+!$OMP DEFAULT(NONE)                                                            &
+!$OMP PRIVATE(j,i,n)                                                           &
+!$OMP SHARED(nshyd,surft_pts,surft_index,wt_ext,soil_to_root_k,psi,            &
+!$OMP        root_psi_crit)
+  DO n = 1,nshyd
+!$OMP DO SCHEDULE(STATIC)
+    DO j = 1,surft_pts
+      i = surft_index(j)
+      ! Calculate the transpiration extracted from each soil layer asuming
+      ! the root zone water potential is at the critical value
+      ! (root_psi_crit).
+      wt_ext(i,n) = MAX(soil_to_root_k(i,n) * (psi(i,n) - root_psi_crit(ft)),  &
+                        1.0e-9)
+    END DO
+!$OMP END DO NOWAIT
+  END DO
+!$OMP END PARALLEL
+
+  ! Calculate fraction of water uptake from each layer
+  wt_ext = calc_norm_weights(npnts, nshyd, surft_pts, surft_index,             &
+                             wt_ext)
+
+  !----------------------------------------------------------------------
+  ! Calculate the soil moisture availability factor for each layer and
+  ! weight with the fractional water uptake from each layer to calculate
+  ! the total availability factor.
+  !----------------------------------------------------------------------
+  DO n = 1,nshyd
+    fsmc_l(:,n) = fsmc_layer(npnts,surft_pts,surft_index,                      &
+                             ft, sthu(:,n), v_close(:,n),                      &
+                             v_open(:,n), v_sat(:,n), psi(:,n))
+  END DO
+
+  fsmc = calc_weighted_mean(npnts, nshyd, surft_pts, surft_index,              &
+                            fsmc_l, wt_ext)
+
+
+  !---------------------------------------------------------------------
+  ! If needed calculate the root zone water potential. This is the
+  ! average of the water potential in all the layers weighted by the
+  ! fraction of the transpiration taken from each layer.
+  !---------------------------------------------------------------------
+
+  IF ( leaf_flux_mod == leaf_flux_stom_opt .OR. leaf_flux_mod == 3 .OR. calc_rz_psi(ft) ) THEN
+    psi_root_zone = calc_weighted_mean(npnts, nshyd, surft_pts, surft_index,   &
+                                       psi, wt_ext)
+
+    ! If the root zone water potential is zero then realculate it weighted by
+    ! the layer height. This occurs when fsmc, and subsiquently wt_ext, is zero
+    !for all layers.
+    soil_weights(:) = dzsoil(:) / SUM(dzsoil(:))
+    DO i = 1,npnts
+      IF (psi_root_zone(i) == 0.0) THEN
+        psi_root_zone(i) = SUM(psi(i,:) * soil_weights(:))
+      END IF
+    END DO
+  END IF
+
 ELSE
-  IF ( fsmc_shape == 1 ) THEN
+
+  IF ( fsmc_shape == 1 .OR. leaf_flux_mod == leaf_flux_stom_opt                &
+       .OR. leaf_flux_mod == 3                                                 &
+       .OR. calc_rz_psi(ft)) THEN
 !$OMP PARALLEL                                                                 &
 !$OMP DEFAULT(NONE)                                                            &
 !$OMP PRIVATE(j,i,n)                                                           &
@@ -290,6 +448,27 @@ ELSE
 !$OMP END DO NOWAIT
   END DO
 !$OMP END PARALLEL
+
+  !---------------------------------------------------------------------
+  ! If needed calculate the root zone water potential. This is the
+  ! average of the water potential in all the layers weighted by the
+  ! fraction of the transpiration taken from each layer.
+  !---------------------------------------------------------------------
+
+  IF ( leaf_flux_mod == leaf_flux_stom_opt .OR. leaf_flux_mod == 3 .OR.calc_rz_psi(ft) ) THEN
+    psi_root_zone = calc_weighted_mean(npnts, nshyd, surft_pts, surft_index,   &
+                                       psi, wt_ext)
+
+    ! If the root zone water potential is zero then realculate it weighted by
+    ! the layer height. This occurs when fsmc, and subsiquently wt_ext, is zero
+    !for all layers.
+    soil_weights(:) = dzsoil(:) / SUM(dzsoil(:))
+    DO i = 1,npnts
+      IF (psi_root_zone(i) == 0.0) THEN
+        psi_root_zone(i) = SUM(psi(i,:) * soil_weights(:))
+      END IF
+    END DO
+  END IF
 END IF
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
@@ -307,6 +486,8 @@ FUNCTION calc_norm_weights(npnts, nshyd, surft_pts, surft_index,               &
 !   Language: Fortran 90.
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
+
+USE ereport_mod, ONLY: ereport
 
 IMPLICIT NONE
 
@@ -333,6 +514,7 @@ REAL(KIND=real_jlslsm) :: norm_weights(npnts,nshyd)         ! Normalised weights
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 REAL(KIND=jprb)               :: zhook_handle
+INTEGER :: errcode
 
 CHARACTER(LEN=*), PARAMETER :: RoutineName='CALC_NORM_WEIGHTS'
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
@@ -347,7 +529,18 @@ DO n = 1,nshyd
     norm_factor = SUM(weights(i,:))
 
     IF (norm_factor > 0.0) THEN
-      norm_weights(i,n) = weights(i,n) / norm_factor
+      norm_weights(i,n) = MAX(weights(i,n) / norm_factor, 1.0e-9)
+    ELSE
+      WRITE(*,*) 'ERROR: Normalisation factor is zero in calc_norm_weights'
+      WRITE(*,*) 'npnts = ', npnts, ' nshyd = ', nshyd
+      WRITE(*,*) 'surft_pts = ', surft_pts
+      WRITE(*,*) 'surft_index = ', surft_index
+      WRITE(*,*) 'weights = ', weights(i,:)
+
+      errcode = 1
+      CALL ereport(RoutineName, errcode,                                         &
+                   'Normalisation factor is zero in calc_norm_weights')
+
     END IF
   END DO
 END DO
@@ -435,13 +628,15 @@ INTEGER, INTENT(IN) :: surft_index(npnts)
 INTEGER, INTENT(IN) :: pft  ! Plant functional type.
 
 REAL(KIND=real_jlslsm), INTENT(IN) :: v(npnts), extra_factor(npnts)
-                            ! v*extra_factor is the volumetric soil moisture
+                              ! v*extra_factor is the volumetric soil moisture
 !                             !    concentration in layer
 !                             !    (m3 H2O/m3 soil).
-REAL(KIND=real_jlslsm), INTENT(IN) :: v_close(npnts)  ! Volumetric soil moisture
+REAL(KIND=real_jlslsm), INTENT(IN) :: v_close(npnts)
+                              ! Volumetric soil moisture
 !                             !    concentration below which
 !                             !    stomata close (m3 H2O/m3 soil).
-REAL(KIND=real_jlslsm), INTENT(IN) :: v_open(npnts)  ! Volumetric soil moisture
+REAL(KIND=real_jlslsm), INTENT(IN) :: v_open(npnts)
+                              ! Volumetric soil moisture
 !                             !    concentration above which
 !                             !    stomatal aperture is not limited by soil water.
 !                             !    (m3 H2O/m3 soil).
@@ -453,7 +648,8 @@ REAL(KIND=real_jlslsm) :: x, x_open, x_close
 
 ! returns
 REAL(KIND=real_jlslsm) :: fsmc_l(npnts)
-                       ! soil water availability factor for this soil layer
+                              ! soil water availability factor for this soil
+!                             !    layer.
 
 INTEGER :: i,j
 
@@ -503,5 +699,127 @@ END DO
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
 END FUNCTION fsmc_layer
+
+FUNCTION soil_to_root_conductance(npnts,nshyd,surft_pts,surft_index,ft         &
+,                                 f_root,soil_k)                     &
+                           RESULT(soil_to_root_k)
+!---------------------------------------------------------------------
+
+! Description:
+!     Calculates the conductance to water between the soil and root
+!     per unit area of soil (kg m-3 s-1).
+
+! Refrence: G.B.Bonan et al, 2014, Geoscientific Model Development
+!---------------------------------------------------------------------
+! TODO: Could add OMP to loops
+USE pftparm, ONLY: min_rootc_pft, root_radi_pft, rootc_density_pft, rmass
+
+USE conversions_mod, ONLY: pi
+USE jules_soil_mod, ONLY: dzsoil
+
+IMPLICIT NONE
+
+! Subroutine arguments
+INTEGER, INTENT(IN) ::                                                         &
+ npnts                                                                         &
+                      ! Number of gridpoints.
+,nshyd                                                                         &
+                      ! Number of soil moisture layers.
+,surft_pts                                                                     &
+                      ! Number of points containing the
+!                     !    given surface type.
+,surft_index(npnts)                                                            &
+                      ! Indices on the land grid of the
+!                     !    points containing the given
+!                     !    surface type
+,ft                   ! Plant functional type.
+
+REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
+ f_root(npnts,nshyd)                                                           &
+                      ! Fraction of roots in each soil
+!                     !    layer.
+,soil_k(npnts,nshyd)
+                      ! Soil conductivity in each soil
+!                     !    layer (kg m-2 s-1).
+
+! Internal variables
+INTEGER ::                                                                     &
+ i,j,n                ! Loop counters
+
+REAL(KIND=real_jlslsm) ::                                                      &
+ root_l(npnts,nshyd)                                                           &
+                      ! Root length per unit soil volume
+!                     ! (m m-3).
+,rootc_pft_local(npnts)                                                        &
+                      ! Holds local copy of root mass per unit soil area
+!                     ! (kg m-2).
+,rootc_per_unit_length
+                      ! Holds local calculaion of the root mass per unit root
+!                     ! length (kg m-1).
+
+! Return variable
+REAL(KIND=real_jlslsm) ::                                                      &
+ soil_to_root_k(npnts,nshyd)
+                      ! Soil to root water conductance per unit area of soil
+!                     ! (kg m-3 s-1)
+
+INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
+INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
+REAL(KIND=jprb)               :: zhook_handle
+
+CHARACTER(LEN=*), PARAMETER :: RoutineName='soil_to_root_conductance'
+
+!----------------------------------------------------------------------
+! Initialisations
+!----------------------------------------------------------------------
+IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
+
+! Init local arrays
+rootc_pft_local(:) = min_rootc_pft(ft)
+root_l(:,:) = 0.0
+soil_to_root_k(:,:) = 0.0
+
+! Init local copy of root mass with inforced minimum values
+! Convert to root mass by dividing by root carbon to root mass ratio (rmass)
+!DO j = 1,surft_pts
+!  i = surft_index(j)
+!  rootc_pft_local(i) = MAX(rootc_pft(i), min_rootc_pft(ft))
+!  rootc_pft_local(i) = rootc_pft_local(i) / rmass(ft)
+!END DO
+
+! The following two loops calcualte equation A23 in Bonan et al 2014
+! The first calculates the soil to root conductance per unit root length
+! (kg m-2 s-1).
+! Note r_{sj}/r{r} is substituted by:
+!
+!  r_{s,j}     f_{r,i} m_{r}
+! -------- = (--------------) ^ (-1/2)
+!  r_{r}       rho_r dz_{j}
+!
+! Where f_{r,j} is the root fraction in the layer, m_{r} is the total root mass (kg)
+! and rho_{r} is the root density (kg m-3).
+DO n = 1,nshyd
+  DO j = 1,surft_pts
+    i = surft_index(j)
+    soil_to_root_k(i,n) = 4*pi*soil_k(i,n) /                                       &
+                          LOG(rootc_density_pft(ft) * dzsoil(n) /                  &
+                              f_root(i,n) * rootc_pft_local(i))
+  END DO
+END DO
+
+! To convert root conductance in each layer from per unit root length to per
+! unit soil area we need to multiply by root length per unit area of soil (m m-2).
+rootc_per_unit_length = rootc_density_pft(ft) * pi * root_radi_pft(ft)**2
+DO n = 1,nshyd
+  DO j = 1,surft_pts
+    i = surft_index(j)
+    soil_to_root_k(i,n) = soil_to_root_k(i,n) *(f_root(i,n) * rootc_pft_local(i))/ &
+                                                rootc_per_unit_length
+  END DO
+END DO
+
+IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
+RETURN
+END FUNCTION soil_to_root_conductance
 
 END MODULE smc_ext_mod

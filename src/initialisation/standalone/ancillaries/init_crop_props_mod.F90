@@ -73,16 +73,12 @@ INTEGER :: ERROR  ! Error indicator
 INTEGER :: i  ! Loop counter
 
 LOGICAL ::                                                                     &
-  l_file_list
-    ! Flag indicating if we have a list of files either as variable-name
-    ! templating is being used or we have supplied a list of files.
+  l_have_template
+    ! Flag indicating if variable-name templating is being used.
 
 LOGICAL ::                                                                     &
-  use_var(nvars_max),                                                          &
+  use_var(nvars_max)
     ! Flag indicating if a variable is required.
-  is_climatology(nvars_max) = .FALSE.
-    ! Flag to indicate var is from a 12-month climatology, requiring
-    ! interpolation to the correct time.
 
 CHARACTER(LEN=max_file_name_len) :: file_name(nvars_max)
     ! The name of the file to use for each variable.
@@ -91,16 +87,9 @@ CHARACTER(LEN=max_file_name_len) :: file_name(nvars_max)
 ! Definition of the jules_crop_props namelist
 !-----------------------------------------------------------------------------
 LOGICAL :: read_from_dump
-LOGICAL :: read_list = .FALSE.
-    ! T - The given file contains a list of file names
-    ! F - Ancillary data should be read directly from the given file or template
 CHARACTER(LEN=max_file_name_len) :: FILE
-    ! The file to use for variables that need to be filled from a file.
-    ! Exact usage depends on read_list:
-    ! read_list = T
-    ! Contains a list of files; cannot contain variable name templating.
-    ! read_list = F
-    ! The name of the file (or variable name template).
+                      ! The name of the file (or variable name template) to
+                      ! use for variables that need to be filled from file
 INTEGER :: nvars      ! The number of variables in this section
 CHARACTER(LEN=identifier_len) :: var(nvars_max)
                       ! The variable identifiers of the variables
@@ -117,9 +106,9 @@ CHARACTER(LEN=max_sdf_name_len) :: tpl_name(nvars_max)
 REAL(KIND=real_jlslsm) :: const_val(nvars_max)
                       ! The constant value to use for each variable if
                       ! use_file = F for that variable
-NAMELIST  /jules_crop_props/                                                   &
-                     read_from_dump, FILE, nvars, var, use_file, read_list,    &
-                     var_name, tpl_name, const_val
+NAMELIST  / jules_crop_props/                                                  &
+                     read_from_dump, FILE, nvars, var, use_file, var_name,     &
+                     tpl_name, const_val
 
 CHARACTER(LEN=*), PARAMETER :: RoutineName = 'INIT_CROP_PROPS'
 
@@ -133,7 +122,7 @@ IF ( .NOT. l_crop ) RETURN
 !-----------------------------------------------------------------------------
 ! Initialise some common variables.
 CALL initialise_namelist_vars( nvars, nvars_const, nvars_file,                 &
-                               nvars_required, l_file_list,                    &
+                               nvars_required, l_have_template,                &
                                FILE, const_val, use_file, use_var,             &
                                file_name, tpl_name, var, var_name )
 ! Further initialisation.
@@ -206,9 +195,9 @@ IF ( .NOT. ancil_dump_read%crop_props) THEN !we read from the ancil file
   !----------------------------------------------------------------------------
   CALL check_namelist_values( nvars, nvars_max, nvars_required,                &
                               RoutineName, FILE, const_val,                    &
-                              use_file, read_list, required_vars,              &
-                              tpl_name, var, nvars_const, nvars_file,          &
-                              l_file_list, use_var, file_name, var_name )
+                              use_file, required_vars, tpl_name, var,          &
+                              nvars_const, nvars_file, l_have_template,        &
+                              use_var, file_name, var_name )
 
   !----------------------------------------------------------------------------
   ! Set variables that are using a constant value.
@@ -219,9 +208,8 @@ IF ( .NOT. ancil_dump_read%crop_props) THEN !we read from the ancil file
   !----------------------------------------------------------------------------
   ! Set variables that are to be read from a file.
   !----------------------------------------------------------------------------
-  CALL set_file_vars( nvars, nvars_file, nvars_max, l_file_list,               &
-                      RoutineName, use_file, use_var, file_name, var,          &
-                      var_name, is_climatology )
+  CALL set_file_vars( nvars, nvars_file, nvars_max, l_have_template,           &
+                      RoutineName, use_file, use_var, file_name, var, var_name)
 
   DEALLOCATE(required_vars)
 

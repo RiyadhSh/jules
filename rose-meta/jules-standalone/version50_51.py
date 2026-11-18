@@ -1,11 +1,7 @@
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
+import rose.upgrade
 
 
-class vn50_t289(MacroUpgrade):
+class vn50_t289(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -34,7 +30,7 @@ class vn50_t289(MacroUpgrade):
         return config, self.reports
 
 
-class vn50_t656(MacroUpgrade):
+class vn50_t656(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by dannyeisenberg"""
 
@@ -52,7 +48,7 @@ class vn50_t656(MacroUpgrade):
         return config, self.reports
 
 
-class vn50_t533(MacroUpgrade):
+class vn50_t533(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by J. M. Edwards"""
 
@@ -64,7 +60,7 @@ class vn50_t533(MacroUpgrade):
         self.add_setting(config, ["namelist:jules_snow", "i_basal_melting_opt"], "0")
         return config, self.reports
 
-class vn50_t679(MacroUpgrade):
+class vn50_t679(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Nic Gedney"""
 
@@ -83,8 +79,8 @@ class vn50_t679(MacroUpgrade):
         # Add it to jules_rivers.nml as an optional namelist
         source = self.get_setting_value(config, ["file:jules_rivers.nml","source"])
         if source:
-            self.change_setting_value(config, ["file:jules_rivers.nml","source"],
-                                              source.replace("namelist:jules_rivers",
+            self.change_setting_value(config, ["file:jules_rivers.nml","source"], 
+                                              source.replace("namelist:jules_rivers", 
                                                              "namelist:jules_rivers (namelist:jules_overbank)"))
 
         # Add the new compulsory namelist items.
@@ -104,8 +100,8 @@ class vn50_t679(MacroUpgrade):
         # Add it to ancillaries.nml as an optional namelist
         source = self.get_setting_value(config, ["file:ancillaries.nml","source"])
         if source:
-            self.change_setting_value(config, ["file:ancillaries.nml","source"],
-                                              source.replace("(namelist:jules_rivers_props)",
+            self.change_setting_value(config, ["file:ancillaries.nml","source"], 
+                                              source.replace("(namelist:jules_rivers_props)", 
                                                              "(namelist:jules_rivers_props) (namelist:jules_overbank_props)"))
 
 
@@ -113,7 +109,7 @@ class vn50_t679(MacroUpgrade):
         return config, self.reports
 
 
-class vn50_t483(MacroUpgrade):
+class vn50_t483(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Edward Comyn-Platt"""
 
@@ -135,7 +131,7 @@ class vn50_t483(MacroUpgrade):
         return config, self.reports
 
 
-class vn50_t171(MacroUpgrade):
+class vn50_t171(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Sarah Chadburn"""
 
@@ -151,7 +147,7 @@ class vn50_t171(MacroUpgrade):
         return config, self.reports
 
 
-class vn50_vn51(MacroUpgrade):
+class vn50_vn51(rose.upgrade.MacroUpgrade):
 
     """Version bump macro"""
 

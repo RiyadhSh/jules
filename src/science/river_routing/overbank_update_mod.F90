@@ -18,7 +18,7 @@ SUBROUTINE overbank_update(rfm_rivflow_rp)
 !
 ! Description:
 !
-!   Calculate river inundation for diagnostic models of inundation.
+!   Calculate river inundation
 !
 !  Code Owner: Please refer to ModuleLeaders.txt
 !  This file belongs in section: Hydrology
@@ -35,8 +35,7 @@ USE jules_rivers_mod, ONLY:                                                    &
 
 USE overbank_inundation_mod, ONLY:                                             &
    !  imported scalar parameters
-   overbank_hypsometric, overbank_quantiles, overbank_simple,                  &
-   overbank_simple_rosgen,                                                     &
+   overbank_hypsometric, overbank_simple, overbank_simple_rosgen,              &
    !  imported scalars with intent(in)
    overbank_model, riv_a, riv_b, riv_c, riv_f, ent_ratio,                      &
    !  imported arrays with intent(in)
@@ -68,15 +67,6 @@ INTEGER :: ip
 
 ! Rivers arrays
 REAL, INTENT(IN OUT) :: rfm_rivflow_rp(:)
-
-!------------------------------------------------------------------------------
-! This routine only applies to diagnostic models of overbank inundation.
-!------------------------------------------------------------------------------
-SELECT CASE ( overbank_model )
-CASE ( overbank_quantiles )
-  ! This is not a diagnostic model. Nothing more to do here.
-  RETURN
-END SELECT
 
 !------------------------------------------------------------------------------
 ! Initialisation

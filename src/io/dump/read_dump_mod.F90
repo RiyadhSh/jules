@@ -1,4 +1,4 @@
-#if !defined(RIVERS_ONLY)
+#if !defined(UM_JULES)
 ! *****************************COPYRIGHT**************************************
 ! (C) Crown copyright Met Office. All rights reserved.
 ! For further details please refer to the file COPYRIGHT.txt
@@ -58,18 +58,23 @@ USE aero, ONLY:                                                                &
 !Others
 USE mpi, ONLY: mpi_real, mpi_logical, mpi_integer
 USE jules_vars_mod, ONLY: mpi_local_comm
+USE io_constants, ONLY:                                                        &
+  mode_read, max_dim_var, max_sdf_name_len
 
 USE parallel_mod, ONLY:                                                        &
   master_task_id, is_master_task, scatter_land_field
 
+USE string_utils_mod, ONLY:                                                    &
+  to_string
+
 USE file_mod, ONLY:                                                            &
-  file_handle, file_read_var, file_close
+  file_handle, file_open, file_introspect,                                     &
+  file_inquire_dim, file_inquire_var, file_read_var,                           &
+  file_close
 
 USE dump_mod,         ONLY: ancil_dump_read
 USE logging_mod,      ONLY: log_fatal
-
-USE read_dump_shared_mod,     ONLY: read_dump_shared
-USE read_dump_var_rivers_mod, ONLY: read_dump_var_rivers
+USE get_dim_info_mod, ONLY: get_dim_info
 
 IMPLICIT NONE
 
@@ -93,6 +98,12 @@ CHARACTER(LEN=*) :: file_name  ! The dump file
 CHARACTER(LEN=*) :: identifiers(:)  ! The model identifiers for the
                                     ! variables to define
 
+! Local parameters.
+LOGICAL, PARAMETER :: l_reading_true = .TRUE.
+  ! A value of .TRUE. that is passed to argument l_reading of subroutine
+  ! get_dim_info to show that it is being called in connection with reading
+  ! (rather than writing) a dump.
+
 ! Work variables
 TYPE(file_handle) :: FILE
   ! The opened file
@@ -100,8 +111,39 @@ TYPE(file_handle) :: FILE
 INTEGER :: nvars
   ! The number of variables we are processing
 
+INTEGER :: dim_size_file
+  ! The size of the dimension currently being
+  ! processed in the file
+
+! Used when defining dimensions and variables
+INTEGER :: ndims
+  ! The number of dimensions the current variable has
+CHARACTER(LEN=max_sdf_name_len) :: dim_names(max_dim_var)
+  ! The dimension names the current variable should use
+INTEGER :: dim_sizes(max_dim_var)
+  ! The dimension sizes for the current variable
+INTEGER :: dim_ids(max_dim_var)
+  ! The dimension ids for the current variable as
+  ! calculated from file_inquire_dim
+LOGICAL :: is_record_dim
+  ! Detects if the current dimension is a record dim
+INTEGER :: ndims_file
+  ! The number of dimensions the variable has in file
+  ! Compared to ndims above for each variable
+INTEGER :: dim_ids_file(max_dim_var)
+  ! The ids of the dimensions the variable has in the file
+  ! Compared to dim_ids above to verify the variable has the
+  ! correct dimensions
+
 INTEGER :: var_ids(SIZE(identifiers))
   ! The ids of the variables in the dump file
+
+LOGICAL :: is_record_var
+  ! Indicates if a variable uses the record dimension
+
+LOGICAL :: l_read_from_dump
+  ! Used to bypass checking the dimensions of ancil variables that are
+  ! not to be read from the dump.
 
 REAL :: frac_irrig_all_tiles_real
 REAL :: set_irrfrac_irrtiles_real
@@ -132,15 +174,104 @@ REAL, ALLOCATABLE :: global_data_4d(:,:,:,:) ! With 3 "vertical" levels
 
 !-----------------------------------------------------------------------------
 
+nvars = SIZE(identifiers)
 IF (ALLOCATED(progs_data%seed_rain)) THEN
   seed_rain_len = SIZE(progs_data%seed_rain)
 ELSE
   seed_rain_len = 0
 END IF
 
-! Check that the given file is a dump compatible with the current
-! run, and read the given identifiers from it.
-CALL read_dump_shared(file_name, identifiers, nvars, FILE, var_ids)
+!-----------------------------------------------------------------------------
+! In the master task only, we open the file and check that the correct
+! dimensions exist and are of a size compatible with this run
+!-----------------------------------------------------------------------------
+IF ( is_master_task() ) THEN
+  !-----------------------------------------------------------------------------
+  ! We use the lowest level file API here, as we don't want to impose the input
+  ! grid
+  !-----------------------------------------------------------------------------
+  FILE=file_open(file_name, mode_read)
+
+  ! We want to auto-detect the dimensions and variables in the file
+  CALL file_introspect(FILE)
+
+  DO i = 1,nvars
+
+    !-----------------------------------------------------------------------
+    ! Get information about the dimensions used by the variable.
+    ! The argument l_reading_true shows that we are reading (not writing) a
+    ! dump.
+    !-----------------------------------------------------------------------
+    CALL get_dim_info( l_reading_true, identifiers(i), ndims,  dim_sizes,      &
+                       dim_names, l_read_from_dump )
+
+    !-------------------------------------------------------------------------
+    ! Check the dimensions exist and have the correct size
+    !-------------------------------------------------------------------------
+    IF ( l_read_from_dump ) THEN
+      DO j = 1,ndims
+        ! Retrive information about the dimension from the file we store the id
+        ! for use outside this loop
+        CALL file_inquire_dim(                                                 &
+          FILE, dim_names(j), dim_ids(j), dim_size_file, is_record_dim         &
+        )
+
+        ! Check that we found a dimension
+        IF ( dim_ids(j) < 0 )                                                  &
+          CALL log_fatal("read_dump",                                          &
+                         "Could not find expected dimension '" //              &
+                         TRIM(dim_names(j)) // "' in dump file")
+
+        ! Check that the dimension is not a record dimension (there shouldn't
+        ! be one in dump files).
+        IF ( is_record_dim )                                                   &
+          CALL log_fatal("read_dump",                                          &
+                         "Dimension '" // TRIM(dim_names(j)) // "' is a " //   &
+                         "record dimension - should not exist in dump file")
+
+        ! Check that the dimension has the correct size
+        IF ( dim_size_file /= dim_sizes(j) )                                   &
+          CALL log_fatal("read_dump",                                          &
+                         "Dimension '" // TRIM(dim_names(j)) // "' has " //    &
+                         "size incompatible with current run (required: " //   &
+                         TRIM(to_string(dim_sizes(j))) // ", found: " //       &
+                         TRIM(to_string(dim_size_file)) // ")")
+      END DO  ! dims
+
+      !-----------------------------------------------------------------------
+      ! Check that the variable exists and has the correct dimensions
+      !-----------------------------------------------------------------------
+      ! Retrieve information about the variable from the file
+      CALL file_inquire_var(                                                   &
+        FILE, identifiers(i), var_ids(i), ndims_file, dim_ids_file,            &
+        is_record_var                                                          &
+      )
+
+      ! Check that we found a variable
+      IF ( var_ids(i) < 1 )                                                    &
+        CALL log_fatal("read_dump",                                            &
+                       "Failed to find requested variable '" //                &
+                       TRIM(identifiers(i)) // "' in dump file")
+
+      ! Check that the number of dimensions match
+      IF ( ndims_file /= ndims )                                               &
+        CALL log_fatal("read_dump",                                            &
+                       "Variable '" // TRIM(identifiers(i)) // "' has " //     &
+                       "incorrect number of dimensions in dump file (" //      &
+                       "expected: " // TRIM(to_string(ndims)) // ", " //       &
+                       "found: " // TRIM(to_string(ndims_file)) // ")")
+
+      ! Check that the dimension ids match
+      IF ( .NOT. ALL(dim_ids(1:ndims) == dim_ids_file(1:ndims)) )              &
+        CALL log_fatal("read_dump",                                            &
+                       "Variable '" // TRIM(identifiers(i)) // "' has " //     &
+                       "incorrect dimensions in dump file")
+
+    END IF  !  l_read_from_dump
+
+  END DO  ! vars
+
+END IF  ! MASTER TASK
 
 !-----------------------------------------------------------------------------
 ! Set the requested variables from the file
@@ -293,6 +424,22 @@ DO i = 1,nvars
     CASE ( 'ch4_ppbv' )
       CALL file_read_var(FILE, var_ids(i), imgn_vars%ch4_ppbv)
 
+      ! River routing variables
+    CASE ( 'rivers_sto_rp' )
+      CALL file_read_var(FILE, var_ids(i), rivers%rivers_sto_rp)
+
+    CASE ( 'rfm_surfstore_rp' )
+      CALL file_read_var(FILE, var_ids(i), rivers%rfm_surfstore_rp)
+
+    CASE ( 'rfm_substore_rp' )
+      CALL file_read_var(FILE, var_ids(i), rivers%rfm_substore_rp)
+
+    CASE ( 'rfm_flowin_rp' )
+      CALL file_read_var(FILE, var_ids(i), rivers%rfm_flowin_rp)
+
+    CASE ( 'rfm_bflowin_rp' )
+      CALL file_read_var(FILE, var_ids(i), rivers%rfm_bflowin_rp)
+
       !----------------------------------------------------------------------
       ! Ancillary variables
       !----------------------------------------------------------------------
@@ -407,7 +554,7 @@ DO i = 1,nvars
       END IF
 
       ! Water resources properties ancil namelist
-    CASE ( 'conv_loss_frac', 'sfc_water_frac' )
+    CASE ( 'conveyance_loss', 'irrig_eff', 'sfc_water_frac' )
       IF ( ancil_dump_read%water_resources_props ) THEN
         CALL file_read_var(FILE, var_ids(i), global_data_1d)
       END IF
@@ -419,8 +566,9 @@ DO i = 1,nvars
       END IF
 
     CASE DEFAULT
-      ! Cases for river routing variables plus log fatal for unknown identifier
-      CALL read_dump_var_rivers( identifiers(i), FILE, var_ids(i) )
+      CALL log_fatal("read_dump",                                              &
+                     "Unexpected variable in dump - " //                       &
+                     TRIM(identifiers(i)))
     END SELECT
   END IF  ! MASTER TASK
 
@@ -983,11 +1131,8 @@ DO i = 1,nvars
                    master_task_id, mpi_local_comm, ERROR)
 
     ! River routing variables
-  CASE ( 'flood_flow', 'flood_flow_prev', 'flood_storage',                     &
-         'flood_storage_prev', 'rfm_bflowin_rp', 'rfm_flowin_rp',              &
-         'rfm_substore_rp', 'rfm_surfstore_rp', 'river_channel_storage',       &
-         'river_channel_flow', 'river_depth_prev', 'river_flow_prev',          &
-         'rivers_outflow_rp', 'rivers_sto_rp' )
+  CASE ( 'rivers_sto_rp', 'rfm_surfstore_rp', 'rfm_substore_rp',               &
+         'rfm_flowin_rp', 'rfm_bflowin_rp' )
     ! nothing to do
 
     !-------------------------------------------------------------------------
@@ -1449,9 +1594,14 @@ DO i = 1,nvars
     END IF
 
     ! Water resources properties ancil namelist
-  CASE ( 'conv_loss_frac' )
+  CASE ( 'conveyance_loss' )
     IF ( ancil_dump_read%water_resources_props ) THEN
-      CALL scatter_land_field(global_data_1d, water_resources%conv_loss_frac)
+      CALL scatter_land_field(global_data_1d, water_resources%conveyance_loss)
+    END IF
+
+  CASE ( 'irrig_eff' )
+    IF ( ancil_dump_read%water_resources_props ) THEN
+      CALL scatter_land_field(global_data_1d, water_resources%irrig_eff)
     END IF
 
   CASE ( 'sfc_water_frac' )

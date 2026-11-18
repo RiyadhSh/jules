@@ -1,12 +1,8 @@
+import rose.upgrade
 import re
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 
-class vn47_t414(MacroUpgrade):
+class vn47_t414(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Adrian Lock"""
 
@@ -19,9 +15,9 @@ class vn47_t414(MacroUpgrade):
         # Add settings
         self.add_setting(config, ["namelist:jules_snow", "graupel_options"],
                          "0")
-        return config, self.reports
+        return config, self.reports    
 
-class vn47_t413(MacroUpgrade):
+class vn47_t413(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -36,11 +32,11 @@ class vn47_t413(MacroUpgrade):
         source = self.get_setting_value(config, ["namelist:jules_initial", "total_snow"])
         if not source:
             self.add_setting(config, ["namelist:jules_initial", "total_snow"], ".true.")
-
+        
         return config, self.reports
 
 
-class vn47_t456(MacroUpgrade):
+class vn47_t456(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Chantelle Burton"""
 
@@ -54,7 +50,7 @@ class vn47_t456(MacroUpgrade):
         self.add_setting(config, ["namelist:jules_vegetation", "l_trif_fire"], ".false.")
         return config, self.reports
 
-class vn47_t428(MacroUpgrade):
+class vn47_t428(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -71,7 +67,7 @@ class vn47_t428(MacroUpgrade):
         return config, self.reports
 
 
-class vn47_t334(MacroUpgrade):
+class vn47_t334(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Glenn Greed"""
 
@@ -95,9 +91,9 @@ class vn47_t334(MacroUpgrade):
         if (namelsts):
             namelsts=namelsts.replace("namelist:urban_switches", "namelist:jules_urban_switches")
             namelsts=namelsts.replace("namelist:urban2t_param", "namelist:jules_urban2t_param")
-            self.change_setting_value(config, ["file:urban.nml","source"],
+            self.change_setting_value(config, ["file:urban.nml","source"], 
                                                              namelsts)
-
+        
         for obj in config.get_value():
             if re.search(r'namelist:urban2t_param',obj):
                 namelist.append(obj)
@@ -110,10 +106,10 @@ class vn47_t334(MacroUpgrade):
                 self._rename_section_fast(config, obj,new_obj)
             elif re.search(r'namelist:urban_switches',obj):
                 new_obj = obj.replace("namelist:urban_switches", "namelist:jules_urban_switches")
-                self._rename_section_fast(config, obj,new_obj)
+                self._rename_section_fast(config, obj,new_obj)    
         return config, self.reports
 
-class vn47_t417(MacroUpgrade):
+class vn47_t417(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Kerry Smout-Day"""
 
@@ -122,7 +118,7 @@ class vn47_t417(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration.
-           Point um_trip to trip, um_rfm to rfm as the
+           Point um_trip to trip, um_rfm to rfm as the 
            values have been removed.
         """
 
@@ -143,7 +139,7 @@ class vn47_t417(MacroUpgrade):
         return config, self.reports
 
 
-class vn47_t322(MacroUpgrade):
+class vn47_t322(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -152,8 +148,8 @@ class vn47_t322(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
-        """
+               
+        """ 
          Create new namelist jules_soil_biogeochem for soil biogeochemical options
          and populate it with new items and items moved from other namelists.
         """
@@ -184,19 +180,19 @@ class vn47_t322(MacroUpgrade):
         # Move settings from jules_vegetation.
         self.rename_setting(config, ["namelist:jules_vegetation", "l_q10"], ["namelist:jules_soil_biogeochem", "l_q10"] )
         self.rename_setting(config, ["namelist:jules_vegetation", "l_soil_resp_lev2"], ["namelist:jules_soil_biogeochem", "l_soil_resp_lev2"] )
-
+                
         # Add the new file containing the new namelist
         self.add_setting(config, ["file:jules_soil_biogeochem.nml","source"], "namelist:jules_soil_biogeochem")
-
+                
         return config, self.reports
 
 
-class vn47_vn48(MacroUpgrade):
+class vn47_vn48(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.7_t322"
     AFTER_TAG = "vn4.8"
 
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

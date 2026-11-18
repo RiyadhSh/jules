@@ -44,9 +44,7 @@ CONTAINS
 SUBROUTINE deposition_ukca_surfddr(                                            &
   row_length, rows, land_pts, ntype, npft, land_index_ij, tundra_mask,         &
   t0, p0, rh, surf_wetness, u_s, gsf, t0tile, smr_lp, stcon_lp, lai_lp,        &
-  nsurft, dim_cs1, vol_smc_sat_dep, snow_depth, soil_carbon_dep,               &
-  deep_soil_temp_dep, soil_sand, so4_vd, rc, rc_stom, rc_nonstom,              &
-  o3_stom_frac )
+  so4_vd, rc, rc_stom, rc_nonstom, o3_stom_frac )
 
 ! The following UKCA modules have been replaced:
 ! (1) asad_mod for ndepd, speci, nldepd, jpdd
@@ -59,11 +57,7 @@ USE deposition_ukca_var_mod, ONLY: ndepd_jules, speci_jules, nldepd_jules
 USE jules_deposition_mod,    ONLY: l_ukca_ddepo3_ocean,                        &
                                    l_ukca_dry_dep_so2wet,                      &
                                    l_ukca_emsdrvn_ch4,                         &
-                                   dep_rnull,                                  &
-                                   dep_h2_soil_scheme,                         &
-                                   dep_h2_scheme_conrad,                       &
-                                   dep_h2_scheme_paulot
-
+                                   dep_rnull
 
 USE jules_science_fixes_mod, ONLY: l_fix_improve_drydep,                       &
                                    l_fix_ukca_h2dd_x,                          &
@@ -95,6 +89,10 @@ USE deposition_initialisation_surfddr_mod,                                     &
                                    h2dd_sf, h2dd_dep_rmax, h2dd_sm_min,        &
                                    secs_in_hour, ten, zero_int
 
+#if defined(UM_JULES)
+USE UM_ParCore, ONLY: mype
+#endif
+
 USE jules_print_mgr,         ONLY: jules_print, jules_message
 
 USE ereport_mod,             ONLY:                                             &
@@ -102,9 +100,8 @@ USE ereport_mod,             ONLY:                                             &
 
 USE deposition_output_arrays_mod, ONLY: deposition_output_array_real
 
-USE deposition_ukca_ddepo3_ocean_mod, ONLY: deposition_ukca_ddepo3_ocean
-
-USE deposition_ukca_h2dd_soil_mod, ONLY: deposition_ukca_h2dd_soil
+USE deposition_ukca_ddepo3_ocean_mod, ONLY:                                    &
+    deposition_ukca_ddepo3_ocean
 
 USE jules_surface_types_mod, ONLY:                                             &
     brd_leaf,                                                                  &
@@ -147,10 +144,6 @@ INTEGER, INTENT(IN) ::                                                         &
     ! Number of land points
   ntype,                                                                       &
     ! Number of surface types
-  nsurft,                                                                      &
-    ! Number of surface tiles
-  dim_cs1,                                                                     &
-    ! Number of pools for soil carbon (cs)
   npft
     ! Number of plant functional types
 
@@ -182,24 +175,6 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   smr_lp(land_pts),                                                            &
     ! Soil moisture content (Fraction by volume)
-  vol_smc_sat_dep(land_pts),                                                   &
-    ! volumetric saturation point (m3 water / m3 of soil)
-    ! for Paulot H2 deposition scheme
-    ! equivalent to psparms%smvcst_soilt
-  snow_depth(land_pts,nsurft),                                                 &
-    ! snow depth on ground on tiles (m)
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%snowdepth_surft
-  soil_carbon_dep(land_pts,dim_cs1),                                           &
-    ! soil moisture
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%cs_pool_soilt
-  deep_soil_temp_dep(land_pts),                                                &
-    ! sub-surface temperature for surface layer (K)
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%t_soil_soilt
-  soil_sand(land_pts),                                                         &
-    ! fraction of soil that is sand
   lai_lp(land_pts, npft),                                                      &
     ! Leaf area index (m2 leaf m-2)
   stcon_lp(land_pts, npft)
@@ -219,8 +194,6 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
 LOGICAL, INTENT(IN) ::                                                         &
   tundra_mask(row_length,rows)
     ! identifies high-latitude grid cells as tundra
-
-! ------------------------------------------------------------------------------
 
 ! Local variables
 INTEGER :: errcode
@@ -268,12 +241,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
 REAL(KIND=real_jlslsm) ::                                                      &
   r_stom(row_length,rows,npft,r_stom_spec)
     ! Stomatal resistance
-
-! For H2 deposition scheme ------------------
-REAL(KIND=real_jlslsm) ::                                                      &
-  rc_h2(row_length,rows,ntype)
-    ! Dry deposition for H2 uptake (rc)
-! ---------------------------------------------
 
 LOGICAL :: todo(row_length,rows,ntype)
   ! True if tile fraction > min_tile_frac
@@ -707,227 +674,210 @@ DO m = 1, ndepd_jules
   CASE ( 'H2        ' )
     ! Deposition/Uptake of H2
 
-    SELECT CASE( dep_h2_soil_scheme )
-    CASE ( dep_h2_scheme_conrad )
-      ! Sanderson et al. (2003), based on Conrad & Seiler. Uses land-use type
-      DO n = 1, npft
+    DO n = 1, npft
 
-        IF (n == c4_grass .OR. n == c4_pasture .OR. n == c4_crop) THEN
-          ! C4 grass
-          ! H2 dry dep has quadratic-log dependence on soil moisture
-          ! Sanderson et al., JACS, 2003
-          DO j = 1, rows
-            DO i = 1, row_length
-              IF (todo(i,j,n) .AND. microb(i,j)) THEN
-                l = land_index_ij(i,j)
-                IF (l == imdi) THEN
-                  sm = LOG(h2dd_sm_min)
-                ELSE
-                  sm = LOG(MAX(smr_lp(l),h2dd_sm_min))
-                END IF
-                IF (l_fix_ukca_h2dd_x) THEN
-                  rr = (h2dd_c(n) + sm*(h2dd_m(n) + sm*h2dd_q(n))) * h2dd_sf
-                ELSE
-                  rr = (h2dd_c(n) + sm*(h2dd_m(n) + sm*h2dd_q(n)))
-                END IF
-                IF (rr > h2dd_dep_rmax) THEN
-                  rr = h2dd_dep_rmax       ! Conrad/Seiler Max value
-                END IF
-                rc(i,j,n,m) = one / rr
+      IF (n == c4_grass .OR. n == c4_pasture .OR. n == c4_crop) THEN
+        ! C4 grass
+        ! H2 dry dep has quadratic-log dependence on soil moisture
+        ! Sanderson et al., JACS, 2003
+        DO j = 1, rows
+          DO i = 1, row_length
+            IF (todo(i,j,n) .AND. microb(i,j)) THEN
+              l = land_index_ij(i,j)
+              IF (l == imdi) THEN
+                sm = LOG(h2dd_sm_min)
+              ELSE
+                sm = LOG(MAX(smr_lp(l),h2dd_sm_min))
               END IF
-            END DO
-          END DO
-
-        ELSE IF (n == shrub .OR. n == shrub_dec .OR. n == shrub_eg) THEN
-          ! Shrub and bare soil
-          ! H2 dry dep velocity has no dependence on soil moisture
-
-          DO j = 1, rows
-            DO i = 1, row_length
-              IF (todo(i,j,n) .AND. microb(i,j)) THEN
-                IF (tundra_mask(i,j)) THEN
-
-                  ! treat shrub as shrub above tundra limit
-                  IF ( l_fix_ukca_h2dd_x ) THEN
-                    rc(i,j,n,m) = one / (h2dd_c(n) * h2dd_sf)
-                  ELSE
-                    rc(i,j,n,m) = one / (h2dd_c(n))
-                  END IF
-
-                ELSE
-
-                  ! Effectively C3 grass
-                  l = land_index_ij(i,j)
-                  IF (l == imdi) THEN
-                    sm = h2dd_sm_min
-                  ELSE
-                    sm = MAX(smr_lp(l),h2dd_sm_min)
-                  END IF
-                  IF (c3_crop > 0) THEN
-                    IF ( l_fix_ukca_h2dd_x ) THEN
-                      rc(i,j,n,m) =  one /                                     &
-                        ((h2dd_m(c3_crop)*sm + h2dd_c(c3_crop)) *h2dd_sf)
-                    ELSE
-                      rc(i,j,n,m) =  one /                                     &
-                        (h2dd_m(c3_crop)*sm + h2dd_c(c3_crop))
-                    END IF
-                  END IF
-
-                  IF (c3_pasture > 0) THEN
-                    IF ( l_fix_ukca_h2dd_x ) THEN
-                      rc(i,j,n,m) = one /                                      &
-                        ((h2dd_m(c3_pasture)*sm + h2dd_c(c3_pasture)) *h2dd_sf)
-                    ELSE
-                      rc(i,j,n,m) = one /                                      &
-                        (h2dd_m(c3_pasture)*sm + h2dd_c(c3_pasture))
-                    END IF
-                  END IF
-
-                  IF (c3_grass > 0) THEN
-                    IF ( l_fix_ukca_h2dd_x ) THEN
-                      rc(i,j,n,m) = one /                                      &
-                        ((h2dd_m(c3_grass)*sm + h2dd_c(c3_grass)) *h2dd_sf)
-                    ELSE
-                      rc(i,j,n,m) = one /                                      &
-                        (h2dd_m(c3_grass)*sm + h2dd_c(c3_grass))
-                    END IF
-                  END IF
-                END IF
+              IF (l_fix_ukca_h2dd_x) THEN
+                rr = (h2dd_c(n) + sm*(h2dd_m(n) + sm*h2dd_q(n))) * h2dd_sf
+              ELSE
+                rr = (h2dd_c(n) + sm*(h2dd_m(n) + sm*h2dd_q(n)))
               END IF
-            END DO
+              IF (rr > h2dd_dep_rmax) THEN
+                rr = h2dd_dep_rmax       ! Conrad/Seiler Max value
+              END IF
+              rc(i,j,n,m) = one / rr
+            END IF
           END DO
+        END DO
 
-        ELSE
-          ! All other pfts
-          ! H2 dry deposition velocity has linear dependence on soil moisture
-          ! Limit soil moisture to avoid excessively high deposition velocities
+      ELSE IF (n == shrub .OR. n == shrub_dec .OR. n == shrub_eg) THEN
+        ! Shrub and bare soil
+        ! H2 dry dep velocity has no dependence on soil moisture
 
-          DO j = 1, rows
-            DO i = 1, row_length
-              IF (todo(i,j,n) .AND. microb(i,j)) THEN
+        DO j = 1, rows
+          DO i = 1, row_length
+            IF (todo(i,j,n) .AND. microb(i,j)) THEN
+              IF (tundra_mask(i,j)) THEN
+
+                ! treat shrub as shrub above tundra limit
+                IF ( l_fix_ukca_h2dd_x ) THEN
+                  rc(i,j,n,m) = one / (h2dd_c(n) * h2dd_sf)
+                ELSE
+                  rc(i,j,n,m) = one / (h2dd_c(n))
+                END IF
+
+              ELSE
+
+                ! Effectively C3 grass
                 l = land_index_ij(i,j)
                 IF (l == imdi) THEN
                   sm = h2dd_sm_min
                 ELSE
                   sm = MAX(smr_lp(l),h2dd_sm_min)
                 END IF
-                IF ( l_fix_ukca_h2dd_x ) THEN
-                  rc(i,j,n,m) = one /                                          &
-                    ((h2dd_m(n) * sm + h2dd_c(n) ) * h2dd_sf)
-                ELSE
-                  rc(i,j,n,m) = one /                                          &
-                    (h2dd_m(n) * sm + h2dd_c(n) )
+                IF (c3_crop > 0) THEN
+                  IF ( l_fix_ukca_h2dd_x ) THEN
+                    rc(i,j,n,m) =  one /                                       &
+                      ((h2dd_m(c3_crop)*sm + h2dd_c(c3_crop)) *h2dd_sf)
+                  ELSE
+                    rc(i,j,n,m) =  one /                                       &
+                      (h2dd_m(c3_crop)*sm + h2dd_c(c3_crop))
+                  END IF
+                END IF
+
+                IF (c3_pasture > 0) THEN
+                  IF ( l_fix_ukca_h2dd_x ) THEN
+                    rc(i,j,n,m) = one /                                        &
+                      ((h2dd_m(c3_pasture)*sm + h2dd_c(c3_pasture)) *h2dd_sf)
+                  ELSE
+                    rc(i,j,n,m) = one /                                        &
+                      (h2dd_m(c3_pasture)*sm + h2dd_c(c3_pasture))
+                  END IF
+                END IF
+
+                IF (c3_grass > 0) THEN
+                  IF ( l_fix_ukca_h2dd_x ) THEN
+                    rc(i,j,n,m) = one /                                        &
+                      ((h2dd_m(c3_grass)*sm + h2dd_c(c3_grass)) *h2dd_sf)
+                  ELSE
+                    rc(i,j,n,m) = one /                                        &
+                      (h2dd_m(c3_grass)*sm + h2dd_c(c3_grass))
+                  END IF
                 END IF
               END IF
-            END DO
+            END IF
           END DO
+        END DO
 
-        END IF
-
-      END DO ! End loop over pfts
-
-      ! Uptake by bare soil
-      IF ( l_fix_ukca_h2dd_x ) THEN
-        n = soil
       ELSE
-        ! Treat as shrub
-        IF (shrub_dec > 0) THEN
-          n = shrub_dec
-        END IF
-        IF (shrub_eg  > 0) THEN
-          n = shrub_eg
-        END IF
-        IF (ntype == 9) THEN
-          IF ( l_fix_ukca_h2dd_x ) THEN
-            n = npft
-          ELSE
-            n = shrub
-          END IF
-        END IF
-      END IF
+        ! All other pfts
+        ! H2 dry deposition velocity has linear dependence on soil moisture
+        ! Limit soil moisture to avoid excessively high deposition velocities
 
-      DO j = 1, rows
-        DO i = 1, row_length
-          IF (todo(i,j,n) .AND. microb(i,j)) THEN
-            IF (tundra_mask(i,j)) THEN
-              ! treat soil as shrub above tundra limit
-              IF (shrub_dec > 0) THEN
-                IF ( l_fix_ukca_h2dd_x ) THEN
-                  rr = one / (h2dd_c(shrub_dec)*h2dd_sf)
-                ELSE
-                  rr = one / h2dd_c(shrub_dec)
-                END IF
-              END IF
-              IF (shrub_eg > 0) THEN
-                IF ( l_fix_ukca_h2dd_x ) THEN
-                  rr = one / (h2dd_c(shrub_eg)*h2dd_sf)
-                ELSE
-                  rr = one / h2dd_c(shrub_eg)
-                END IF
-              END IF
-              IF (ntype == 9) THEN
-                IF ( l_fix_ukca_h2dd_x ) THEN
-                  rr = one / (h2dd_c(shrub)*h2dd_sf)
-                ELSE
-                  rr = one / h2dd_c(npft)
-                END IF
-              END IF
-              rc(i,j,soil,m) = one / rr
-            ELSE
-              ! treat soil as c3_grass below tundra limit
+        DO j = 1, rows
+          DO i = 1, row_length
+            IF (todo(i,j,n) .AND. microb(i,j)) THEN
               l = land_index_ij(i,j)
               IF (l == imdi) THEN
                 sm = h2dd_sm_min
               ELSE
                 sm = MAX(smr_lp(l),h2dd_sm_min)
               END IF
-              IF (c3_crop > 0) THEN
-                IF ( l_fix_ukca_h2dd_x ) THEN
-                  rc(i,j,soil,m) = one /                                       &
-                    ( (h2dd_m(c3_crop)*sm+h2dd_c(c3_crop)) *h2dd_sf )
-                ELSE
-                  rc(i,j,soil,m) = one /                                       &
-                    ( h2dd_m(c3_crop)*sm+h2dd_c(c3_crop) )
-                END IF
+              IF ( l_fix_ukca_h2dd_x ) THEN
+                rc(i,j,n,m) = one /                                            &
+                  ((h2dd_m(n) * sm + h2dd_c(n) ) * h2dd_sf)
+              ELSE
+                rc(i,j,n,m) = one /                                            &
+                  (h2dd_m(n) * sm + h2dd_c(n) )
               END IF
-              IF (c3_pasture > 0) THEN
-                IF ( l_fix_ukca_h2dd_x ) THEN
-                  rc(i,j,soil,m) = one /                                       &
-                    ( (h2dd_m(c3_pasture)*sm+h2dd_c(c3_pasture))               &
-                      *h2dd_sf )
-                ELSE
-                  rc(i,j,soil,m) = one /                                       &
-                    ( h2dd_m(c3_pasture)*sm+h2dd_c(c3_pasture) )
-                END IF
+            END IF
+          END DO
+        END DO
+
+      END IF
+
+    END DO ! End loop over pfts
+
+    ! Uptake by bare soil
+    IF ( l_fix_ukca_h2dd_x ) THEN
+      n = soil
+    ELSE
+      ! Treat as shrub
+      IF (shrub_dec > 0) THEN
+        n = shrub_dec
+      END IF
+      IF (shrub_eg  > 0) THEN
+        n = shrub_eg
+      END IF
+      IF (ntype == 9) THEN
+        IF ( l_fix_ukca_h2dd_x ) THEN
+          n = npft
+        ELSE
+          n = shrub
+        END IF
+      END IF
+    END IF
+
+    DO j = 1, rows
+      DO i = 1, row_length
+        IF (todo(i,j,n) .AND. microb(i,j)) THEN
+          IF (tundra_mask(i,j)) THEN
+            ! treat soil as shrub above tundra limit
+            IF (shrub_dec > 0) THEN
+              IF ( l_fix_ukca_h2dd_x ) THEN
+                rr = one / (h2dd_c(shrub_dec)*h2dd_sf)
+              ELSE
+                rr = one / h2dd_c(shrub_dec)
               END IF
-              IF (c3_grass > 0) THEN
-                IF ( l_fix_ukca_h2dd_x ) THEN
-                  rc(i,j,soil,m) = one /                                       &
-                    ( (h2dd_m(c3_grass)*sm+h2dd_c(c3_grass)) *h2dd_sf )
-                ELSE
-                  rc(i,j,soil,m) = one /                                       &
-                    ( h2dd_m(c3_grass)*sm+h2dd_c(c3_grass) )
-                END IF
+            END IF
+            IF (shrub_eg > 0) THEN
+              IF ( l_fix_ukca_h2dd_x ) THEN
+                rr = one / (h2dd_c(shrub_eg)*h2dd_sf)
+              ELSE
+                rr = one / h2dd_c(shrub_eg)
+              END IF
+            END IF
+            IF (ntype == 9) THEN
+              IF ( l_fix_ukca_h2dd_x ) THEN
+                rr = one / (h2dd_c(shrub)*h2dd_sf)
+              ELSE
+                rr = one / h2dd_c(npft)
+              END IF
+            END IF
+            rc(i,j,soil,m) = one / rr
+          ELSE
+            ! treat soil as c3_grass below tundra limit
+            l = land_index_ij(i,j)
+            IF (l == imdi) THEN
+              sm = h2dd_sm_min
+            ELSE
+              sm = MAX(smr_lp(l),h2dd_sm_min)
+            END IF
+            IF (c3_crop > 0) THEN
+              IF ( l_fix_ukca_h2dd_x ) THEN
+                rc(i,j,soil,m) = one /                                         &
+                  ( (h2dd_m(c3_crop)*sm+h2dd_c(c3_crop)) *h2dd_sf )
+              ELSE
+                rc(i,j,soil,m) = one /                                         &
+                  ( h2dd_m(c3_crop)*sm+h2dd_c(c3_crop) )
+              END IF
+            END IF
+            IF (c3_pasture > 0) THEN
+              IF ( l_fix_ukca_h2dd_x ) THEN
+                rc(i,j,soil,m) = one /                                         &
+                  ( (h2dd_m(c3_pasture)*sm+h2dd_c(c3_pasture))                 &
+                    *h2dd_sf )
+              ELSE
+                rc(i,j,soil,m) = one /                                         &
+                  ( h2dd_m(c3_pasture)*sm+h2dd_c(c3_pasture) )
+              END IF
+            END IF
+            IF (c3_grass > 0) THEN
+              IF ( l_fix_ukca_h2dd_x ) THEN
+                rc(i,j,soil,m) = one /                                         &
+                  ( (h2dd_m(c3_grass)*sm+h2dd_c(c3_grass)) *h2dd_sf )
+              ELSE
+                rc(i,j,soil,m) = one /                                         &
+                  ( h2dd_m(c3_grass)*sm+h2dd_c(c3_grass) )
               END IF
             END IF
           END IF
+        END IF
 
-        END DO   ! End loop over row_length
-      END DO     ! End loop over rows
-
-    CASE ( dep_h2_scheme_paulot )
-      ! Using H2 dry deposition from Paulot et al. (2021) Uses soil properties
-      CALL deposition_ukca_h2dd_soil(row_length, rows, land_pts, ntype,        &
-        nsurft, dim_cs1, land_index_ij, gsf, p0, smr_lp, vol_smc_sat_dep,      &
-        snow_depth, soil_carbon_dep, deep_soil_temp_dep, soil_sand, rc_h2 )
-
-      rc(:,:,:,m) = rc_h2(:,:,:)
-
-    CASE DEFAULT
-      CALL ereport ("Invalid value for dep_H2_soil_scheme. ", errcode,         &
-                    "Please check: deposition_ukca_surfddr")
-
-    END SELECT   ! dep_H2_soil_scheme
+      END DO   ! End loop over row_length
+    END DO     ! End loop over rows
 
     rc_nonstom(:,:,:,m) = rc(:,:,:,m)
     ! End of Deposition/Uptake of H2

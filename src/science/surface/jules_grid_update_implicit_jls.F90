@@ -155,7 +155,7 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
                              !    land tiles.
 ,resft(land_pts,nsurft)                                                        &
                              ! IN Total resistance factor.
-                             !    fracaero+(1-fracaero)*resfs for
+                             !    FRACA+(1-FRACA)*RESFS for
                              !    snow-free land, 1 for snow.
 ,rhokh_surft(land_pts,nsurft)                                                  &
                              ! IN Surface exchange coefficients

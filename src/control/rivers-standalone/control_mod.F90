@@ -21,8 +21,10 @@ CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='CONTROL_MOD'
 CONTAINS
 
 SUBROUTINE control (                                                           &
+!   Scalar arguments (INTENT IN)
+    timestep_number,                                                           &
     !TYPES containing field data (IN OUT)
-    psparms, ainfo, progs, fluxes, river, wtrac_jls )
+    psparms, ainfo, progs, fluxes, river )
 
 
 !-------------------------------------------------------------------------------
@@ -30,11 +32,10 @@ SUBROUTINE control (                                                           &
 !-------------------------------------------------------------------------------
 
 !TYPE definitions
-USE p_s_parms,            ONLY: psparms_type
-USE ancil_info,           ONLY: ainfo_type
-USE prognostics,          ONLY: progs_type
-USE fluxes_mod,           ONLY: fluxes_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_type
+USE p_s_parms,   ONLY: psparms_type
+USE ancil_info,  ONLY: ainfo_type
+USE prognostics, ONLY: progs_type
+USE fluxes_mod,  ONLY: fluxes_type
 
 !Import the main subroutines we will use
 USE surf_couple_rivers_mod,    ONLY: surf_couple_rivers
@@ -54,21 +55,23 @@ USE jules_model_environment_mod, ONLY: lsm_id, rivers
 
 USE jules_print_mgr,             ONLY: jules_message, jules_print
 
-USE jules_water_tracers_mod,     ONLY: n_wtrac_jls
-
 !-------------------------------------------------------------------------------
 
 IMPLICIT NONE
 
 !-------------------------------------------------------------------------------
-! Arguments with intent(in out)
+! Scalar arguments with intent(in)
 !-------------------------------------------------------------------------------
-TYPE(psparms_type),   INTENT(IN OUT) :: psparms
-TYPE(ainfo_type),     INTENT(IN OUT) :: ainfo
-TYPE(progs_type),     INTENT(IN OUT) :: progs
-TYPE(fluxes_type),    INTENT(IN OUT) :: fluxes
-TYPE(rivers_type),    INTENT(IN OUT) :: river
-TYPE(jls_wtrac_type), INTENT(IN OUT) :: wtrac_jls
+INTEGER, INTENT(IN) :: timestep_number    ! IN Atmospheric timestep number.
+
+!-------------------------------------------------------------------------------
+! Arguments with intent(out)
+!-------------------------------------------------------------------------------
+TYPE(psparms_type), INTENT(IN OUT) :: psparms
+TYPE(ainfo_type),   INTENT(IN OUT) :: ainfo
+TYPE(progs_type),   INTENT(IN OUT) :: progs
+TYPE(fluxes_type),  INTENT(IN OUT) :: fluxes
+TYPE(rivers_type),  INTENT(IN OUT) :: river
 
 !-------------------------------------------------------------------------------
 !Parameters
@@ -120,9 +123,7 @@ REAL ::                                                                        &
   surfstore(row_length, rows),                                                 &
   flowin(row_length, rows),                                                    &
   bflowin(row_length, rows),                                                   &
-  twatstor(river_row_length, river_rows),                                      &
-  net_abstracted_river(land_pts)
-    ! Net abstraction from rivers (kg m-2).
+  twatstor(river_row_length, river_rows)
 
 REAL(KIND=real_jlslsm) ::                                                      &
   !Passed between river routing and UM diagnostics_riv only
@@ -137,24 +138,18 @@ CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'CONTROL'
 !------------------------------------------------------------------------------
 !End of header
 
-! Abstraction of water is zero in rivers-only configuration.
-net_abstracted_river(:) = 0.0
-
 SELECT CASE ( lsm_id )
 CASE ( rivers )
   CALL surf_couple_rivers(                                                     &
      !INTEGER, INTENT(IN)
-     land_pts, n_wtrac_jls,                                                    &
+     land_pts,                                                                 &
      !REAL, INTENT(IN)
-     net_abstracted_river, fluxes%sub_surf_roff_gb, fluxes%surf_roff_gb,       &
-     wtrac_jls%sub_surf_roff_gb,  wtrac_jls%surf_roff_gb,                      &
+     fluxes%sub_surf_roff_gb, fluxes%surf_roff_gb,                             &
      !INTEGER, INTENT(INOUT)
      a_steps_since_riv,                                                        &
      !REAL, INTENT (INOUT)
      river%tot_surf_runoff_gb, river%tot_sub_runoff_gb,                        &
      river%acc_lake_evap_gb,                                                   &
-     wtrac_jls%tot_surf_runoff_gb, wtrac_jls%tot_sub_runoff_gb,                &
-     wtrac_jls%acc_lake_evap_gb,                                               &
      !REAL, INTENT (OUT)
      river%rivers_sto_per_m2_on_landpts, fluxes%rflow_gb, fluxes%rrun_gb,      &
      !Arguments for the UM-----------------------------------------
@@ -168,14 +163,12 @@ CASE ( rivers )
      xpa, xua, xva, ypa, yua, yva, flandg, trivdir,                            &
      trivseq, r_area, slope, flowobs1, r_inext, r_jnext, r_land,               &
      psparms%smvcst_soilt, psparms%smvcwt_soilt, ainfo%frac_surft,             &
-     wtrac_jls%lake_evap,                                                      &
      !REAL, INTENT(INOUT)
      substore, surfstore, flowin, bflowin, twatstor,                           &
      progs%smcl_soilt, psparms%sthu_soilt,                                     &
-     wtrac_jls%twatstor, wtrac_jls%smcl_soilt, wtrac_jls%sthu_soilt,           &
      !REAL, INTENT(OUT)
      inlandout_atm_gb, inlandout_riv, riverout, box_outflow, box_inflow,       &
-     riverout_rgrid, wtrac_jls%inlandout_atm_gb,                               &
+     riverout_rgrid,                                                           &
      ! TYPES
      river)
 CASE DEFAULT

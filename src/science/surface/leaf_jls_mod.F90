@@ -14,7 +14,7 @@ CONTAINS
 SUBROUTINE leaf (clos_pts, ft, land_field, open_pts, pft_photo_model, veg_pts  &
 ,                clos_index ,open_index, veg_index                             &
 ,                ca, ci, fsmc, o3mol, ra, tl, wcarb, wexpt, wlite, rd          &
-,                al, flux_o3, fo3, gl)
+,                al, flux_o3, fo3, gl, leaf_flux_mod)
 
 USE pftparm, ONLY: dfp_dcuo, fl_o3_ct, glmin
 USE c_rmol, ONLY: rmol
@@ -118,10 +118,8 @@ INTEGER ::                                                                     &
 REAL(KIND=real_jlslsm) ::                                                      &
   b,c,                                                                         &
                             ! Work variables for ozone calculations.
-  beta1p2m4, beta2p2m4,                                                        &
+  beta1p2m4, beta2p2m4
                             ! beta[12] ** 2 * 4.
-  glmin_ft
-                            ! glmin(ft)
 
 REAL(KIND=real_jlslsm) ::                                                      &
  b1(land_field)                                                                &
@@ -138,9 +136,7 @@ REAL(KIND=real_jlslsm) ::                                                      &
                             ! Smoothed minimum of carboxylation- and light-
                             ! limited gross photosynthesis (mol CO2/m2/s).
 
-INTEGER ::                                                                     &
- land_grid_index(open_pts)
-                            ! Land grid index
+INTEGER :: leaf_flux_mod     ! Switch for leaf stress model, MDK
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
@@ -150,17 +146,12 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='LEAF'
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
-DO j = 1,open_pts
-  land_grid_index(j) = veg_index(open_index(j))
-END DO
-glmin_ft = glmin(ft)
-
 !$OMP PARALLEL DEFAULT(NONE) PRIVATE(j,l,b,c,beta1p2m4,beta2p2m4)              &
 !$OMP IF(open_pts > 1)                                                         &
-!$OMP SHARED(open_pts, pft_photo_model, land_grid_index, beta1,                &
+!$OMP SHARED(open_pts, pft_photo_model, veg_index, open_index, beta1,          &
 !$OMP        errcode, wcarb, wlite,                                            &
 !$OMP        beta2, wp, wexpt, b1, b2, b3, wl, al, rd, fsmc,                   &
-!$OMP        conv, tl, glco2, ca, ci, gl, glmin_ft, ft, l_o3_damage,           &
+!$OMP        conv, tl, glco2, ca, ci, gl, glmin, l_o3_damage, ft,              &
 !$OMP        o3mol, ra, fo3, dfp_dcuo, fl_o3_ct, flux_o3)
 
 SELECT CASE ( pft_photo_model )
@@ -176,7 +167,7 @@ CASE ( photo_collatz )
 !DIR$ IVDEP
 !$OMP DO SCHEDULE(STATIC)
   DO j = 1,open_pts
-    l = land_grid_index(j)
+    l = veg_index(open_index(j))
 
     b1(l) = beta1
     b2(l) = - (wcarb(l) + wlite(l))
@@ -203,17 +194,15 @@ CASE ( photo_farquhar )
 !DIR$ IVDEP
 !$OMP DO SCHEDULE(STATIC)
   DO j = 1,open_pts
-    l = land_grid_index(j)
+    l = veg_index(open_index(j))
     wl(l) = MIN( wcarb(l), wlite(l) )
   END DO
 !$OMP END DO
 
 CASE DEFAULT
-!$OMP MASTER
   errcode = 101  !  a hard error
   CALL ereport(RoutineName, errcode,                                           &
                'pft_photo_model should be photo_collatz or photo_farquhar')
-!$OMP END MASTER
 
 END SELECT  !  pft_photo_model
 
@@ -223,12 +212,20 @@ END SELECT  !  pft_photo_model
 !DIR$ IVDEP
 !$OMP DO  SCHEDULE(STATIC)
 DO j = 1,open_pts
-  l = land_grid_index(j)
+  l = veg_index(open_index(j))
 
   !---------------------------------------------------------------------------
   ! Calculate the net rate of photosynthesis
   !---------------------------------------------------------------------------
-  al(l) = (wl(l) - rd(l)) * fsmc(l)
+
+  !! MDK, leaving the stress applicaiton to Rd
+  IF (leaf_flux_mod == 3) THEN
+     !!al(l) = (wl(l) - rd(l))
+     al(l) = ( wl(l) - ( rd(l) * fsmc(l))  )
+  ELSE
+    al(l) = (wl(l) - rd(l)) * fsmc(l)
+  ENDIF
+
 
   !---------------------------------------------------------------------------
   ! Calculate the factor for converting mol/m3 into Pa (J/m3).
@@ -251,11 +248,19 @@ END DO
 !DIR$ IVDEP
 !$OMP DO SCHEDULE(STATIC)
 DO j = 1,open_pts
-  l = land_grid_index(j)
+  l = veg_index(open_index(j))
 
-  IF (gl(l) <= glmin_ft .OR. al(l) <= 0.0) THEN
-    gl(l)    = glmin_ft
+  IF (gl(l) <= glmin(ft) .OR. al(l) <= 0.0) THEN
+    gl(l)    = glmin(ft)
+
+    !!IF (leaf_flux_mod == 3) THEN
+   !    al(l)    = -rd(l)
+    !ELSE
+   !   al(l)    = -rd(l) * fsmc(l)
+    !ENDIF
+
     al(l)    = -rd(l) * fsmc(l)
+
   END IF
 
 END DO
@@ -268,7 +273,7 @@ IF ( l_o3_damage ) THEN
   !---------------------------------------------------------------------------
 !$OMP DO SCHEDULE(STATIC)
   DO j = 1,open_pts
-    l = land_grid_index(j)
+    l = veg_index(open_index(j))
 
     !-------------------------------------------------------------------------
     ! Flux of O3 without ozone effects (for use in analytical eqn)
@@ -308,11 +313,18 @@ IF ( l_o3_damage ) THEN
 !DIR$ IVDEP
 !$OMP DO SCHEDULE(STATIC)
   DO j = 1,open_pts
-    l = land_grid_index(j)
+    l = veg_index(open_index(j))
 
-    IF (gl(l) <= glmin_ft .OR. al(l) <= 0.0) THEN
-      gl(l) = glmin_ft
+    IF (gl(l) <= glmin(ft) .OR. al(l) <= 0.0) THEN
+      gl(l) = glmin(ft)
+
+      !IF (leaf_flux_mod == 3) THEN
+      !   al(l) = -rd(l) * fo3(l)
+      !ELSE
+      !  al(l) = -rd(l) * fsmc(l) * fo3(l)
+      !ENDIF
       al(l) = -rd(l) * fsmc(l) * fo3(l)
+
     END IF
   END DO
 !$OMP END DO
@@ -325,14 +337,19 @@ END IF ! o3 damage
 ! Define fluxes and conductances for points with closed stomata
 !-----------------------------------------------------------------------------
 !$OMP PARALLEL DO DEFAULT(NONE) PRIVATE(j,l) IF(clos_pts > 1) SCHEDULE(STATIC) &
-!$OMP  SHARED(clos_pts,veg_index,clos_index,gl,glmin_ft,al,rd,fsmc,l_o3_damage,fo3)
+!$OMP  SHARED(clos_pts,veg_index,clos_index,gl,glmin,ft,al,rd,fsmc,l_o3_damage,fo3)
 !DIR$ IVDEP
 DO j = 1,clos_pts
   l = veg_index(clos_index(j))
 
-  gl(l)    = glmin_ft
-  al(l)    = -rd(l) * fsmc(l)
+  gl(l)    = glmin(ft)
 
+  !IF (leaf_flux_mod == 3) THEN
+   ! al(l)    = -rd(l)
+  !ELSE
+   ! al(l)    = -rd(l) * fsmc(l)
+  !ENDIF
+  al(l)    = -rd(l) * fsmc(l)
   ! Indicate no ozone damage at closed points.
   IF (l_o3_damage) fo3(l) = 1.0
 

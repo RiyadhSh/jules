@@ -5,8 +5,7 @@
 ! which you should have received as part of this distribution.
 ! *****************************COPYRIGHT**************************************
 
-SUBROUTINE get_var_levs_dims(var_id, is_climatology, ndims, dim_names_in,      &
-                             dim_names_out, dim_sizes)
+SUBROUTINE get_var_levs_dims(var_id, ndims, dim_names_in, dim_names_out, dim_sizes)
 
 IMPLICIT NONE
 
@@ -24,11 +23,6 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------
 ! Argument types
 INTEGER, INTENT(IN) :: var_id  ! Identifies the model variable
-
-LOGICAL, INTENT(IN) :: is_climatology
-                               ! Indicates if the variable is to be initialised
-                               ! from a 12-month climatology
-
 INTEGER, INTENT(OUT), OPTIONAL :: ndims
                                ! The number of levels dimensions that the
                                ! variable has
@@ -41,33 +35,17 @@ CHARACTER(LEN=*), INTENT(OUT), OPTIONAL :: dim_names_out(:)
 INTEGER, INTENT(OUT), OPTIONAL :: dim_sizes(:)
                                ! The dimension sizes to for the variable
 
-LOGICAL :: is_climatology_error ! Issue a fatal error if a climatology is not
-                                ! yet allowed for the variable type
 
 !-----------------------------------------------------------------------------
 
 
 ! var_id is an index into the metadata array
 
-! We decide what to return based on the 'variable type' of the requested
-! variable
-
-! Climatologies are only coded for var_type_surface so issue a fatal error if
-! any other var_types try to use it as more coding will need to be done.
-is_climatology_error = is_climatology
-
+! We decide what to return based on the 'variable type' of the requested variable
 SELECT CASE ( metadata(var_id)%var_type )
 CASE ( var_type_surface )
-  ! No vertical dimensions although climatology is allowed
-  IF ( is_climatology ) THEN
-    IF ( PRESENT(ndims) ) ndims = 1
-    IF ( PRESENT(dim_names_in) ) dim_names_in(1) = clim_time_dim_name
-    IF ( PRESENT(dim_names_out) ) dim_names_out(1) = clim_time_dim_name
-    IF ( PRESENT(dim_sizes) ) dim_sizes(1) = monthly_climatology_dim_size
-    is_climatology_error = .FALSE.
-  ELSE
-    IF ( PRESENT(ndims) ) ndims = 0
-  END IF
+  ! Just indicate that there are no vertical dimensions
+  IF ( PRESENT(ndims) ) ndims = 0
 
 CASE ( var_type_nmasst )
   ! Mass variables have 2 levels dimensions
@@ -90,12 +68,6 @@ CASE ( var_type_pft )
   IF ( PRESENT(dim_names_in) ) dim_names_in(1) = pft_dim_name
   IF ( PRESENT(dim_names_out) ) dim_names_out(1) = pft_dim_name_out
   IF ( PRESENT(dim_sizes) ) dim_sizes(1) = pft_dim_size
-
-CASE ( var_type_quantile )
-  IF ( PRESENT(ndims) ) ndims = 1
-  IF ( PRESENT(dim_names_in) ) dim_names_in(1) = quantile_dim_name
-  IF ( PRESENT(dim_names_out) ) dim_names_out(1) = quantile_dim_name_out
-  IF ( PRESENT(dim_sizes) ) dim_sizes(1) = quantile_dim_size
 
 CASE ( var_type_cpft )
   IF ( PRESENT(ndims) ) ndims = 1
@@ -157,12 +129,6 @@ CASE ( var_type_imogen_drive )    ! imogen driving variables
   IF ( PRESENT(dim_names_in) ) dim_names_in(1) = imogen_drive_dim_name
   IF ( PRESENT(dim_names_out) ) dim_names_out(1) = imogen_drive_dim_name_out
   IF ( PRESENT(dim_sizes) ) dim_sizes(1) = imogen_drive_dim_size
-
-CASE ( var_type_imogen_clim )    ! imogen climate input variables
-  IF ( PRESENT(ndims) ) ndims = 1
-  IF ( PRESENT(dim_names_in) ) dim_names_in(1) = imogen_clim_dim_name
-  IF ( PRESENT(dim_names_out) ) dim_names_out(1) = imogen_clim_dim_name_out
-  IF ( PRESENT(dim_sizes) ) dim_sizes(1) = imogen_clim_dim_size
 
 CASE ( var_type_sclayer )
   IF ( PRESENT(ndims) ) ndims = 1
@@ -289,12 +255,6 @@ CASE DEFAULT
   CALL log_fatal("get_var_levs_dims",                                          &
                  "Unrecognised variable type - check metadata")
 END SELECT
-
-IF ( is_climatology_error ) THEN
-  CALL log_fatal("get_var_levs_dims",                                          &
-                 "This variable type requires more work to be " //             &
-                 "initialised from a 12-month climatology.")
-END IF
 
 RETURN
 

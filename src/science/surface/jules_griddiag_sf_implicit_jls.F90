@@ -152,7 +152,7 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
  resft(land_pts,nsurft)                                                        &
                              ! IN Total resistance factor.
-                             !    fracaero+(1-fracaero)*resfs for
+                             !    FRACA+(1-FRACA)*RESFS for
                              !    snow-free land, 1 for snow.
 ,rhokh(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)
                              ! IN Grid-box surface exchange

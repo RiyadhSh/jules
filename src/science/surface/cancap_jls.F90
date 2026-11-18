@@ -25,11 +25,12 @@ SUBROUTINE cancap (land_pts,veg_pts,veg_index,can_model,ft,                    &
                     dvi_cpft)
 
 USE pftparm, ONLY: kext, a_ws, eta_sl, a_wl, b_wl, lma, sigl
-USE jules_vegetation_mod, ONLY: l_trait_phys, l_limit_canhc, l_red
+USE jules_vegetation_mod, ONLY: l_trait_phys, l_limit_canhc
 USE jules_surface_mod, ONLY: hleaf,hwood,cmass
 USE jules_surface_types_mod, ONLY: nnpft, ncpft
 USE crop_utils_mod, ONLY:                                                      &
    leafc_from_prognostics, stemc_from_prognostics
+USE veg3_parm_mod, ONLY: l_veg3
 
 USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
@@ -97,7 +98,7 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !$OMP PRIVATE(j,l,leaf,wood)                                                   &
 !$OMP SHARED(veg_pts,veg_index,canhc,vfrac,can_model,kext,lai,dvi_cpft,ht,     &
 !$OMP        lai_bal,l_trait_phys,ft,nnpft,a_ws,eta_sl,a_wl,b_wl,lma,sigl,     &
-!$OMP        hleaf,hwood,l_limit_canhc,l_red,veg_state)
+!$OMP        hleaf,hwood,l_limit_canhc,l_veg3,veg_state)
 
 !$OMP DO SCHEDULE(STATIC)
 DO j = 1,veg_pts
@@ -140,7 +141,7 @@ ELSE IF (can_model == 3 .OR. can_model == 4) THEN
       wood = a_wl(ft) * (lai_bal(l)**b_wl(ft))
     END IF
 
-    IF (l_red) THEN
+    IF (l_veg3) THEN
       canhc(l) = hleaf * veg_state%leafC(l,ft) + hwood * veg_state%woodC(l,ft)
     ELSE
       canhc(l) = hleaf * leaf + hwood * wood

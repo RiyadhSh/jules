@@ -1,8 +1,6 @@
+import rose.upgrade
+import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 
 class UpgradeError(Exception):
@@ -19,7 +17,7 @@ class UpgradeError(Exception):
     __str__ = __repr__
 
 
-class vn60_t1119(MacroUpgrade):
+class vn60_t1119(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by C. Carouge"""
 
@@ -35,7 +33,7 @@ class vn60_t1119(MacroUpgrade):
         return config, self.reports
 
 
-class vn60_t949(MacroUpgrade):
+class vn60_t949(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #949 by Heather Rumbold"""
 
@@ -47,7 +45,7 @@ class vn60_t949(MacroUpgrade):
         # No macro commands added as only triggering changes were made.
         return config, self.reports
 
-class vn60_t1146(MacroUpgrade):
+class vn60_t1146(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #1146 by Heather Rumbold"""
 
@@ -64,7 +62,7 @@ class vn60_t1146(MacroUpgrade):
 
         return config, self.reports
 
-class vn60_t1126(MacroUpgrade):
+class vn60_t1126(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eleanor Burke"""
 
@@ -90,7 +88,7 @@ class vn60_t1126(MacroUpgrade):
         return config, self.reports
 
 
-class vn60_t1141(MacroUpgrade):
+class vn60_t1141(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Phil Harris"""
 
@@ -122,7 +120,7 @@ class vn60_t1141(MacroUpgrade):
         return config, self.reports
 
 
-class vn60_t1143(MacroUpgrade):
+class vn60_t1143(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by tobymarthews"""
 
@@ -136,7 +134,7 @@ class vn60_t1143(MacroUpgrade):
         return config, self.reports
 
 
-class vn60_vn61(MacroUpgrade):
+class vn60_vn61(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn6.0_t1143"

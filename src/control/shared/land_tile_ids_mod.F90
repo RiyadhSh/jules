@@ -18,10 +18,6 @@ USE max_dimensions,   ONLY:                                                    &
     snow_layers_max,                                                           &
     elev_tile_max
 
-USE free_tracers_inputs_mod, ONLY: max_wtrac
-
-USE jules_sea_seaice_mod, ONLY: nice_max
-
 USE missing_data_mod, ONLY: imdi
 
 IMPLICIT NONE
@@ -124,24 +120,13 @@ INTEGER, PARAMETER ::                                                          &
                   ! ID numbers for user defined surface type (10-99)
 
 INTEGER :: surface_type_ids(ntype_max) = imdi
-              ! Array which maps pseudo levels to tile types
+                ! Array which maps pseudo levels to tile types
 
 INTEGER :: ml_snow_type_ids(ntype_max * snow_layers_max) = imdi
-              ! Array which maps pseudo levels to tile types
+                ! Array which maps pseudo levels to tile types
 
 INTEGER :: tile_ids_in(ntype_max * snow_layers_max) = imdi
-              ! Tile IDs in the input header
-
-INTEGER :: surface_type_wtrac_ids(ntype_max*max_wtrac) = imdi
-              ! Array which maps pseudo levels to tile types and water tracers
-
-INTEGER :: ml_snow_type_wtrac_ids(ntype_max*snow_layers_max*max_wtrac) = imdi
-              ! Array which maps pseudo levels to tile types, snow layers and
-              !  water tracers
-
-INTEGER :: seaice_wtrac_ids(nice_max*max_wtrac) = imdi
-              ! Array which maps pseudo levels to sea ice categories and
-              !  water tracers
+                ! Tile IDs in the input header
 
 CONTAINS
 
@@ -307,75 +292,5 @@ IF ( nsmax > 0 ) THEN
 END IF
 
 END SUBROUTINE set_ml_snow_type_ids
-
-! ============================================================
-
-SUBROUTINE set_surface_type_wtrac_ids ()
-
-USE jules_surface_types_mod, ONLY: ntype
-USE jules_water_tracers_mod, ONLY: n_wtrac_jls
-
-IMPLICIT NONE
-
-INTEGER      :: i, i_wt ! Loop counter
-INTEGER      :: pseudo
-
-! Set up land tiles * water tracers type (pl_code = 23) ids array
-DO i = 1, ntype
-  DO i_wt = 1, n_wtrac_jls
-    pseudo = i + (i_wt-1) * ntype
-    surface_type_wtrac_ids(pseudo) = surface_type_ids(i) * 1000 + i_wt
-  END DO
-END DO
-
-END SUBROUTINE set_surface_type_wtrac_ids
-
-! ======================================================================
-
-SUBROUTINE set_ml_snow_type_wtrac_ids ( )
-
-USE jules_surface_types_mod, ONLY: ntype
-USE jules_snow_mod,          ONLY: nsmax
-USE jules_water_tracers_mod, ONLY: n_wtrac_jls
-
-IMPLICIT NONE
-
-INTEGER      :: i, j, i_wt ! Loop counter
-INTEGER      :: pseudo
-
-! Set up multilayer snow * water tracer type (pl_code = 24) ids array
-DO i = 1, ntype
-  DO j = 1, nsmax
-    DO i_wt = 1, n_wtrac_jls
-      pseudo = i + (j-1) * ntype + (i_wt-1) * ntype*nsmax
-      ml_snow_type_wtrac_ids(pseudo) = surface_type_ids(i) * 1000000           &
-                                        + j*1000 + i_wt
-    END DO
-  END DO
-END DO
-
-END SUBROUTINE set_ml_snow_type_wtrac_ids
-
-! ======================================================================
-
-SUBROUTINE set_seaice_wtrac_ids ( )
-
-USE jules_sea_seaice_mod,    ONLY: nice
-USE jules_water_tracers_mod, ONLY: n_wtrac_jls
-
-IMPLICIT NONE
-
-INTEGER      :: i, i_wt ! Loop counter
-INTEGER      :: pseudo
-
-! Set up sea ice category * water tracer type (pl_code = 25) ids array
-DO i = 1, nice
-  DO i_wt = 1, n_wtrac_jls
-    pseudo = i + (i_wt-1) * nice
-    seaice_wtrac_ids(pseudo) = i * 1000 + i_wt
-  END DO
-END DO
-
-END SUBROUTINE set_seaice_wtrac_ids
 
 END MODULE land_tile_ids_mod

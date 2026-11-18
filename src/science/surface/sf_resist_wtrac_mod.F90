@@ -69,7 +69,7 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
                        ! IN Snow depth (m)
 ,resfs(land_pts)                                                               &
                        ! IN Combined soil, stomatal and aerodynamic
-                       !     resistance factor for fraction 1-fracaero.
+                       !     resistance factor for fraction 1-FRACA.
 ,dq(land_pts)                                                                  &
                        ! IN Specific humidity difference between lowest
                        !    atmospheric level and the surface (Q1 - Q*)

@@ -7,9 +7,9 @@
 !-----------------------------------------------------------------------------
 ! Description:
 !   Calculates urban morphology from empirical relationships. Where:
-!     wrr   Repeating width ratio (or canyon fraction, W/R)
-!     hwr   Height-to-width ratio (H/W)
-!     hgt   Building height (H)
+!     wrr 	Repeating width ratio (or canyon fraction, W/R)
+!     hwr 	Height-to-width ratio (H/W)
+!     hgt 	Building height (H)
 !
 ! Code Owner: Please refer to ModuleLeaders.txt
 ! This file belongs in TECHNICAL

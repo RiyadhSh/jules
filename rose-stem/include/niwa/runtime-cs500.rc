@@ -18,10 +18,6 @@
             --mem-per-cpu = 1G
             --hint = nomultithread
 
-    [[remote_init_cs500]]
-        inherit = NIWA_CS500_SL
-        script = true
-
 # CS500 node setup
 # Single OpenMP thread
     [[NIWA_CS500_PARALLEL_THREADS_1]]
@@ -384,7 +380,7 @@
     [[housekeep_niwa_cs500_intel_gswp2_es<gswp2_es_1p1>]]
         inherit = NIWA_CS500_HOUSEKEEPING
         [[[environment]]]
-            DIR1 = ../niwa_cs500_intel_gswp2_es_${CYLC_TASK_PARAM_gswp2_es_1p1}
+            DIR1 = ../niwa_cs500_intel_gswp2_es_${CYLC_TASK_PARAM_gswp2_1p1}
 
     # Eraint variants
     [[housekeep_niwa_cs500_intel_eraint<eraint_tests>]]

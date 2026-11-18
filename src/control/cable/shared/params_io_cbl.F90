@@ -1,8 +1,13 @@
-!-----------------------------------------------------------------------------
-! (C) Crown copyright Met Office. All rights reserved.
-! The file LICENCE, distributed with this code, contains details of the terms
-! under which the code may be used.
-!-----------------------------------------------------------------------------
+!******************************COPYRIGHT********************************************
+! (c) CSIRO 2022.
+! All rights reserved.
+!
+! This routine has been licensed to the other JULES partners for use and
+! distribution under the JULES collaboration agreement, subject to the terms and
+! conditions set out therein.
+!
+! [Met Office Ref SC0237]
+!******************************COPYRIGHT********************************************
 MODULE params_io_mod_cbl
 
 !-----------------------------------------------------------------------------
@@ -30,20 +35,19 @@ MODULE params_io_mod_cbl
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
 
+USE grid_constants_mod_cbl, ONLY:                                              &
+          ntype_max, & ! # veg types [13],non-veg=4,ntiles=17
+          nsoil_max, & ! # of soil types [9]
+          nrb,       & ! # spectral bANDS VIS/NIR/(LW-not used)
+          nsl,       & ! # soil layers
+          nscs,      & ! # soil carbon stores
+          nvcs         ! # vegetation carbon stores
+
 PUBLIC :: params_io_data_type
 PUBLIC :: params_io_type
 PUBLIC :: params_io_assoc_cbl
 
 PRIVATE
-! CABLE constants. They will be sourced from CABLE modules once the
-! compilation is done. ccc25
-INTEGER, PARAMETER :: ntype_max = 17
-INTEGER, PARAMETER :: nsoil_max = 9
-INTEGER, PARAMETER :: nrb = 3                  !# rad bands VIS/NIR + Legacy LW
-INTEGER, PARAMETER :: nsl = 6                  !# soil layers
-INTEGER, PARAMETER :: nscs = 2                 !# soil carbon stores
-INTEGER, PARAMETER :: nvcs = 3                 !# vegetation carbon stores
-
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='PARAMS_IO_MOD_CBL'
 
 ! Vegetation/Soil parameters I/O:

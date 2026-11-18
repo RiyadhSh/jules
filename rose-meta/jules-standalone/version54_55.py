@@ -1,9 +1,6 @@
+import rose.upgrade
 import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 class UpgradeError(Exception):
 
@@ -19,7 +16,7 @@ class UpgradeError(Exception):
     __str__ = __repr__
 
 
-class vn54_t870(MacroUpgrade):
+class vn54_t870(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Adrian Lock"""
 
@@ -35,7 +32,7 @@ class vn54_t870(MacroUpgrade):
 
 
 
-class vn54_t900(MacroUpgrade):
+class vn54_t900(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Danny Eisenberg"""
 
@@ -65,7 +62,7 @@ class vn54_t900(MacroUpgrade):
 
         return config, self.reports
 
-class vn54_t662(MacroUpgrade):
+class vn54_t662(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -124,7 +121,7 @@ class vn54_t662(MacroUpgrade):
         return config, self.reports
 
 
-class vn54_t434(MacroUpgrade):
+class vn54_t434(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Edward Comyn-Platt"""
 
@@ -155,7 +152,7 @@ class vn54_t434(MacroUpgrade):
         return config, self.reports
 
 
-class vn54_t903(MacroUpgrade):
+class vn54_t903(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Martin Best"""
 
@@ -200,12 +197,12 @@ class vn54_t903(MacroUpgrade):
         return config, self.reports
 
 
-class vn54_vn55(MacroUpgrade):
+class vn54_vn55(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn5.4_t903"
     AFTER_TAG = "vn5.5"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

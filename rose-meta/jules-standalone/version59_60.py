@@ -1,8 +1,6 @@
+import rose.upgrade
+import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 
 class UpgradeError(Exception):
@@ -19,7 +17,7 @@ class UpgradeError(Exception):
     __str__ = __repr__
 
 
-class vn59_t1095(MacroUpgrade):
+class vn59_t1095(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -49,7 +47,7 @@ class vn59_t1095(MacroUpgrade):
 
         return config, self.reports
 
-class vn59_t1033(MacroUpgrade):
+class vn59_t1033(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -73,7 +71,7 @@ class vn59_t1033(MacroUpgrade):
         self.add_setting(config, ["namelist:jules_drive", "z1_uv_in"], "10.0")
         return config, self.reports
 
-class vn59_t847(MacroUpgrade):
+class vn59_t847(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Sarah Chadburn"""
 
@@ -113,7 +111,7 @@ class vn59_t847(MacroUpgrade):
         return config, self.reports
 
 
-class vn59_t1093(MacroUpgrade):
+class vn59_t1093(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Karina Williams"""
 
@@ -132,7 +130,7 @@ class vn59_t1093(MacroUpgrade):
         return config, self.reports
 
 
-class vn59_t194(MacroUpgrade):
+class vn59_t194(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Adrian Lock"""
 
@@ -147,7 +145,7 @@ class vn59_t194(MacroUpgrade):
         return config, self.reports
 
 
-class vn59_t1086(MacroUpgrade):
+class vn59_t1086(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -196,7 +194,7 @@ class vn59_t1086(MacroUpgrade):
         return config, self.reports
 
 
-class vn59_vn60(MacroUpgrade):
+class vn59_vn60(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.9_t1086"

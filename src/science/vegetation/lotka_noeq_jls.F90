@@ -363,11 +363,6 @@ DO t = 1,trif_pts
       END IF
     END IF
 
-    IF (frac_na(l,n) < frac_min) THEN
-      dfrac_na(l,n) = dfrac_na(l,n) + (frac_min - frac_na(l,n))
-      frac_na(l,n)  = frac_min
-    END IF
-
     spacemax(l) = spacemax(l) - frac_na(l,n) + frac_min
 
   END DO

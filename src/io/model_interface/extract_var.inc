@@ -27,6 +27,9 @@ USE timestep_mod, ONLY: timestep
 USE water_constants_mod, ONLY:                                                 &
   rho_water, tm
 
+USE csigma, ONLY:                                                              &
+  sbcon
+
 USE jules_surface_types_mod, ONLY:                                             &
   npft, lake, ncpft
 
@@ -37,8 +40,9 @@ USE jules_surface_mod, ONLY:                                                   &
   l_aggregate, i_aggregate_opt
 
 USE jules_water_resources_mod, ONLY:                                           &
-  use_domestic, use_environment, use_industry, use_irrigation,                 &
-  use_livestock, use_transfers, water_res_count
+  l_water_domestic, l_water_environment, l_water_industry, l_water_irrigation, &
+  l_water_livestock, l_water_transfers, use_domestic, use_environment,         &
+  use_industry, use_irrigation, use_livestock, use_transfers
 
 USE jules_radiation_mod, ONLY:                                                 &
   wght_alb
@@ -89,10 +93,12 @@ USE fire_mod,  ONLY:                                                           &
 
 USE jules_forcing_mod, ONLY: u_1_ij, v_1_ij
 
-USE jules_rivers_mod, ONLY: nstep_rivers, np_rivers, n_rivers,                 &
-   calc_outflow_per_river
+USE jules_rivers_mod, ONLY: nstep_rivers, np_rivers
 
 USE coastal, ONLY: flandg
+
+USE pftparm, ONLY:                                                             &
+  kmax_pft
 
 !Others
 USE io_constants, ONLY:                                                        &
@@ -102,8 +108,6 @@ USE logging_mod, ONLY:                                                         &
 USE data_cube_mod, ONLY:                                                       &
   data_cube, cube_from_array,                                                  &
   cube_free, OPERATOR ( * ), OPERATOR ( - )
-
-USE parallel_mod, ONLY: is_master_task
 
 IMPLICIT NONE
 
@@ -1505,10 +1509,6 @@ CASE ( 'resp_w' )
   cube_land = cube_from_array(trifctltype%resp_w_pft)
   cube = map_from_land(cube_land)
 
-CASE ( 'lwp_c' )
-  cube_land = cube_from_array(trifctltype%lwp_c_pft)
-  cube = map_from_land(cube_land)
-
 CASE ( 'cs' )
   IF (nsoilt == 1) THEN
     cube_land = cube_from_array(progs%cs_pool_soilt(:,1,:,:))
@@ -2036,11 +2036,14 @@ CASE ( 'tstar_gb' )
 CASE ( 'tl1_ij_clim_imgn' )
   cube = cube_from_array(imgn_drive%tl1_ij_clim)
 
-CASE ( 'ql1_ij_clim_imgn' )
-  cube = cube_from_array(imgn_drive%ql1_ij_clim)
+CASE ( 'rh1p5m_ij_clim_imgn' )
+  cube = cube_from_array(imgn_drive%rh1p5m_ij_clim)
 
-CASE ( 'wind_ij_clim_imgn' )
-  cube = cube_from_array(imgn_drive%wind_ij_clim)
+CASE ( 'uwind_ij_clim_imgn' )
+  cube = cube_from_array(imgn_drive%uwind_ij_clim)
+
+CASE ( 'vwind_ij_clim_imgn' )
+  cube = cube_from_array(imgn_drive%vwind_ij_clim)
 
 CASE ( 'lwdown_ij_clim_imgn' )
   cube = cube_from_array(imgn_drive%lwdown_ij_clim)
@@ -2060,11 +2063,14 @@ CASE ( 'pstar_ij_clim_imgn' )
 CASE ( 'tl1_ij_patt_imgn' )
   cube = cube_from_array(imgn_drive%tl1_ij_patt)
 
-CASE ( 'ql1_ij_patt_imgn' )
-  cube = cube_from_array(imgn_drive%ql1_ij_patt)
+CASE ( 'rh1p5m_ij_patt_imgn' )
+  cube = cube_from_array(imgn_drive%rh1p5m_ij_patt)
 
-CASE ( 'wind_ij_patt_imgn' )
-  cube = cube_from_array(imgn_drive%wind_ij_patt)
+CASE ( 'uwind_ij_patt_imgn' )
+  cube = cube_from_array(imgn_drive%uwind_ij_patt)
+
+CASE ( 'vwind_ij_patt_imgn' )
+  cube = cube_from_array(imgn_drive%vwind_ij_patt)
 
 CASE ( 'lwdown_ij_patt_imgn' )
   cube = cube_from_array(imgn_drive%lwdown_ij_patt)
@@ -2084,11 +2090,14 @@ CASE ( 'pstar_ij_patt_imgn' )
 CASE ( 'tl1_ij_anom_imgn' )
   cube = cube_from_array(imgn_drive%tl1_ij_anom)
 
-CASE ( 'ql1_ij_anom_imgn' )
-  cube = cube_from_array(imgn_drive%ql1_ij_anom)
+CASE ( 'rh1p5m_ij_anom_imgn' )
+  cube = cube_from_array(imgn_drive%rh1p5m_ij_anom)
 
-CASE ( 'wind_ij_anom_imgn' )
-  cube = cube_from_array(imgn_drive%wind_ij_anom)
+CASE ( 'uwind_ij_anom_imgn' )
+  cube = cube_from_array(imgn_drive%uwind_ij_anom)
+
+CASE ( 'vwind_ij_anom_imgn' )
+  cube = cube_from_array(imgn_drive%vwind_ij_anom)
 
 CASE ( 'lwdown_ij_anom_imgn' )
   cube = cube_from_array(imgn_drive%lwdown_ij_anom)
@@ -2680,46 +2689,6 @@ CASE ( 'rfm_substore_rp' )
 CASE ( 'rfm_surfstore_rp' )
   cube = cube_from_array(rivers%rfm_surfstore_rp)
 
-CASE ( 'rivers_outflow_rp' )
-  cube = cube_from_array(rivers%rivers_outflow_rp)
-
-CASE ( 'river_elevation' )
-  cube = cube_from_array(rivers%river_elevation)
-
-CASE ( 'channel_bed_elevation' )
-  ! Calculate bed elevation.
-  workspace_rivers = rivers%river_elevation - rivers%channel_depth
-  cube = cube_from_array(workspace_rivers)
-
-CASE ( 'channel_depth' )
-  cube = cube_from_array(rivers%channel_depth)
-
-CASE ( 'channel_width' )
-  cube = cube_from_array(rivers%channel_width)
-
-CASE ( 'flood_flow' )
-  cube = cube_from_array(rivers%flood_flow)
-
-CASE ( 'flood_storage' )
-  cube = cube_from_array(rivers%flood_storage)
-
-CASE ( 'river_channel_flow' )
-  cube = cube_from_array(rivers%river_channel_flow)
-
-CASE ( 'river_channel_storage' )
-  cube = cube_from_array(rivers%river_channel_storage)
-
-CASE ( 'river_depth' )
-  cube = cube_from_array(rivers%river_depth)
-
-CASE ( 'outflow_per_river' )
-  ! Using workspace rivers (initialised to mdi) although it is of size
-  ! n_rivers < np_rivers. This allows it to be written to the same output file.
-  IF ( is_master_task() ) THEN
-    workspace_rivers(1:n_rivers) = calc_outflow_per_river(rivers)
-  END IF
-  cube = cube_from_array(workspace_rivers)
-
 CASE ( 'frac_fplain_rp' )
   cube = cube_from_array(frac_fplain_rp)
 
@@ -2779,6 +2748,7 @@ CASE ( 'lake_albedo_gb' )
   cube_land = cube_from_array(lake_vars%lake_albedo_gb)
   cube = map_from_land(cube_land)
 
+  !
   !-----------------------------------------------------------------------------
   ! Equivalent neutral winds
   !-----------------------------------------------------------------------------
@@ -2942,97 +2912,6 @@ CASE ( 'fire_em_BC_DPM' )
   cube = map_from_land(cube_land)
 CASE ( 'fire_em_BC_RPM' )
   cube_land = cube_from_array(fire_vars%fire_em_BC_RPM)
-  cube = map_from_land(cube_land)
-
-CASE ( 'fire_em_C2H4_gb' )
-  cube_land = cube_from_array(fire_vars%fire_em_C2H4)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C2H4' )
-  cube_land = cube_from_array(fire_vars%fire_em_C2H4_ft)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C2H4_DPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_C2H4_DPM)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C2H4_RPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_C2H4_RPM)
-  cube = map_from_land(cube_land)
-
-CASE ( 'fire_em_C2H6_gb' )
-  cube_land = cube_from_array(fire_vars%fire_em_C2H6)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C2H6' )
-  cube_land = cube_from_array(fire_vars%fire_em_C2H6_ft)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C2H6_DPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_C2H6_DPM)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C2H6_RPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_C2H6_RPM)
-  cube = map_from_land(cube_land)
-
-CASE ( 'fire_em_C3H8_gb' )
-  cube_land = cube_from_array(fire_vars%fire_em_C3H8)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C3H8' )
-  cube_land = cube_from_array(fire_vars%fire_em_C3H8_ft)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C3H8_DPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_C3H8_DPM)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_C3H8_RPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_C3H8_RPM)
-  cube = map_from_land(cube_land)
-
-CASE ( 'fire_em_HCHO_gb' )
-  cube_land = cube_from_array(fire_vars%fire_em_HCHO)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_HCHO' )
-  cube_land = cube_from_array(fire_vars%fire_em_HCHO_ft)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_HCHO_DPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_HCHO_DPM)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_HCHO_RPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_HCHO_RPM)
-  cube = map_from_land(cube_land)
-
-CASE ( 'fire_em_MeCHO_gb' )
-  cube_land = cube_from_array(fire_vars%fire_em_MeCHO)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_MeCHO' )
-  cube_land = cube_from_array(fire_vars%fire_em_MeCHO_ft)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_MeCHO_DPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_MeCHO_DPM)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_MeCHO_RPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_MeCHO_RPM)
-  cube = map_from_land(cube_land)
-
-CASE ( 'fire_em_NH3_gb' )
-  cube_land = cube_from_array(fire_vars%fire_em_NH3)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_NH3' )
-  cube_land = cube_from_array(fire_vars%fire_em_NH3_ft)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_NH3_DPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_NH3_DPM)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_NH3_RPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_NH3_RPM)
-  cube = map_from_land(cube_land)
-
-CASE ( 'fire_em_DMS_gb' )
-  cube_land = cube_from_array(fire_vars%fire_em_DMS)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_DMS' )
-  cube_land = cube_from_array(fire_vars%fire_em_DMS_ft)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_DMS_DPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_DMS_DPM)
-  cube = map_from_land(cube_land)
-CASE ( 'fire_em_DMS_RPM' )
-  cube_land = cube_from_array(fire_vars%fire_em_DMS_RPM)
   cube = map_from_land(cube_land)
 
   !-----------------------------------------------------------------------------
@@ -3311,190 +3190,82 @@ CASE ( 't_growth_gb' )
   cube = map_from_land(cube_land)
 
   ! Water resource variables.
-CASE ( 'conv_loss_frac' )
-  cube_land = cube_from_array( water_resources%conv_loss_frac )
-  cube = map_from_land(cube_land)
-
-CASE ( 'demand_rate_domestic' )
-  cube_land = cube_from_array(water_resources%demand_rate_domestic)
-  cube = map_from_land(cube_land)
-
-CASE ( 'demand_rate_industry' )
-  cube_land = cube_from_array(water_resources%demand_rate_industry)
-  cube = map_from_land(cube_land)
-
-CASE ( 'demand_rate_livestock' )
-  cube_land = cube_from_array(water_resources%demand_rate_livestock)
-  cube = map_from_land(cube_land)
-
-CASE ( 'demand_rate_transfers' )
-  cube_land = cube_from_array(water_resources%demand_rate_transfers)
+CASE ( 'conveyance_loss' )
+  cube_land = cube_from_array( water_resources%conveyance_loss )
   cube = map_from_land(cube_land)
 
 CASE ( 'demand_domestic' )
-  ! Note for use of demand_accum: as this is accumulated over the water
-  ! resource timestep generally it is not appropriate to use it on
-  ! intermediate timesteps - hence we return zero for those.
-  IF ( water_res_count == 0 ) THEN
-    ! Convert kg to kg s-1.
-    cube_land = cube_from_array(                                               &
-                  water_resources%demand_accum(:,use_domestic) / timestep )
-  ELSE
-    workspace_land(:) = 0.0
-    cube_land = cube_from_array( workspace_land )
-  END IF
-  cube = map_from_land( cube_land )
+  cube_land = cube_from_array(water_resources%demand_accum(:,use_domestic))
+  cube = map_from_land(cube_land)
 
 CASE ( 'demand_environment' )
-  IF ( water_res_count == 0 ) THEN
-    ! Convert kg to kg s-1.
-    cube_land = cube_from_array(                                               &
-                  water_resources%demand_accum(:,use_environment) / timestep )
-  ELSE
-    workspace_land(:) = 0.0
-    cube_land = cube_from_array( workspace_land )
-  END IF
+  cube_land = cube_from_array(water_resources%demand_accum(:,use_environment))
   cube = map_from_land(cube_land)
 
 CASE ( 'demand_industry' )
-  IF ( water_res_count == 0 ) THEN
-    ! Convert kg to kg s-1.
-    cube_land = cube_from_array( water_resources%demand_accum(:,use_industry)  &
-                                 / timestep )
-  ELSE
-    workspace_land(:) = 0.0
-    cube_land = cube_from_array( workspace_land )
-  END IF
+  cube_land = cube_from_array(water_resources%demand_accum(:,use_industry))
   cube = map_from_land(cube_land)
 
 CASE ( 'demand_irrigation' )
-  IF ( water_res_count == 0 ) THEN
-    ! Convert kg to kg s-1.
-    cube_land = cube_from_array( water_resources%demand_accum(:,use_irrigation)&
-                                 / timestep )
-  ELSE
-    workspace_land(:) = 0.0
-    cube_land = cube_from_array( workspace_land )
-  END IF
+  cube_land = cube_from_array(water_resources%demand_accum(:,use_irrigation))
   cube = map_from_land(cube_land)
 
 CASE ( 'demand_livestock' )
-  IF ( water_res_count == 0 ) THEN
-    ! Convert kg to kg s-1.
-    cube_land = cube_from_array( water_resources%demand_accum(:,use_livestock) &
-                                 / timestep )
-  ELSE
-    workspace_land(:) = 0.0
-    cube_land = cube_from_array( workspace_land )
-  END IF
+  cube_land = cube_from_array(water_resources%demand_accum(:,use_livestock))
   cube = map_from_land(cube_land)
 
 CASE ( 'demand_transfers' )
-  IF ( water_res_count == 0 ) THEN
-    ! Convert kg to kg s-1.
-    cube_land = cube_from_array( water_resources%demand_accum(:,use_transfers) &
-                                 / timestep )
-  ELSE
-    workspace_land(:) = 0.0
-    cube_land = cube_from_array( workspace_land )
-  END IF
+  cube_land = cube_from_array(water_resources%demand_accum(:,use_transfers))
+  cube = map_from_land(cube_land)
+
+CASE ( 'irrig_eff' )
+  cube_land = cube_from_array( water_resources%irrig_eff )
   cube = map_from_land(cube_land)
 
 CASE ( 'grid_area' )
   cube = cube_from_array( grid_area_ij )
 
-CASE ( 'gw_abstracted' )
-  ! Convert kg to kg s-1.
-  cube_land = cube_from_array( water_resources%gw_abstracted / timestep )
-  cube = map_from_land(cube_land)
-
-CASE ( 'gw_avail' )
-  cube_land = cube_from_array( water_resources%gw_avail )
-  cube = map_from_land(cube_land)
-
-CASE ( 'gw_nr_abstracted' )
-  ! Convert kg to kg s-1.
-  cube_land = cube_from_array( water_resources%gw_nr_abstracted / timestep )
-  cube = map_from_land(cube_land)
-
 CASE ( 'sfc_water_frac' )
   cube_land = cube_from_array( water_resources%sfc_water_frac )
   cube = map_from_land(cube_land)
 
-CASE ( 'sw_abstracted' )
-  ! Sum over sources and convert kg to kg s-1.
-  cube_land = cube_from_array( SUM(water_resources%sw_abstracted,2)            &
-                               / timestep )
-  cube = map_from_land(cube_land)
-
-CASE ( 'sw_avail' )
-  cube_land = cube_from_array( water_resources%sw_avail_total )
-  cube = map_from_land(cube_land)
-
-CASE ( 'unmet_domestic' )
-  ! Convert kg to kg s-1.
-  cube_land = cube_from_array( water_resources%demand_unmet(:,use_domestic)    &
-                               / timestep )
-  cube = map_from_land(cube_land)
-
-CASE ( 'unmet_environment' )
-  ! Convert kg to kg s-1.
-  cube_land = cube_from_array( water_resources%demand_unmet(:,use_environment) &
-                               / timestep )
-  cube = map_from_land(cube_land)
-
-CASE ( 'unmet_industry' )
-  ! Convert kg to kg s-1.
-  cube_land = cube_from_array( water_resources%demand_unmet(:,use_industry)    &
-                               / timestep )
-  cube = map_from_land(cube_land)
-
-CASE ( 'unmet_irrigation' )
-  ! Convert kg to kg s-1.
-  cube_land = cube_from_array( water_resources%demand_unmet(:,use_irrigation)  &
-                               / timestep )
-  cube = map_from_land(cube_land)
-
-CASE ( 'unmet_livestock' )
-  ! Convert kg to kg s-1.
-  cube_land = cube_from_array( water_resources%demand_unmet(:,use_livestock)   &
-                               / timestep )
-  cube = map_from_land(cube_land)
-
-CASE ( 'unmet_transfers' )
-  cube_land = cube_from_array( water_resources%demand_unmet(:,use_transfers)   &
-                               / timestep )
-  cube = map_from_land(cube_land)
-
 CASE ( 'water_demand' )
-  IF ( water_res_count == 0 ) THEN
-    ! Sum over sectors and convert kg to kg s-1.
-    cube_land = cube_from_array( SUM(water_resources%demand_accum,2)           &
-                                 / timestep )
-  ELSE
-    workspace_land(:) = 0.0
-    cube_land = cube_from_array( workspace_land )
+  ! Sum over active sectors.
+  workspace_land(:) = 0.0
+  IF ( l_water_domestic ) THEN
+    workspace_land(:) =  workspace_land(:)                                     &
+                         + water_resources%demand_accum(:,use_domestic)
   END IF
-  cube = map_from_land(cube_land)
-
-CASE ( 'water_demand_unmet' )
-  ! Sum over sectors and convert kg to kg s-1.
-  cube_land = cube_from_array( SUM(water_resources%demand_unmet,2)             &
-                               / timestep )
-  cube = map_from_land(cube_land)
-
-CASE ( 'water_removed' )
-  ! Convert kg to kg s-1.
-  cube_land = cube_from_array( water_resources%water_removed / timestep )
+  IF ( l_water_environment ) THEN
+    workspace_land(:) =  workspace_land(:)                                     &
+                         + water_resources%demand_accum(:,use_environment)
+  END IF
+  IF ( l_water_industry ) THEN
+    workspace_land(:) =  workspace_land(:)                                     &
+                         + water_resources%demand_accum(:,use_industry)
+  END IF
+  IF ( l_water_irrigation ) THEN
+    workspace_land(:) =  workspace_land(:)                                     &
+                         + water_resources%demand_accum(:,use_irrigation)
+  END IF
+  IF ( l_water_livestock ) THEN
+    workspace_land(:) =  workspace_land(:)                                     &
+                         + water_resources%demand_accum(:,use_livestock)
+  END IF
+  IF ( l_water_transfers ) THEN
+    workspace_land(:) =  workspace_land(:)                                     &
+                         + water_resources%demand_accum(:,use_transfers)
+  END IF
+  cube_land = cube_from_array( workspace_land(:) )
   cube = map_from_land(cube_land)
 
   !---------------------------------------------------------------------------
   ! Urban morphology on land points
   ! These are calculated when l_urban_empirical otherwise they will be the
   ! same as the input value.
-  ! wrr   Repeating width ratio (or canyon fraction, W/R)
-  ! hwr   Height-to-width ratio (H/W)
-  ! hgt   Building height (H)
+  ! wrr 	Repeating width ratio (or canyon fraction, W/R)
+  ! hwr 	Height-to-width ratio (H/W)
+  ! hgt 	Building height (H)
   !---------------------------------------------------------------------------
 CASE ( 'wrr' )
   cube_land = cube_from_array(urban_param%wrr_gb)
@@ -3537,10 +3308,6 @@ CASE ( 'deposition_rc_nonstom' )
 CASE ( 'deposition_vd' )
   cube = cube_from_array( chemvars%dep_vd_ij )
 
-  ! Deposition velocity, vd - grid-box mean
-CASE ( 'deposition_vd_gb' )
-  cube = cube_from_array( chemvars%dep_vd_gb )
-
   ! Deposition loss rate
 CASE ( 'deposition_lossrate' )
   cube = cube_from_array( chemvars%dep_loss_rate_ij )
@@ -3557,6 +3324,75 @@ CASE ( 'bl_height' )
 CASE ( 'level_separation' )
   cube = cube_from_array( jules_vars%dzl )
 
+  ! Water potential in each soil layer in MPa JBaguley
+  ! 1.0e-6 is to convert from Pa to MPa
+CASE ( 'soil_wp' )
+  DO k = 1, sm_levels
+    workspace_levs(:,k) = soiltiles_to_gbm(                                    &
+          psparms%soil_wp_soilt(:,:,k)*1.0e-6, ainfo)
+  END DO
+  cube_land = cube_from_array(workspace_levs(:,1:sm_levels))
+  cube = map_from_land(cube_land)
+
+  ! Water conductivity in each soil layer JBaguley
+CASE ( 'soil_k' )
+  DO k = 1, sm_levels
+    workspace_levs(:,k) = soiltiles_to_gbm(psparms%soil_k_soilt(:,:,k),ainfo)
+  END DO
+  cube_land = cube_from_array(workspace_levs(:,1:sm_levels))
+  cube = map_from_land(cube_land)
+
+  ! Water conductivity from soil to root in each soil layer JBaguley
+CASE ( 'soil_root_k' )
+  DO k = 1, sm_levels
+    workspace_levs(:,k) = soiltiles_to_gbm(psparms%soil_root_k_soilt(:,:,k),   &
+                                           ainfo)
+  END DO
+  cube_land = cube_from_array(workspace_levs(:,1:sm_levels))
+  cube = map_from_land(cube_land)
+
+  ! Root zone water potential for each plant functional type in MPa JBaguley
+  ! The 1.0e-6 is to convert from Pa to MPa
+CASE ( 'psi_root_zone_pft' )
+  cube_land = cube_from_array(psparms%psi_root_zone_pft(:,:)*1.0e-6)
+  cube = map_from_land(cube_land)
+
+  ! Leaf water potential for each plant functional type JBaguley
+  ! The 1.0e-6 is to convert from Pa to MPa
+CASE ( 'psi_leaf_pft' )
+  cube_land = cube_from_array(psparms%psi_leaf_pft(:,:)*1.0e-6)
+  cube = map_from_land(cube_land)
+
+  ! Transpiration rate calcuated in the stomatal optimisation calculation JBaguley
+CASE ( 'som_transpiration_pft' )
+  cube_land = cube_from_array(psparms%som_transpiration_pft)
+  cube = map_from_land(cube_land)
+
+  ! Ratio of intercellular and canopy level CO2 concentration JBaguley
+CASE ('cica_ratio_pft')
+  cube_land = cube_from_array(psparms%cica_ratio_pft)
+  cube = map_from_land(cube_land)
+
+  ! Carbon gain for each plant functional type JBaguley
+CASE ('carbon_gain_pft')
+  cube_land = cube_from_array(psparms%carbon_gain_pft)
+  cube = map_from_land(cube_land)
+
+  ! Hydraulic cost for each plant functional type JBaguley
+CASE ('hydraulic_cost_pft')
+  cube_land = cube_from_array(psparms%hydraulic_cost_pft)
+  cube = map_from_land(cube_land)
+
+  ! Percentage loss of conductance at the leaf water potential compared to the
+  ! maximum conductance JBaguley
+CASE ('PLC_pft')
+
+  DO i = 1, npft
+    workspace_pft(:,i) = 100.0 * (1 - psparms%leaf_k_pft(:,i)/kmax_pft(i))
+  END DO
+
+  cube_land = cube_from_array(workspace_pft)
+  cube = map_from_land(cube_land)
 
 CASE DEFAULT
   CALL log_fatal("extract_var",                                                &

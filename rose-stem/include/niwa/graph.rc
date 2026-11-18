@@ -10,7 +10,6 @@
 {%- set name_graphs = {
         "umdp3_check"       : "umdp3_checker",
         "metadata_check"       : "metadata_checker",
-        "site_validator" : "site_validator",
 } %}
 {%- do name_graphs.update(name_graphs_cs500.items()) %}
 {%- do name_graphs.update(name_graphs_xc50.items()) %}
@@ -25,7 +24,7 @@
 
         "tutorial" : ["niwa_xc50_intel_loobos_crops"],
 
-        "scripts"   : ["umdp3_check", "metadata_check", "site_validator"],
+        "scripts"   : ["umdp3_check", "metadata_check"],
 
     }
 %}

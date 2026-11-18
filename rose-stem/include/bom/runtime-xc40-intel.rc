@@ -22,7 +22,7 @@
 {% endif %}
 
 
-    [[BOM_LINUX]]
+    [[BOM_LINUX]] 
         [[[job]]]
             batch system = background
         [[[remote]]]
@@ -40,11 +40,6 @@
         [[[directives]]]
             -P = {{ environ['PROJECT']|default('pr_nwp') }}
             -W umask = 0022
-
-
-    [[remote_init_xc40]]
-        inherit = BOM_XC40
-        script = true
 
     [[BOM_XC40_INTEL_BUILD]]
         inherit = BOM_XC40

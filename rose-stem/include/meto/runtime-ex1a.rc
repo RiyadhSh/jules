@@ -1,23 +1,14 @@
 ###############################################################################
 ## Common classes
 ###############################################################################
-{% if METO_HOST_EX == "exz" %}
-    {% set jules_install_dir = "/common/jules" %}
-{% else %}
-    {% set jules_install_dir = "/common/internal/jules" %}
-{% endif %}
-
     [[METO_EX1A]]
-        platform = {{ METO_HOST_EX }}
- 	    execution time limit = PT10M
+        [[[job]]]
+            batch system = pbs
+            execution time limit = PT10M
+        [[[remote]]]
+            host = login.exz
         [[[directives]]]
             -S = /bin/bash
-
-    [[remote_init_ex1a]]
-        inherit = METO_EX1A
-        script = true
-        [[[job]]]
-            execution time limit = PT2M
 
 {#
   Cray compiler using a blended CPE 23.05 and CCE 15.0.0 approach.
@@ -50,11 +41,11 @@
                      module load nccmp/1.9.1.0
                      module list 2>&1
                      """
-
+ 
 # The queue family for jobs that will not use a whole compute node. For the foreseeable future
-# jules jobs are expected not to take up more than one whole node (256 cores). Note using this
+# jules jobs are expected not to take up more than one whole node (256 cores). Note using this 
 # family requires that the environment variable MPI_NUM_TASKS be set to the number of MPI tasks,
-# and OMP_NUM_THREADS set to number of omp threads per task.
+# and OMP_NUM_THREADS set to number of omp threads per task. 
     [[METO_EX1A_QUEUE]]
         inherit = None, METO_EX1A
         [[[directives]]]
@@ -68,30 +59,31 @@
 # We need all these separate families to make sure environment variables come out in the correct order
 # Each compute job should inherit from one each of the CORES, OMPTHREADS and MPITASKS groups, in that order
 
+# Note that each of the METO_EX1A_CORES_N families set -l ncpus = 2N. This is to avoid accidentally
+# using hyperthreads/SMT incorrectly.
     [[METO_EX1A_CORES_1]]
         inherit = METO_EX1A_QUEUE
         [[[directives]]]
-            -l select=1:ncpus=1:mem=2G
+            -l ncpus = 2
+            -l mem = 2G
 
 # 8 physical cores == 1 Milan chiplet
     [[METO_EX1A_CORES_8]]
         inherit = METO_EX1A_QUEUE
         [[[directives]]]
-            -l select=1:ncpus=8:mem=16G
+            -l ncpus = 16
+            -l mem = 16G
 
 # 32 physical cores == 4 Milan chiplets
     [[METO_EX1A_CORES_32]]
         inherit = METO_EX1A_QUEUE
         [[[directives]]]
-            -l select=1:ncpus=32:mem=64G
+            -l ncpus = 64
+            -l mem = 64G
 
     [[METO_EX1A_OMPTHREADS_1]]
         [[[environment]]]
             OMP_NUM_THREADS = 1
-
-    [[METO_EX1A_OMPTHREADS_4]]
-        [[[environment]]]
-            OMP_NUM_THREADS = 4
 
     [[METO_EX1A_OMPTHREADS_8]]
         [[[environment]]]
@@ -101,7 +93,7 @@
         [[[environment]]]
             MPI_NUM_TASKS = 1
             NPROC = $MPI_NUM_TASKS
-
+    
     [[METO_EX1A_MPITASKS_4]]
         [[[environment]]]
             MPI_NUM_TASKS = 4

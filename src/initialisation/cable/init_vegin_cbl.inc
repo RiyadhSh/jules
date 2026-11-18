@@ -1,9 +1,4 @@
 #if !defined(UM_JULES)
-!-----------------------------------------------------------------------------
-! (C) Crown copyright Met Office. All rights reserved.
-! The file LICENCE, distributed with this code, contains details of the terms
-! under which the code may be used.
-!-----------------------------------------------------------------------------
 
 SUBROUTINE init_vegin_cbl(nml_dir,progs)
 
@@ -34,6 +29,8 @@ USE jules_surface_types_mod, ONLY: ntype, npft
 
 USE ancil_info, ONLY: land_pts
 
+USE grid_constants_mod_cbl, ONLY: nsl, nscs, nvcs, nrb
+
 USE max_dimensions, ONLY: ntype_max
 
 USE prognostics,      ONLY: progs_type
@@ -48,11 +45,6 @@ CHARACTER(LEN=*), INTENT(IN) :: nml_dir  ! The directory containing the
                                          ! namelists
 !TYPES containing the data
 TYPE(progs_type), INTENT(IN OUT) :: progs
-
-! CABLE constant, to be replaced once compilation with CABLE
-! library works. ccc25
-INTEGER, PARAMETER :: nsoil_max = 9 ! # of soil types
-
 
 ! Work variables
 INTEGER :: ERROR  ! Error indicator

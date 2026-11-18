@@ -113,9 +113,6 @@ TYPE :: fluxes_data_type
   !   Surface latent heat flux for land tiles
   REAL(KIND=real_jlslsm), ALLOCATABLE :: melt_surft(:,:)
   !   Snowmelt on land tiles (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: snowinc_surft(:,:)
-  !   Increment to snow from sublimation and melting on
-  !   surface tiles (kg m-2 TS-1)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: tot_tfall_surft(:,:)
   !   Canopy througfall rate on land tiles (kg/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: sice_melt(:,:,:)
@@ -233,9 +230,6 @@ TYPE :: fluxes_type
   !   Surface latent heat flux for land tiles
   REAL(KIND=real_jlslsm), POINTER :: melt_surft(:,:)
   !   Snowmelt on land tiles (kg/m2/s)
-  REAL(KIND=real_jlslsm), POINTER :: snowinc_surft(:,:)
-  !   Increment to snow from sublimation and melting on
-  !   surface tiles (kg m-2 TS-1)
   REAL(KIND=real_jlslsm), POINTER :: tot_tfall_surft(:,:)
   !   Canopy througfall rate on land tiles (kg/m2/s)
   REAL(KIND=real_jlslsm), POINTER :: sice_melt(:,:,:)
@@ -370,7 +364,6 @@ ALLOCATE(fluxes_data%snow_melt_gb(land_pts))
 ALLOCATE(fluxes_data%snomlt_sub_htf_gb(land_pts))
 ALLOCATE(fluxes_data%tot_tfall_gb(land_pts))
 ALLOCATE(fluxes_data%melt_surft(land_pts,nsurft))
-ALLOCATE(fluxes_data%snowinc_surft(land_pts,nsurft))
 ALLOCATE(fluxes_data%tot_tfall_surft(land_pts,nsurft))
 ALLOCATE(fluxes_data%sice_melt(t_i_length,t_j_length,nice_use))
 ALLOCATE(fluxes_data%ei_sice(t_i_length,t_j_length,nice_use))
@@ -413,7 +406,6 @@ fluxes_data%snow_melt_gb(:)              = 0.0
 fluxes_data%snomlt_sub_htf_gb(:)         = 0.0
 fluxes_data%tot_tfall_gb(:)              = 0.0
 fluxes_data%melt_surft(:,:)              = 0.0
-fluxes_data%snowinc_surft(:,:)           = 0.0
 fluxes_data%tot_tfall_surft(:,:)         = 0.0
 fluxes_data%sice_melt(:,:,:)             = 0.0
 fluxes_data%ei_sice(:,:,:)               = 0.0
@@ -489,7 +481,6 @@ DEALLOCATE(fluxes_data%snow_melt_gb)
 DEALLOCATE(fluxes_data%snomlt_sub_htf_gb)
 DEALLOCATE(fluxes_data%tot_tfall_gb)
 DEALLOCATE(fluxes_data%melt_surft)
-DEALLOCATE(fluxes_data%snowinc_surft)
 DEALLOCATE(fluxes_data%tot_tfall_surft)
 DEALLOCATE(fluxes_data%sice_melt)
 DEALLOCATE(fluxes_data%ei_sice)
@@ -571,7 +562,6 @@ fluxes%snow_melt_gb => fluxes_data%snow_melt_gb
 fluxes%snomlt_sub_htf_gb => fluxes_data%snomlt_sub_htf_gb
 fluxes%tot_tfall_gb => fluxes_data%tot_tfall_gb
 fluxes%melt_surft => fluxes_data%melt_surft
-fluxes%snowinc_surft => fluxes_data%snowinc_surft
 fluxes%tot_tfall_surft => fluxes_data%tot_tfall_surft
 fluxes%sice_melt => fluxes_data%sice_melt
 fluxes%ei_sice => fluxes_data%ei_sice
@@ -649,7 +639,6 @@ NULLIFY(fluxes%snow_melt_gb)
 NULLIFY(fluxes%snomlt_sub_htf_gb)
 NULLIFY(fluxes%tot_tfall_gb)
 NULLIFY(fluxes%melt_surft)
-NULLIFY(fluxes%snowinc_surft)
 NULLIFY(fluxes%tot_tfall_surft)
 NULLIFY(fluxes%sice_melt)
 NULLIFY(fluxes%ei_sice)

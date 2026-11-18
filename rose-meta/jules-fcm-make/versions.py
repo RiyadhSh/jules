@@ -1,11 +1,7 @@
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
+import rose.upgrade
 
 
-class vn40_vn41(MacroUpgrade):
+class vn40_vn41(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.0"
@@ -16,7 +12,7 @@ class vn40_vn41(MacroUpgrade):
         return config, self.reports
 
 
-class vn41_vn42(MacroUpgrade):
+class vn41_vn42(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.1"
@@ -27,7 +23,7 @@ class vn41_vn42(MacroUpgrade):
         return config, self.reports
 
 
-class vn42_t58(MacroUpgrade):
+class vn42_t58(rose.upgrade.MacroUpgrade):
     """FCM make upgrade macro for JULES #58 by Matt Pryor"""
 
     BEFORE_TAG = "vn4.2"
@@ -71,7 +67,7 @@ class vn42_t58(MacroUpgrade):
         return config, self.reports
 
 
-class vn42_vn43(MacroUpgrade):
+class vn42_vn43(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.2_t58"
@@ -82,7 +78,7 @@ class vn42_vn43(MacroUpgrade):
         return config, self.reports
 
 
-class vn43_vn44(MacroUpgrade):
+class vn43_vn44(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.3"
@@ -93,7 +89,7 @@ class vn43_vn44(MacroUpgrade):
         return config, self.reports
 
 
-class vn44_vn45(MacroUpgrade):
+class vn44_vn45(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.4"
@@ -104,7 +100,7 @@ class vn44_vn45(MacroUpgrade):
         return config, self.reports
 
 
-class vn45_vn46(MacroUpgrade):
+class vn45_vn46(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.5"
@@ -115,7 +111,7 @@ class vn45_vn46(MacroUpgrade):
         return config, self.reports
 
 
-class vn46_vn47(MacroUpgrade):
+class vn46_vn47(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.6"
@@ -126,7 +122,7 @@ class vn46_vn47(MacroUpgrade):
         return config, self.reports
 
 
-class vn47_vn48(MacroUpgrade):
+class vn47_vn48(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.7"
@@ -137,7 +133,7 @@ class vn47_vn48(MacroUpgrade):
         return config, self.reports
 
 
-class vn48_vn49(MacroUpgrade):
+class vn48_vn49(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.8"
@@ -148,7 +144,7 @@ class vn48_vn49(MacroUpgrade):
         return config, self.reports
 
 
-class vn49_vn50(MacroUpgrade):
+class vn49_vn50(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.9"
@@ -159,7 +155,7 @@ class vn49_vn50(MacroUpgrade):
         return config, self.reports
 
 
-class vn50_t632(MacroUpgrade):
+class vn50_t632(rose.upgrade.MacroUpgrade):
     """Upgrade macro for #632 by Paul Cresswell"""
 
     BEFORE_TAG = "vn5.0"
@@ -173,7 +169,7 @@ class vn50_t632(MacroUpgrade):
         return config, self.reports
 
 
-class vn50_vn51(MacroUpgrade):
+class vn50_vn51(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.0_t632"
@@ -183,7 +179,7 @@ class vn50_vn51(MacroUpgrade):
         # Nothing to do
         return config, self.reports
 
-class vn51_t735(MacroUpgrade):
+class vn51_t735(rose.upgrade.MacroUpgrade):
     """Upgrade macro for #735 by Carolina Duran Rojas"""
 
     BEFORE_TAG = "vn5.1"
@@ -197,7 +193,7 @@ class vn51_t735(MacroUpgrade):
         return config, self.reports
 
 
-class vn51_t755(MacroUpgrade):
+class vn51_t755(rose.upgrade.MacroUpgrade):
     """Upgrade macro for #755 by Karina Williams"""
 
     BEFORE_TAG = "vn5.1_t735"
@@ -214,7 +210,7 @@ class vn51_t755(MacroUpgrade):
         return config, self.reports
 
 
-class vn51_vn52(MacroUpgrade):
+class vn51_vn52(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.1_t755"
@@ -225,7 +221,7 @@ class vn51_vn52(MacroUpgrade):
         return config, self.reports
 
 
-class vn52_vn53(MacroUpgrade):
+class vn52_vn53(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.2"
@@ -236,7 +232,7 @@ class vn52_vn53(MacroUpgrade):
         return config, self.reports
 
 
-class vn53_t854(MacroUpgrade):
+class vn53_t854(rose.upgrade.MacroUpgrade):
     """Upgrade macro for #854 by Paul Cresswell"""
 
     BEFORE_TAG = "vn5.3"
@@ -252,7 +248,7 @@ class vn53_t854(MacroUpgrade):
 
         return config, self.reports
 
-class vn53_t855(MacroUpgrade):
+class vn53_t855(rose.upgrade.MacroUpgrade):
     """Upgrade macro for #855 by Paul Cresswell"""
 
     BEFORE_TAG = "vn5.3_t854"
@@ -265,7 +261,7 @@ class vn53_t855(MacroUpgrade):
         self.add_setting(config, ['env', 'JULES_PLATFORM'], '$JULES_PLATFORM')
         return config, self.reports
 
-class vn53_vn54(MacroUpgrade):
+class vn53_vn54(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.3_t855"
@@ -276,7 +272,7 @@ class vn53_vn54(MacroUpgrade):
         return config, self.reports
 
 
-class vn54_vn55(MacroUpgrade):
+class vn54_vn55(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.4"
@@ -287,7 +283,7 @@ class vn54_vn55(MacroUpgrade):
         return config, self.reports
 
 
-class vn55_vn56(MacroUpgrade):
+class vn55_vn56(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.5"
@@ -298,7 +294,7 @@ class vn55_vn56(MacroUpgrade):
         return config, self.reports
 
 
-class vn56_t976(MacroUpgrade):
+class vn56_t976(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Toby Marthews"""
 
@@ -312,7 +308,7 @@ class vn56_t976(MacroUpgrade):
         return config, self.reports
 
 
-class vn56_vn57(MacroUpgrade):
+class vn56_vn57(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.6_t976"
@@ -323,7 +319,7 @@ class vn56_vn57(MacroUpgrade):
         return config, self.reports
 
 
-class vn57_vn58(MacroUpgrade):
+class vn57_vn58(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.7"
@@ -334,7 +330,7 @@ class vn57_vn58(MacroUpgrade):
         return config, self.reports
 
 
-class vn58_vn59(MacroUpgrade):
+class vn58_vn59(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.8"
@@ -345,7 +341,7 @@ class vn58_vn59(MacroUpgrade):
         return config, self.reports
 
 
-class vn59_vn60(MacroUpgrade):
+class vn59_vn60(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn5.9"
@@ -356,7 +352,7 @@ class vn59_vn60(MacroUpgrade):
         return config, self.reports
 
 
-class vn60_vn61(MacroUpgrade):
+class vn60_vn61(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn6.0"
@@ -366,7 +362,7 @@ class vn60_vn61(MacroUpgrade):
         # Nothing to do
         return config, self.reports
 
-class vn61_vn62(MacroUpgrade):
+class vn61_vn62(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn6.1"
@@ -377,112 +373,62 @@ class vn61_vn62(MacroUpgrade):
         return config, self.reports
 
 
-class vn62_vn63(MacroUpgrade):
+class vn62_vn63(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn6.2"
     AFTER_TAG = "vn6.3"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports
 
-class vn63_vn70(MacroUpgrade):
+class vn63_vn70(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn6.3"
     AFTER_TAG = "vn7.0"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
-        return config, self.reports
+        # Nothing to do        
+        return config, self.reports            
 
-class vn70_vn71(MacroUpgrade):
+class vn70_vn71(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn7.0"
     AFTER_TAG = "vn7.1"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports
 
-class vn71_vn72(MacroUpgrade):
+class vn71_vn72(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn7.1"
     AFTER_TAG = "vn7.2"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports
 
-class vn72_vn73(MacroUpgrade):
+class vn72_vn73(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn7.2"
     AFTER_TAG = "vn7.3"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
-        return config, self.reports
+        # Nothing to do        
+        return config, self.reports            
 
-class vn73_vn74(MacroUpgrade):
+class vn73_vn74(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn7.3"
     AFTER_TAG = "vn7.4"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
-        return config, self.reports
-
-class vn74_vn75(MacroUpgrade):
-    """Version bump macro"""
-
-    BEFORE_TAG = "vn7.4"
-    AFTER_TAG = "vn7.5"
-
-    def upgrade(self, config, meta_config=None):
-        # Nothing to do
-        return config, self.reports
-
-class vn75_vn76(MacroUpgrade):
-    """Version bump macro"""
-
-    BEFORE_TAG = "vn7.5"
-    AFTER_TAG = "vn7.6"
-
-    def upgrade(self, config, meta_config=None):
-        # Nothing to do
-        return config, self.reports
-
-class vn76_vn77(MacroUpgrade):
-    """Version bump macro"""
-
-    BEFORE_TAG = "vn7.6"
-    AFTER_TAG = "vn7.7"
-
-    def upgrade(self, config, meta_config=None):
-        # Nothing to do
-        return config, self.reports
-
-class vn77_vn78(MacroUpgrade):
-    """Version bump macro"""
-
-    BEFORE_TAG = "vn7.7"
-    AFTER_TAG = "vn7.8"
-
-    def upgrade(self, config, meta_config=None):
-        # Nothing to do
-        return config, self.reports
-
-class vn78_vn79(MacroUpgrade):
-    """Version bump macro"""
-
-    BEFORE_TAG = "vn7.8"
-    AFTER_TAG = "vn7.9"
-
-    def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

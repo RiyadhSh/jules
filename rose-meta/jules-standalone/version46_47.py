@@ -1,11 +1,7 @@
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
+import rose.upgrade
 
 
-class vn46_t326(MacroUpgrade):
+class vn46_t326(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Karina Williams"""
 
@@ -18,9 +14,9 @@ class vn46_t326(MacroUpgrade):
         # Add settings
         self.add_setting(config, ["namelist:jules_drive", "l_perturb_driving"], ".false.")
         return config, self.reports
-
-
-class vn46_t324(MacroUpgrade):
+        
+        
+class vn46_t324(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Karina Williams"""
 
@@ -29,20 +25,20 @@ class vn46_t324(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
+        
         ncpft_in = self.get_setting_value(config, ["namelist:jules_surface_types", "ncpft"])
         if ncpft_in:
             ncpft = int(ncpft_in)
             self.add_setting(config, ["namelist:jules_cropparm", "initial_c_dvi_io"], ','.join(['0.0'] * ncpft))
-
-        else:
+        
+        else:     
             self.add_setting(config, ["namelist:jules_cropparm", "initial_c_dvi_io"], "-1e20")
-
+           
         # Add settings
         return config, self.reports
 
 
-class vn46_t298(MacroUpgrade):
+class vn46_t298(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by J. M. Edwards"""
 
@@ -58,7 +54,7 @@ class vn46_t298(MacroUpgrade):
         return config, self.reports
 
 
-class vn46_t288(MacroUpgrade):
+class vn46_t288(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eleanor Burke"""
 
@@ -77,13 +73,13 @@ class vn46_t288(MacroUpgrade):
         return config, self.reports
 
 
-class vn46_vn47(MacroUpgrade):
+class vn46_vn47(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
 
     BEFORE_TAG = "vn4.6_t288"
     AFTER_TAG = "vn4.7"
 
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports
 

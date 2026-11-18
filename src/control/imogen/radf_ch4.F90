@@ -16,7 +16,6 @@ USE imogen_run, ONLY: file_ch4_n2o, nyr_ch4_n2o
 USE model_time_mod, ONLY: current_time
 USE parallel_mod, ONLY: is_master_task
 USE jules_print_mgr, ONLY: jules_message, jules_print
-USE logging_mod, ONLY: log_fatal
 
 IMPLICIT NONE
 !-----------------------------------------------------------------------------
@@ -56,23 +55,15 @@ REAL ::                                                                        &
   n2o_interp_ppbv(nyr_max) ! Time interpolated N2O_ref.
 
 INTEGER :: i, iy
-INTEGER :: io_error
 
 
 !-----------------------------------------------------------------------------
 ! Read in file of ch4 and n2o atmospheric concentrations if required
 !-----------------------------------------------------------------------------
 OPEN(imogen_unit, FILE=file_ch4_n2o, STATUS = 'old',                           &
-      POSITION = 'rewind', ACTION = 'read', IOSTAT=io_error)
-IF (io_error /= 0) THEN
-  CALL log_fatal("radf_ch4", ': file_ch4_n2o not found')
-END IF
-
+      POSITION = 'rewind', ACTION = 'read')
 DO i = 1, nyr_ch4_n2o
-  READ(imogen_unit, *, IOSTAT = io_error) yr_ref(i), ch4_ref(i), n2o_ref(i)
-  IF (io_error /= 0) THEN
-    CALL log_fatal("radf_ch4", ': error reading file_ch4_n2o')
-  END IF
+  READ(imogen_unit, *) yr_ref(i), ch4_ref(i), n2o_ref(i)
 END DO
 CLOSE(imogen_unit)
 

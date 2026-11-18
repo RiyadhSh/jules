@@ -23,8 +23,7 @@ SUBROUTINE init_grid(nml_dir, crop_vars_data,psparms_data,top_pdm_data,        &
                               rivers_data,                                     &
                               !veg3_parm_data, &
                               !veg3_field_data, &
-                              chemvars_data, water_resources_data,             &
-                              wtrac_jls_data                                   &
+                              chemvars_data, water_resources_data              &
                               )
 
 USE io_constants, ONLY: namelist_unit
@@ -69,7 +68,6 @@ USE jules_rivers_mod, ONLY: rivers_data_type
 ! USE veg3_field_mod, ONLY: in_dev
 USE jules_chemvars_mod, ONLY: chemvars_data_type
 USE water_resources_vars_mod, ONLY: water_resources_data_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_data_type
 
 IMPLICIT NONE
 
@@ -111,7 +109,6 @@ TYPE(rivers_data_type), INTENT(IN OUT) :: rivers_data
 !TYPE(in_dev), INTENT(IN OUT) :: veg3_field_data
 TYPE(chemvars_data_type), INTENT(IN OUT) :: chemvars_data
 TYPE(water_resources_data_type), INTENT(IN OUT) :: water_resources_data
-TYPE(jls_wtrac_data_type), INTENT(IN OUT) :: wtrac_jls_data
 
 ! Work variables
 INTEGER :: ERROR  ! Error indicator
@@ -150,7 +147,7 @@ CALL init_model_grid_arrays(crop_vars_data,psparms_data,top_pdm_data,          &
                             coastal_data, jules_vars_data, fluxes_data,        &
                             lake_data, forcing_data, imgn_drive_data,          &
                             imgn_vars_data, rivers_data, chemvars_data,        &
-                            water_resources_data, wtrac_jls_data)
+                            water_resources_data)
 ! The following use arrays allocated in previous call.
 CALL init_surf_hgt(jules_vars_data)
 CALL init_z_land(ainfo_data,jules_vars_data)

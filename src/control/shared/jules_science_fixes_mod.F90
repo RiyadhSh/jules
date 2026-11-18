@@ -78,9 +78,6 @@ LOGICAL :: l_accurate_rho = .FALSE.       ! Review in Jan 2022
 ! ticket # (Jules:#1279)
 LOGICAL :: l_fix_snow_frac = .FALSE.       ! Review in April 2024
 
-! ticket # (Jules:#1396)
-LOGICAL :: l_fix_neg_snow = .FALSE.       ! Review in April 2025
-
 ! ticket #931 (um:#6885): Atmospheric deposition fixes used in UKCA
 LOGICAL :: l_fix_drydep_so2_water = .FALSE. ,                                  &
              ! True to use correct surface resistance of water when calculating
@@ -96,7 +93,7 @@ NAMELIST  /jules_temp_fixes/                                                   &
          l_fix_albsnow_ts, l_fix_wind_snow, l_fix_moruses_roof_rad_coupling,   &
          l_fix_osa_chloro, l_accurate_rho, l_fix_lake_ice_temperatures,        &
          l_fix_snow_frac, l_fix_drydep_so2_water, l_fix_improve_drydep,        &
-         l_fix_ukca_h2dd_x, l_fix_neg_snow
+         l_fix_ukca_h2dd_x
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='JULES_SCIENCE_FIXES_MOD'
 
@@ -131,9 +128,6 @@ CALL jules_print(ModuleName,lineBuffer)
 WRITE(lineBuffer,'(A,L1)') ' l_accurate_rho = ',      l_accurate_rho
 CALL jules_print(ModuleName,lineBuffer)
 WRITE(lineBuffer,'(A,L1)') ' l_fix_snow_frac = ',     l_fix_snow_frac
-CALL jules_print(ModuleName,lineBuffer)
-WRITE(lineBuffer,'(A,L1)') ' l_fix_neg_snow = ',      l_fix_neg_snow
-CALL jules_print(ModuleName,lineBuffer)
 WRITE(lineBuffer,'(A,L1)') ' l_fix_improve_drydep = ', l_fix_improve_drydep
 CALL jules_print(ModuleName,lineBuffer)
 WRITE(lineBuffer,'(A,L1)') ' l_fix_ukca_h2dd_x = ',   l_fix_ukca_h2dd_x
@@ -255,7 +249,7 @@ INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 ! set number of each type of variable in my_namelist type
 INTEGER, PARAMETER :: no_of_types = 2
 INTEGER, PARAMETER :: n_int = 1
-INTEGER, PARAMETER :: n_log = 14
+INTEGER, PARAMETER :: n_log = 13
 
 TYPE :: my_namelist
   SEQUENCE
@@ -270,7 +264,6 @@ TYPE :: my_namelist
   LOGICAL :: l_fix_osa_chloro
   LOGICAL :: l_accurate_rho
   LOGICAL :: l_fix_snow_frac
-  LOGICAL :: l_fix_neg_snow
   LOGICAL :: l_fix_drydep_so2_water
   LOGICAL :: l_fix_improve_drydep
   LOGICAL :: l_fix_ukca_h2dd_x
@@ -301,7 +294,6 @@ IF (mype == 0) THEN
   my_nml % l_fix_osa_chloro                = l_fix_osa_chloro
   my_nml % l_accurate_rho                  = l_accurate_rho
   my_nml % l_fix_snow_frac                 = l_fix_snow_frac
-  my_nml % l_fix_neg_snow                  = l_fix_neg_snow
   my_nml % l_fix_drydep_so2_water          = l_fix_drydep_so2_water
   my_nml % l_fix_improve_drydep            = l_fix_improve_drydep
   my_nml % l_fix_ukca_h2dd_x               = l_fix_ukca_h2dd_x
@@ -321,7 +313,6 @@ IF (mype /= 0) THEN
   l_fix_osa_chloro                = my_nml % l_fix_osa_chloro
   l_accurate_rho                  = my_nml % l_accurate_rho
   l_fix_snow_frac                 = my_nml % l_fix_snow_frac
-  l_fix_neg_snow                  = my_nml % l_fix_neg_snow
   l_fix_drydep_so2_water          = my_nml % l_fix_drydep_so2_water
   l_fix_improve_drydep            = my_nml % l_fix_improve_drydep
   l_fix_ukca_h2dd_x               = my_nml % l_fix_ukca_h2dd_x
@@ -442,15 +433,6 @@ IF ( .NOT. l_fix_snow_frac ) THEN
   'jules:#1279 fix to remove persistent small snow amounts' //      newline // &
   ' when using the frac_snow_subl_melt=1 option is not enabled: ' //newline // &
   'l_fix_snow_frac = .FALSE.'
-  CALL ereport(RoutineName, errorstatus, cmessage)
-END IF
-
-IF ( .NOT. l_fix_neg_snow ) THEN
-  errorstatus = -100
-  cmessage    =                                                     newline // &
-  'jules:#1396 fix to remove correct the melting calculation'     //newline // &
-  ' that can result in negative snow amounts is not enabled: '    //newline // &
-  'l_fix_neg_snow = .FALSE.'
   CALL ereport(RoutineName, errorstatus, cmessage)
 END IF
 

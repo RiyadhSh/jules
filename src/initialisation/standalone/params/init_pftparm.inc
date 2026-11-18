@@ -27,44 +27,42 @@ USE pftparm_io, ONLY: jules_pftparm, init_pftparm_allocated,                   &
                       canht_ft_io, lai_io
 
 USE pftparm, ONLY:                                                             &
-  fsmc_mod,     psi_close,     psi_open,                                       &
-  a_wl,         a_ws,          aef,                                            &
-  act_jmax,     act_vcmax,     albsnc_max,                                     &
-  albsnc_min,   albsnf_max,    albsnf_maxl,                                    &
-  albsnf_maxu,  alpha,         alpha_elec,                                     &
-  alnir,        alnirl,        alniru,                                         &
-  alpar,        alparl,        alparu,                                         &
-  avg_ba,       b_wl,          c3,                                             &
-  can_struct_a, catch0,        ccleaf_max,                                     &
-  ccleaf_min,   ccwood_max,    ccwood_min,                                     &
-  ci_st,        dcatch_dlai,   deact_jmax,                                     &
-  deact_vcmax,  dfp_dcuo,      dgl_dm,                                         &
-  dgl_dt,       dqcrit,        ds_jmax,                                        &
-  ds_vcmax,     dust_veg_scj,  dz0v_dh,                                        &
-  emis_pft,     eta_sl,        f0,                                             &
-  fd,           fef_bc,        fef_ch4,                                        &
-  fef_co,       fef_co2,       fef_nox,                                        &
-  fef_oc,       fef_so2,       fef_c2h4,                                       &
-  fef_c2h6,     fef_c3h8,      fef_hcho,                                       &
-  fef_mecho,    fef_nh3,                                                       &
-  fef_dms,      fire_mort,     fl_o3_ct,                                       &
-  fsmc_of,      fsmc_p0,       sug_g0,                                         &
-  g1_stomata,   g_leaf_0,      glmin,                                          &
-  gpp_st,       sug_grec,      gsoil_f,                                        &
-  hw_sw,        ief,           infil_f,                                        &
-  jv25_ratio,   kext,          kn,                                             &
-  knl,          kpar,          lai_alb_lim,                                    &
-  lma,          mef,           neff,                                           &
-  nl0,          nmass,         nr,                                             &
-  nr_nl,        ns_nl,         nsw,                                            &
-  omega,        omegal,        omegau,                                         &
-  omnir,        omnirl,        omniru,                                         &
-  orient,       q10_leaf,      r_grow,                                         &
-  rootd_ft,     sigl,          tef,                                            &
-  tleaf_of,     tlow,          tupp,                                           &
-  vint,         vsl,           sug_yg,                                         &
-  z0v,          sox_a,         sox_p50,                                        &
-  sox_rp_min
+  fsmc_mod,          psi_close,     psi_open,                                  &
+  a_wl,              a_ws,          aef,                                       &
+  act_jmax,          act_vcmax,     albsnc_max,                                &
+  albsnc_min,        albsnf_max,    albsnf_maxl,                               &
+  albsnf_maxu,       alpha,         alpha_elec,                                &
+  alnir,             alnirl,        alniru,                                    &
+  alpar,             alparl,        alparu,                                    &
+  avg_ba,            b_wl,          c3,                                        &
+  can_struct_a,      catch0,        ccleaf_max,                                &
+  ccleaf_min,        ccwood_max,    ccwood_min,                                &
+  ci_st,             dcatch_dlai,   deact_jmax,                                &
+  deact_vcmax,       dfp_dcuo,      dgl_dm,                                    &
+  dgl_dt,            dqcrit,        ds_jmax,                                   &
+  ds_vcmax,          dust_veg_scj,  dz0v_dh,                                   &
+  emis_pft,          eta_sl,        f0,                                        &
+  fd,                fef_bc,        fef_ch4,                                   &
+  fef_co,            fef_co2,       fef_nox,                                   &
+  fef_oc,            fef_so2,       fire_mort,                                 &
+  fl_o3_ct,          fsmc_of,       fsmc_p0,                                   &
+  sug_g0,            g1_stomata,    g_leaf_0,                                  &
+  glmin,             gpp_st,        sug_grec,                                  &
+  gsoil_f,           hw_sw,         ief,                                       &
+  infil_f,           jv25_ratio,    kext,                                      &
+  kn,                knl,           kpar,                                      &
+  lai_alb_lim,       lma,           mef,                                       &
+  min_rootc_pft,     neff,          nl0,                                       &
+  nmass,             nr,            nr_nl,                                     &
+  ns_nl,             nsw,           omega,                                     &
+  omegal,            omegau,        omnir,                                     &
+  omnirl,            omniru,        orient,                                    &
+  q10_leaf,          r_grow,        rmass,                                     & ! JBaguley
+  rootd_ft,          rootc_density_pft, root_psi_crit,                         &
+  root_radi_pft,     sigl,          tef,                                       &
+  tleaf_of,          tlow,          tupp,                                      &
+  vint,              vsl,           sug_yg,                                    &
+  z0v
 
 USE c_z0h_z0m, ONLY: z0h_z0m, z0h_z0m_classic
 
@@ -73,9 +71,8 @@ USE jules_vegetation_mod, ONLY: can_rad_mod, l_crop, l_trait_phys,             &
                                  l_o3_damage, l_trif_fire, photo_acclim_model, &
                                  photo_act_model, photo_act_pft,               &
                                  photo_farquhar, photo_model,                  &
-                                 stomata_jacobs, stomata_medlyn, stomata_sox,  &
-                                 stomata_model, l_spec_veg_z0, l_sugar,        &
-                                 l_scale_resp_pm
+                                 stomata_jacobs, stomata_medlyn,               &
+                                 stomata_model, l_spec_veg_z0, l_sugar
 
 USE jules_radiation_mod, ONLY: l_spec_albedo, l_albedo_obs, l_snow_albedo
 
@@ -195,6 +192,14 @@ IF ( ANY( ABS( fd(:) - rmdi ) < EPSILON(1.0) ) ) THEN
   ERROR = 1
   CALL log_error(routinename, "No value for fd")
 END IF
+IF ( ANY( ABS( neff(:) - rmdi ) < EPSILON(1.0) ) ) THEN
+  ERROR = 1
+  CALL log_error(routinename, "No value for neff")
+END IF
+IF ( ANY( ABS( nl0(:) - rmdi ) < EPSILON(1.0) ) ) THEN
+  ERROR = 1
+  CALL log_error(routinename, "No value for nl0")
+END IF
 IF ( ANY( ABS( nr_nl(:) - rmdi ) < EPSILON(1.0) ) ) THEN
   ERROR = 1
   CALL log_error(routinename, "No value for nr_nl")
@@ -285,19 +290,6 @@ CASE ( stomata_medlyn )
   IF ( ANY( ABS( g1_stomata(:) - rmdi ) < EPSILON(1.0) ) ) THEN
     ERROR = 1
     CALL log_error("init_pftparm", "No value for g1_stomata")
-  END IF
-CASE ( stomata_sox )
-  IF ( ANY( ABS( sox_p50(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for sox_p50")
-  END IF
-  IF ( ANY( ABS( sox_rp_min(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for sox_rp_min")
-  END IF
-  IF ( ANY( ABS( sox_a(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for sox_a")
   END IF
 END SELECT
 
@@ -414,19 +406,7 @@ IF (l_trait_phys) THEN
     ERROR = 1
     CALL log_error(routinename, "No value for hw_sw")
   END IF
-ELSE
-  IF ( ANY( ABS( neff(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for neff")
-  END IF
-  IF ( ANY( ABS( nl0(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for nl0")
-  END IF
-  IF ( ANY( ABS( sigl(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for sigl")
-  END IF
+
 END IF !l_trait_phys
 
 IF ( ANY( ABS( kn(:) - rmdi ) < EPSILON(1.0) ) ) THEN
@@ -456,6 +436,10 @@ END IF
 IF ( ANY( ABS( eta_sl(:) - rmdi ) < EPSILON(1.0) ) ) THEN
   ERROR = 1
   CALL log_error(routinename, "No value for eta_sl")
+END IF
+IF ( ANY( ABS( sigl(:) - rmdi ) < EPSILON(1.0) ) ) THEN
+  ERROR = 1
+  CALL log_error(routinename, "No value for sigl")
 END IF
 IF ( ANY( ABS( g_leaf_0(:) - rmdi ) < EPSILON(1.0) ) ) THEN
   ERROR = 1
@@ -518,11 +502,6 @@ IF ( l_use_pft_psi ) THEN
     ERROR = 1
     CALL log_error(routinename, "No value for psi_open")
   END IF
-ELSE
-  IF ( ANY( ABS( fsmc_p0(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for fsmc_p0")
-  END IF
 END IF !l_use_pft_psi
 
 IF ( l_bvoc_emis ) THEN
@@ -572,34 +551,6 @@ IF ( l_inferno ) THEN
   IF ( ANY( ABS( fef_so2(:) - rmdi ) < EPSILON(1.0) ) ) THEN
     ERROR = 1
     CALL log_error(routinename, "No value for fef_so2")
-  END IF
-  IF ( ANY( ABS( fef_c2h4(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for fef_c2h4")
-  END IF
-  IF ( ANY( ABS( fef_c2h6(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for fef_c2h6")
-  END IF
-  IF ( ANY( ABS( fef_c3h8(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for fef_c3h8")
-  END IF
-  IF ( ANY( ABS( fef_hcho(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for fef_hcho")
-  END IF
-  IF ( ANY( ABS( fef_mecho(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for fef_mecho")
-  END IF
-  IF ( ANY( ABS( fef_nh3(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for fef_nh3")
-  END IF
-  IF ( ANY( ABS( fef_dms(:) - rmdi ) < EPSILON(1.0) ) ) THEN
-    ERROR = 1
-    CALL log_error(routinename, "No value for fef_dms")
   END IF
   IF ( ANY( ABS( ccleaf_min(:) - rmdi ) < EPSILON(1.0) ) ) THEN
     ERROR = 1
@@ -656,6 +607,10 @@ IF ( l_sugar ) THEN
   END IF
 END IF
 
+IF ( ANY( ABS( fsmc_p0(:) - rmdi ) < EPSILON(1.0) ) ) THEN
+  ERROR = 1
+  CALL log_error(routinename, "No value for fsmc_p0")
+END IF
 IF ( ANY( ABS( emis_pft(:) - rmdi ) < EPSILON(1.0) ) ) THEN
   ERROR = 1
   CALL log_error(routinename, "No value for emis_pft")
@@ -675,6 +630,48 @@ END IF
 IF ( ANY( ABS( progs%lai_pft(:,:) - rmdi ) < EPSILON(1.0) ) ) THEN
   ERROR = 1
   CALL log_error(routinename, "No value for lai")
+END IF
+
+! Check variables required for soil moisture availability calculation based
+! on soil to root conductance.
+IF ( ANY( fsmc_mod(:) == 2 ) ) THEN
+  IF ( ANY( ABS( min_rootc_pft(:) - rmdi ) < EPSILON(1.0) ) ) THEN
+    ERROR = 1
+    CALL log_error(routinename, "No value for min_rootc_pft")
+  ELSE IF ( ANY( min_rootc_pft(:) < 0. ) ) THEN
+    ERROR = 1
+    CALL log_error(routinename, "Negative value for min_rootc_pft")
+  END IF
+
+  IF ( ANY( ABS( root_psi_crit(:) - rmdi) < EPSILON(1.0) ) ) THEN
+    ERROR = 1
+    CALL log_error(routinename, "No value given for root_psi_crit")
+  ELSE IF ( ANY( root_psi_crit(:) > -EPSILON(1.0) ) ) THEN
+    ERROR = 1
+    CALL log_error(routinename,                                                &
+                   "Posative or zero value given for root_psi_crit")
+  END IF
+
+  IF ( ANY( root_radi_pft(:) < EPSILON(1.0) ) ) THEN
+    ERROR = 1
+    CALL log_error(routinename, "No value for root_radi_pft")
+  END IF
+
+  IF ( ANY( rootc_density_pft(:) < EPSILON(1.0) ) ) THEN
+    ERROR = 1
+    CALL log_error(routinename, "No value for rootc_density_pft")
+  END IF
+
+  IF ( ANY( rmass(:) < EPSILON(1.0) ) ) THEN
+    ERROR = 1
+    CALL log_error(routinename,                                                &
+                   "Value for rmass must be between larger than zero")
+  END IF
+
+  IF ( ANY( rmass(:) > 1.0 ) ) THEN
+    ERROR = 1
+    CALL log_error(routinename, "Value for rmass must be less than one")
+  END IF
 END IF
 
 IF ( ERROR /= 0 )                                                              &
@@ -721,33 +718,6 @@ IF ( l_layeredC .AND. ( soil_bgc_model == soil_model_4pool ) .AND.             &
      ANY( fsmc_mod(:) == 1 ) ) THEN
   CALL log_error(routinename,                                                  &
                  "fsmc_mod=1 is not allowed with l_layeredC and 4-pool C model")
-END IF
-
-!-----------------------------------------------------------------------------
-! stomata_model = stomata_sox must be used with fsmc_mod = 1
-! Cannot be run with l_scale_resp_pm
-! Must be run with can_rad_mod = 1 (implementation for can_rad_mod = 6 ongoing)
-!-----------------------------------------------------------------------------
-IF ( stomata_model == stomata_sox ) THEN ! SOX
-  IF ( l_scale_resp_pm ) THEN
-    CALL log_fatal(routinename,                                                &
-    'l_scale_resp_pm=T is incompatible with SOX (stomata_model=3)')
-  END IF
-
-  IF ( .NOT. ANY ( fsmc_mod(:) == 1 ) ) THEN
-    CALL log_fatal(routinename,                                                &
-    'SOX (stomata_model=3) must be used with fsmc_mod = 1')
-  END IF
-
-  IF ( .NOT. ( can_rad_mod == 1 ) ) THEN
-    CALL log_fatal(routinename,                                                &
-    'SOX (stomata_model=3) must be used with can_rad_mod = 1')
-  END IF
-
-  IF ( .NOT. ( photo_model == 3 ) ) THEN
-    CALL log_fatal(routinename,                                                &
-    'SOX (stomata_model=3) uses the SOX derivation of Collatz (photo_model=3)')
-  END IF
 END IF
 
 RETURN

@@ -9,7 +9,7 @@
 ! [Met Office Ref SC0237]
 !******************************COPYRIGHT**************************************
 
-SUBROUTINE radf_co2(co2, co2ref, q2co2, q_co2)
+SUBROUTINE radf_co2(co2,co2ref,q2co2,q_co2)
 
 IMPLICIT NONE
 
@@ -26,16 +26,14 @@ IMPLICIT NONE
 !
 !-----------------------------------------------------------------------------
 
-REAL, INTENT (IN) ::                                                           &
+REAL ::                                                                        &
   co2,                                                                         &
-            ! CO2 concentration (ppmv).
+            ! IN CO2 concentration (ppmv).
   co2ref,                                                                      &
-            ! Reference CO2 concentration (ppmv).
-  q2co2
-            ! Radiative forcing due to doubling CO2 (W/m2).
-
-REAL, INTENT (OUT) ::                                                          &
-  q_co2     ! Radiative forcing due to CO2 (W/m2).
+            ! IN Reference CO2 concentration (ppmv).
+  q2co2,                                                                       &
+            ! IN Radiative forcing due to doubling CO2 (W/m2).
+  q_co2     ! OUT Radiative forcing due to CO2 (W/m2).
 
 q_co2=(q2co2 / (LOG(2.0))) * LOG(co2 / co2ref)
 

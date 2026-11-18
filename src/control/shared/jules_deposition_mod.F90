@@ -51,14 +51,6 @@ INTEGER, PARAMETER ::                                                          &
     ! Deposition is calculated in JULES using code modelled on UKCA and
     ! with restrictions on pft configuations and ordering removed.
 
-! Parameters identifying alternative H2 soil uptake schemes.
-! These should be unique.
-INTEGER, PARAMETER ::                                                          &
-  dep_h2_scheme_conrad = 1,                                                    &
-    ! Uses the scheme based on Conrad & Seiler (used in the UKCA).
-  dep_h2_scheme_paulot = 2
-    ! Uses the scheme based on Paulot et al., (2021).
-
 !-----------------------------------------------------------------------------
 ! Module variables - these are included in the namelist.
 !-----------------------------------------------------------------------------
@@ -70,12 +62,8 @@ INTEGER ::                                                                     &
   dry_dep_model = imdi,                                                        &
     ! Indicates the chosen model for dry deposition.
     ! Valid values are given by the dry_dep_* parameters.
-  ndry_dep_species = imdi,                                                     &
+  ndry_dep_species = imdi
     ! Number of species for which dry deposition is calculated.
-  dep_h2_soil_scheme = imdi
-    ! Indicates the chosen scheme for H2 deposition
-    ! = 1: Conrad & Seiler parametererisation
-    ! = 2: Paulot et al. (2021)
 
 REAL(KIND=real_jlslsm) :: dzl_const = rmdi
   ! Constant value for separation of boundary layer levels (m).
@@ -144,8 +132,7 @@ LOGICAL ::                                                                     &
 ! Namelist definitions.
 !-----------------------------------------------------------------------------
 NAMELIST  / jules_deposition /                                                 &
-  dep_h2_soil_scheme, dry_dep_model, dzl_const,                                &
-  l_deposition, l_deposition_flux,                                             &
+  dry_dep_model, dzl_const, l_deposition, l_deposition_flux,                   &
   l_deposition_from_ukca, l_deposition_gc_corr, l_ukca_ddep_lev1,              &
   l_ukca_ddepo3_ocean, l_ukca_dry_dep_so2wet, l_ukca_emsdrvn_ch4,              &
   ndry_dep_species, tundra_s_limit
@@ -195,19 +182,6 @@ CASE DEFAULT
   errorstatus = 100 !  a hard error
   WRITE(jules_message,'(A,I2)') "Valid values for dry_dep_model: 1-2. Used ",  &
         dry_dep_model
-  CALL ereport( TRIM(routineName), errorstatus, jules_message)
-END SELECT
-
-!-----------------------------------------------------------------------------
-! Check that a valid H2 soil uptake scheme is selected.
-!-----------------------------------------------------------------------------
-SELECT CASE ( dep_h2_soil_scheme )
-CASE ( dep_h2_scheme_conrad, dep_h2_scheme_paulot )
-  ! Acceptable values.
-CASE DEFAULT
-  errorstatus = 100 !  a hard error
-  WRITE(jules_message,'(A,I2)') "Valid values for dep_h2_soil_scheme: 1-2." // &
-        "Used ", dep_h2_soil_scheme
   CALL ereport( TRIM(routineName), errorstatus, jules_message)
 END SELECT
 
@@ -284,9 +258,6 @@ CALL jules_print(RoutineName, lineBuffer)
 WRITE(lineBuffer,"(A,L1)") '  l_ukca_emsdrvn_ch4    = ', l_ukca_emsdrvn_ch4
 CALL jules_print(RoutineName, lineBuffer)
 
-WRITE(lineBuffer,"(A,I0)") '  dep_h2_soil_scheme    = ', dep_h2_soil_scheme
-CALL jules_print(RoutineName, lineBuffer)
-
 WRITE(lineBuffer,"(A,I0)") '  ndry_dep_species      = ', ndry_dep_species
 CALL jules_print(RoutineName, lineBuffer)
 
@@ -334,13 +305,12 @@ INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 
 ! set number of each type of variable in my_namelist type
 INTEGER, PARAMETER :: no_of_types = 3
-INTEGER, PARAMETER :: n_int  = 3
+INTEGER, PARAMETER :: n_int  = 2
 INTEGER, PARAMETER :: n_real = 2
 INTEGER, PARAMETER :: n_log  = 8
 
 TYPE :: my_namelist
   SEQUENCE
-  INTEGER :: dep_h2_soil_scheme
   INTEGER :: dry_dep_model
   INTEGER :: ndry_dep_species
   REAL(KIND=real_jlslsm) :: dzl_const
@@ -379,7 +349,6 @@ IF (mype == 0) THEN
   my_nml % l_ukca_ddepo3_ocean   = l_ukca_ddepo3_ocean
   my_nml % l_ukca_emsdrvn_ch4    = l_ukca_emsdrvn_ch4
     ! end of logicals
-  my_nml % dep_h2_soil_scheme    = dep_h2_soil_scheme
   my_nml % dry_dep_model         = dry_dep_model
   my_nml % ndry_dep_species      = ndry_dep_species
     ! end of integers
@@ -401,7 +370,6 @@ IF (mype /= 0) THEN
   l_ukca_ddepo3_ocean            = my_nml % l_ukca_ddepo3_ocean
   l_ukca_emsdrvn_ch4             = my_nml % l_ukca_emsdrvn_ch4
     ! end of logicals
-  dep_h2_soil_scheme             = my_nml % dep_h2_soil_scheme
   dry_dep_model                  = my_nml % dry_dep_model
   ndry_dep_species               = my_nml % ndry_dep_species
     ! end of integers

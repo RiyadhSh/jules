@@ -1,4 +1,4 @@
-#if !defined(RIVERS_ONLY)
+#if !defined(UM_JULES)
 ! *****************************COPYRIGHT**************************************
 ! (C) Crown copyright Met Office. All rights reserved.
 ! For further details please refer to the file COPYRIGHT.txt
@@ -36,10 +36,9 @@ USE jules_vegetation_mod, ONLY: can_model, can_rad_mod,                        &
                                 l_nitrogen, l_prescsow, l_trif_crop,           &
                                 photo_acclim_model, photo_adapt,               &
                                 photo_acclim, photo_adapt_acclim,              &
-                                l_croprotate, l_trif_biocrop, l_sugar, l_red
+                                l_croprotate, l_trif_biocrop, l_sugar
 
-USE jules_water_resources_mod, ONLY: l_water_irrigation, l_water_resources,    &
-       nwater_use, partition_ancil, partition_method, use_environment
+USE jules_water_resources_mod, ONLY: l_water_irrigation, l_water_resources
 
 USE jules_irrig_mod, ONLY: l_irrig_dmd
 
@@ -56,7 +55,7 @@ USE metstats_mod, ONLY: metstats_flag, l_metstats
 USE update_mod, ONLY: l_daily_disagg, precip_disagg_method,                    &
                       prescribed_sthuf_levels
 
-USE jules_rivers_mod, ONLY: l_rivers
+USE jules_rivers_mod, ONLY: l_rivers, i_river_vn, rivers_trip, rivers_rfm
 
 USE logging_mod, ONLY: log_warn
 
@@ -66,9 +65,7 @@ USE prognostics, ONLY: l_broadcast_soilt
 
 USE dump_mod, ONLY: ancil_dump_read
 
-USE add_to_list_mod, ONLY: add_to_list
-
-USE required_vars_for_rivers_mod, ONLY: required_vars_for_rivers
+USE veg3_parm_mod, ONLY: l_veg3
 
 IMPLICIT NONE
 
@@ -85,12 +82,12 @@ IMPLICIT NONE
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
 ! Argument types
-INTEGER, INTENT(IN OUT) :: nvars  ! The number of variables
+INTEGER, INTENT(OUT) :: nvars  ! The number of variables
 CHARACTER(LEN=*), INTENT(OUT) :: identifiers(:)
                                ! The model identifiers of the required
                                ! variables
 
-INTEGER, INTENT(IN OUT)       :: nvars_from_ancil  !Number of ancil variables
+INTEGER, INTENT(OUT)          :: nvars_from_ancil  !Number of ancil variables
 CHARACTER(LEN=*), INTENT(OUT) :: vars_from_ancil(:)
                                ! The model identifiers of the required
                                ! ancil variables
@@ -140,10 +137,6 @@ LOGICAL :: read_or_write_dump_local
                              ! Defaults to TRUE if not present
 LOGICAL :: l_append_soilt
                              ! Controls whether vars are appended with _soilt
-LOGICAL :: l_need_conveyance_loss
-                             ! Flag indicating if a conveyance loss ancillary
-                             ! field is required.
-INTEGER :: i                 ! Loop counter.
 INTEGER :: num_prescribed_sthuf_levels
                              ! Number of levels in the prescibed sthuf field
 
@@ -178,6 +171,7 @@ IF ( PRESENT(read_or_write_dump) )                                             &
 ! configuration.
 ! Subroutine add_to_list is called with the l_append_soilt for a variable that
 ! supports soil tiles.
+nvars = 0
 
 ! Variables without soil tiling.
 CALL add_to_list( 'canopy',     nvars, identifiers )
@@ -258,7 +252,7 @@ IF ( l_label_frac_cs ) THEN
   CALL add_to_list( 'frac_c_label_pool', nvars, identifiers, l_append_soilt )
 END IF
 
-IF ( l_red ) THEN
+IF ( l_veg3 ) THEN
   CALL add_to_list( 'plantNumDensity', nvars, identifiers )
 END IF
 
@@ -296,6 +290,29 @@ END IF
 ! Additional deep soil temperature if bedrock is on
 IF ( l_bedrock ) THEN
   CALL add_to_list( 'tsoil_deep', nvars, identifiers )
+END IF
+
+! River storage if river routing on and using TRIP
+IF ( l_rivers .AND. ( i_river_vn == rivers_trip ) ) THEN
+  IF ( read_or_write_dump_local ) THEN
+    CALL add_to_list( 'rivers_sto_rp', nvars, identifiers )
+  ELSE
+    CALL log_warn( RoutineName,                                                &
+                  "rivers_sto_rp will be initialised to zero.")
+  END IF
+END IF
+
+! Surface and subsurface stores and flows if river routing on and using RFM
+IF ( l_rivers .AND. (i_river_vn == rivers_rfm) ) THEN
+  IF ( read_or_write_dump_local ) THEN
+    CALL add_to_list( 'rfm_surfstore_rp', nvars, identifiers )
+    CALL add_to_list( 'rfm_substore_rp',  nvars, identifiers )
+    CALL add_to_list( 'rfm_flowin_rp',    nvars, identifiers )
+    CALL add_to_list( 'rfm_bflowin_rp',   nvars, identifiers )
+  ELSE
+    CALL log_warn( RoutineName,                                                &
+                  "RFM river prognostics will be initialised to zero.")
+  END IF
 END IF
 
 ! FLake prognostics
@@ -468,6 +485,9 @@ END IF
 ! To get the information about which ancils will be read from file, we use
 ! ancil_dump_read%xyz:  Defaulting to false, set in init_ancillaries_mod
 !-----------------------------------------------------------------------------
+
+!Initialise
+nvars_from_ancil = 0
 
 !-----------------------------------------------------------------------------
 ! Set up read/write details for latlon ancil.
@@ -675,31 +695,32 @@ IF ( l_irrig_dmd ) THEN
 
 END IF
 
+!Rivers need further work before being included
+!IF ( ancil_dump_read%rivers_props ) THEN
+!END IF
+
 !---------------------------------------------------------------------------
-!Set up read/write details for water resources properties ancil namelist.
+!Set up read/write details for water resources properites ancil namelist.
 
 IF ( l_water_resources ) THEN
 
-  ! conv_loss_frac
-  l_need_conveyance_loss = .FALSE.
-  DO i = 1, nwater_use
-    IF ( i /= use_environment ) THEN
-      l_need_conveyance_loss = .TRUE.
-    END IF
-  END DO
-  IF ( l_need_conveyance_loss ) THEN
-    CALL add_to_list( 'conv_loss_frac', nvars, identifiers )
-    ! If not reading from dump, indicate variables come from an ancil file.
-    IF ( .NOT. ancil_dump_read%water_resources_props ) THEN
-      CALL add_to_list( 'conv_loss_frac', nvars_from_ancil, vars_from_ancil )
-    END IF
+  ! Variables that are always required.
+  CALL add_to_list( 'conveyance_loss', nvars, identifiers )
+  CALL add_to_list( 'sfc_water_frac', nvars, identifiers )
+
+  ! If not reading from dump, indicate variables come from an ancil file.
+  IF ( .NOT. ancil_dump_read%water_resources_props ) THEN
+    CALL add_to_list( 'conveyance_loss', nvars_from_ancil, vars_from_ancil )
+    CALL add_to_list( 'sfc_water_frac',  nvars_from_ancil, vars_from_ancil )
   END IF
 
-  ! sfc_water_frac
-  IF ( partition_method == partition_ancil ) THEN
-    CALL add_to_list( 'sfc_water_frac', nvars, identifiers )
+  ! Variables that depend on a switch.
+  ! Note that grid_area is handled in the latlon section above.
+  IF ( l_water_irrigation ) THEN
+    CALL add_to_list( 'irrig_eff', nvars, identifiers )
+    ! If not reading from dump, indicate variables come from an ancil file.
     IF ( .NOT. ancil_dump_read%water_resources_props ) THEN
-      CALL add_to_list( 'sfc_water_frac',  nvars_from_ancil, vars_from_ancil )
+      CALL add_to_list( 'irrig_eff',  nvars_from_ancil, vars_from_ancil )
     END IF
   END IF
 
@@ -731,21 +752,86 @@ IF ( l_flake_model ) THEN
 
 END IF !l_flake_model
 
-! ancil_dump_read%rivers_props functionality has not yet been implemented,
-! however the ability to initialise River storage (TRIP) from a climatology
-! ancil requires the vars from ancil functionality so this is an exception.
-! Further work is required to add vars in the usual way.
-IF ( l_rivers ) THEN
-  CALL required_vars_for_rivers(nvars, identifiers,                            &
-                                nvars_from_ancil, vars_from_ancil,             &
-                                read_or_write_dump)
-END IF
-
 RETURN
 
 END SUBROUTINE required_vars_for_configuration
 
 !#############################################################################
 
+SUBROUTINE add_to_list( identifier, nvars, varlist, l_append )
+
+! Adds an identifier to a list, optionally appending a suffix.
+
+USE logging_mod, ONLY: log_fatal
+
+IMPLICIT NONE
+
+!-----------------------------------------------------------------------------
+! Arguments with intent(in)
+!-----------------------------------------------------------------------------
+CHARACTER(LEN=*), INTENT(IN) ::                                                &
+  identifier
+    ! An identifier for a variable.
+
+!-----------------------------------------------------------------------------
+! Arguments with intent(inout)
+!-----------------------------------------------------------------------------
+
+INTEGER, INTENT(IN OUT) ::                                                     &
+  nvars
+    ! The number of values set in the list.
+
+CHARACTER(LEN=*), INTENT(IN OUT) ::                                            &
+  varlist(:)
+    ! A list of identifiers.
+
+!-----------------------------------------------------------------------------
+! Optional arguments with intent(in)
+!-----------------------------------------------------------------------------
+LOGICAL, INTENT(IN), OPTIONAL ::                                               &
+  l_append
+    ! Flag indicating if a suffix should be attached to the identifier.
+
+!-----------------------------------------------------------------------------
+! Local scalar parameters.
+!-----------------------------------------------------------------------------
+CHARACTER(LEN=*), PARAMETER ::                                                 &
+  RoutineName = 'ADD_TO_LIST'
+    ! The name of this routine.
+
+!-----------------------------------------------------------------------------
+! Local scalar variables.
+!-----------------------------------------------------------------------------
+LOGICAL ::                                                                     &
+  l_append_soilt_local
+    ! A local version of the optional argument l_append.
+
+! end of header
+!-----------------------------------------------------------------------------
+
+! Set a local variables depending on the optional argument.
+IF ( PRESENT(l_append) ) THEN
+  l_append_soilt_local = l_append
+ELSE
+  l_append_soilt_local = .FALSE.
+END IF
+
+!-----------------------------------------------------------------------------
+! Append to the list.
+!-----------------------------------------------------------------------------
+IF ( nvars + 1 > SIZE( varlist ) ) THEN
+  CALL log_fatal( RoutineName,                                                 &
+                  "Too many values. Increase size of variable." )
+  STOP
+ELSE
+  nvars          = nvars + 1
+  varlist(nvars) = identifier
+  IF ( l_append_soilt_local ) THEN
+    varlist(nvars) = TRIM(varlist(nvars)) // '_soilt'
+  END IF
+END IF
+
+RETURN
+END SUBROUTINE add_to_list
 END MODULE required_vars_for_configuration_mod
 #endif

@@ -263,12 +263,7 @@ DO i = 1,nvars
 
   ! Get the levels dims used by this variable - we only care about the names
   ! used in input files
-  ! The functionality to initialise some initial conditions from a climatology
-  ! has been added. For this purpose the input fields require a time
-  ! dimension to be added by get_var_levs_dim. This is not required here and
-  ! hence the following is_climatology argument must be .FALSE.
-  CALL get_var_levs_dims(files(nfiles)%fields(i)%var_id,                       &
-                         is_climatology = .FALSE., ndims = ndims,              &
+  CALL get_var_levs_dims(files(nfiles)%fields(i)%var_id, ndims = ndims,        &
                          dim_names_in = dim_names, dim_sizes = dim_sizes)
 
   DO j = 1,ndims

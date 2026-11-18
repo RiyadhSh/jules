@@ -22,10 +22,10 @@ SUBROUTINE sf_melt (                                                           &
  points,pts_index                                                              &
 ,surft_index,surft_pts,fld_sea                                                 &
 ,alpha1,ashtf_prime,dtrdz_1                                                    &
-,fracs,resft,rhokh_1,tile_frac,timestep,r_gamma                                &
+,resft,rhokh_1,tile_frac,timestep,r_gamma                                      &
 ,ei_surft,fqw_1,ftl_1,fqw_surft,ftl_surft                                      &
 ,tstar_surft,snow_surft,snowdepth                                              &
-,melt_surft,snowinc_surft                                                      &
+,melt_surft                                                                    &
  )
 
 USE atm_fields_bounds_mod, ONLY: tdims
@@ -36,7 +36,7 @@ USE planet_constants_mod, ONLY: cp
 USE jules_snow_mod, ONLY: maskd, rho_snow_const,                               &
                           frac_snow_subl_melt, l_snowdep_surf
 
-USE jules_science_fixes_mod, ONLY: l_fix_snow_frac, l_fix_neg_snow
+USE jules_science_fixes_mod, ONLY: l_fix_snow_frac
 
 USE water_constants_mod, ONLY:                                                 &
  lc, lf, rho_water, tm
@@ -66,10 +66,8 @@ fld_sea(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)                   &
 !                           ! IN Adjusted SEB coefficient
 ,dtrdz_1(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)                  &
 !                           ! IN -g.dt/dp for surface layer
-,fracs(points)                                                                 &
-                            ! IN Fraction subject to sublimation or deposition
 ,resft(points)                                                                 &
-                            ! IN Resistance factor.
+                       !IN Resistance factor.
 ,rhokh_1(points)                                                               &
 !                           ! IN Surface exchange coefficient.
 ,tile_frac(points)                                                             &
@@ -97,12 +95,8 @@ REAL(KIND=real_jlslsm) ::                                                      &
 !                           ! INOUT Depth of snow on tile (m).
 
 REAL(KIND=real_jlslsm) ::                                                      &
- melt_surft(points)                                                            &
+ melt_surft(points)
 !                           ! OUT Surface snowmelt on tiles (kg/m2/s).
-,snowinc_surft(points)
-!                           ! OUT Total snow increment on tiles (kg/m2/TS)
-!                           !     used to avoid rounding errors in the
-!                           !     snow mass budget
 
 REAL(KIND=real_jlslsm) ::                                                      &
  dfqw                                                                          &
@@ -118,7 +112,7 @@ REAL(KIND=real_jlslsm) ::                                                      &
 ,rhokh1_prime                                                                  &
                       ! Modified forward time-weighted
 !                           ! transfer coefficient.
-,snow_new                                                                      &
+,snow_max                                                                      &
                       ! Snow available for melting.
 ,snow_density
                       ! Density of snow on input
@@ -147,7 +141,7 @@ melt_surft(:) = 0.0
 !$OMP PARALLEL DO                                                              &
 !$OMP SCHEDULE(STATIC)                                                         &
 !$OMP DEFAULT(SHARED)                                                          &
-!$OMP PRIVATE(k,j,i,l,snow_density,snow_new,rhokh1_prime,lcmelt,lsmelt,dtstar, &
+!$OMP PRIVATE(k,j,i,l,snow_density,snow_max,rhokh1_prime,lcmelt,lsmelt,dtstar, &
 !$OMP         dftl,dfqw)
 DO k = 1,surft_pts
   l = surft_index(k)
@@ -172,49 +166,32 @@ DO k = 1,surft_pts
     snow_density = MIN(1000.0,snow_density)
   END IF
   !
-  snowinc_surft(l) = - MIN(snow_surft(l), ei_surft(l) * timestep )
-  snow_new = MAX( 0.0, snow_surft(l) + snowinc_surft(l))
-  IF ( snow_new >  0.0 .AND. tstar_surft(l) >  tm ) THEN
+  snow_max = MAX( 0.0, snow_surft(l) - ei_surft(l) * timestep )
+  IF ( snow_max >  0.0 .AND. tstar_surft(l) >  tm ) THEN
     rhokh1_prime = 1.0 / ( 1.0 / rhokh_1(l)                                    &
                        + r_gamma * dtrdz_1(i,j) )
-    IF (l_fix_neg_snow) THEN
-      ! This fix renders lcmelt superfluous, but to avoid more complicated
-      ! logic it is clearest to retain it for now and remove it once the old
-      ! functionality is no longer needed.
-      lsmelt = (cp + (lf * fracs(l) + lc * resft(l)) * alpha1(l)) *            &
-               rhokh1_prime + ashtf_prime(l)
-      lcmelt = lsmelt
-    ELSE
-      lcmelt = (cp + lc * alpha1(l) * resft(l)) * rhokh1_prime                 &
-               + ashtf_prime(l)
-      lsmelt = lcmelt + lf * alpha1(l) * rhokh1_prime
-    END IF
-    !   Note the use of lcmelt in the following IF-block. In line with the
-    !   preceeding comment, this should be lsmelt, but lcmelt is used to
-    !   maintain existing behaviour, aside from the loss of bit-comparison
-    !   by moving to increments.
+    lcmelt = (cp + lc * alpha1(l) * resft(l)) * rhokh1_prime                   &
+             + ashtf_prime(l)
+    lsmelt = lcmelt + lf * alpha1(l) * rhokh1_prime
     IF (frac_snow_subl_melt == 1) THEN
       IF (l_fix_snow_frac .AND.                                                &
-          snow_new / snow_density  <=  SQRT(2.0*EPSILON(snow_new))/maskd) THEN
+          snow_max / snow_density  <=  SQRT(2.0*EPSILON(snow_max))/maskd) THEN
         ! Use linear expansion of exponential if non-linear term
         ! is of order EPSILON (i.e., x^2.0/2.0 ~ EPSILON)
-        snowinc_surft(l) = - MIN(snow_surft(l),                                &
-          (lcmelt * (tstar_surft(l) - tm) *                                    &
-          maskd * snow_new / snow_density / lf +                               &
-          ei_surft(l)) * timestep)
+        dtstar = - MIN( (tstar_surft(l) - tm) *                                &
+                       maskd * snow_max / snow_density,                        &
+                       lf * snow_max / (lcmelt * timestep) )
       ELSE
-        snowinc_surft(l) = - MIN(snow_surft(l),                                &
-          (lcmelt * (tstar_surft(l) - tm) *                                    &
-          (1.0 - EXP(-maskd * snow_new / snow_density)) / lf +                 &
-          ei_surft(l)) * timestep)
+        dtstar = - MIN( (tstar_surft(l) - tm) *                                &
+                 (1.0 - EXP(-maskd * snow_max / snow_density)),                &
+                 lf * snow_max / (lcmelt * timestep) )
       END IF
     ELSE
-      snowinc_surft(l) = - MIN(snow_surft(l),                                  &
-        (lcmelt * (tstar_surft(l) - tm) / lf + ei_surft(l)) * timestep)
+      dtstar = - MIN( tstar_surft(l) - tm ,                                    &
+                      lf * snow_max / (lcmelt * timestep) )
     END IF
-    melt_surft(l) = - snowinc_surft(l) / timestep - ei_surft(l)
-    dtstar = - lf * melt_surft(l) / lsmelt
     tstar_surft(l) = tstar_surft(l) + dtstar
+    melt_surft(l) = - lsmelt * dtstar / lf
     dftl = cp * rhokh1_prime * dtstar
     dfqw = alpha1(l) * resft(l) * rhokh1_prime * dtstar
     ftl_surft(l) = ftl_surft(l) + dftl

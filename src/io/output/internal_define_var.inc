@@ -80,10 +80,8 @@ INTEGER :: i  ! Index variables
 ! Get the ids of the levels dimensions for the variable, defining them if
 ! they have not been defined
 !-----------------------------------------------------------------------------
-! is_climatology will only be true for initial conditions initialised from a
-! climatology ancillary. It therefore must be FALSE in the following call.
-CALL get_var_levs_dims(var_id, is_climatology = .FALSE., ndims = var_ndims,    &
-                       dim_names_out = dim_names, dim_sizes = lev_dim_sizes)
+CALL get_var_levs_dims(var_id, ndims = var_ndims, dim_names_out = dim_names,   &
+                                                dim_sizes = lev_dim_sizes)
 
 DO i = 1,var_ndims
   ! If it has not yet been defined, define the dimension, storing its id

@@ -21,6 +21,9 @@ PRIVATE
 ! OASIS variables
 INTEGER                   :: compid, il_part_id, il_part_id_1d
 !
+! Number of rivers in the river number ancillary file
+INTEGER, PUBLIC           :: n_rivers
+!
 CHARACTER(LEN=5), PARAMETER :: comp_name='river'
 
 ! Public subroutines
@@ -93,7 +96,7 @@ SUBROUTINE oasis_partition()
 
 USE mod_oasis,        ONLY: oasis_def_partition
 USE oasis_rivers_mod, ONLY: l_runoff_1d
-USE jules_rivers_mod, ONLY: n_rivers, nx_rivers, ny_rivers
+USE jules_rivers_mod, ONLY: np_rivers
 !
 IMPLICIT NONE
 
@@ -135,7 +138,7 @@ IF (l_runoff_1d) THEN
   END IF
 END IF
 
-ig_paral(3) = nx_rivers * ny_rivers
+ig_paral(3) = np_rivers
 
 ! Coupling initialisation
 CALL oasis_def_partition(il_part_id, ig_paral, ierror)
@@ -157,10 +160,9 @@ SUBROUTINE oasis_grid()
 USE mod_oasis,        ONLY: oasis_start_grids_writing, oasis_write_grid,       &
                             oasis_write_corner, oasis_write_area,              &
                             oasis_write_mask, oasis_terminate_grids_writing
-USE jules_rivers_mod, ONLY: nx_rivers, ny_rivers, rivers_dlat=>rivers_dy,      &
+USE jules_rivers_mod, ONLY: np_rivers, rivers_dlat=>rivers_dy,                 &
                             rivers_dlon=>rivers_dx
 USE jules_fields_mod, ONLY: rivers
-USE conversions_mod,  ONLY: pi_over_180
 !
 IMPLICIT NONE
 
@@ -176,11 +178,9 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------
 
 ! Local variables
-REAL    :: area(nx_rivers,ny_rivers),CornerLon(nx_rivers,ny_rivers,4),         &
-           CornerLat(nx_rivers,ny_rivers,4)
-INTEGER :: mask(nx_rivers,ny_rivers)
-INTEGER :: ix, iy, ierror
-REAL    :: lat_radians
+REAL    :: area(np_rivers,1),CornerLon(np_rivers,1,4),CornerLat(np_rivers,1,4)
+INTEGER :: mask(np_rivers,1)
+INTEGER :: i, ierror
 
 CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'OASIS_GRID'
 
@@ -188,39 +188,28 @@ CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'OASIS_GRID'
 ! Create grid file
 CALL oasis_start_grids_writing(ierror)
 !
+! Calculate area, corners, mask: the river grid is regular
+DO i = 1, np_rivers
+  CornerLon(i,1,1) = rivers%rivers_lon_rp(i) - 0.5 * rivers_dlon
+  CornerLon(i,1,2) = rivers%rivers_lon_rp(i) + 0.5 * rivers_dlon
+  CornerLon(i,1,3) = CornerLon(i,1,2)
+  CornerLon(i,1,4) = CornerLon(i,1,1)
 
-DO ix = 1, nx_rivers
-  DO iy = 1, ny_rivers
+  CornerLat(i,1,1) = rivers%rivers_lat_rp(i) - 0.5 * rivers_dlat
+  CornerLat(i,1,2) = CornerLat(i,1,1)
+  CornerLat(i,1,3) = rivers%rivers_lat_rp(i) + 0.5 * rivers_dlat
+  CornerLat(i,1,4) = CornerLat(i,1,3)
 
-    ! Calculate corner longitudes and latitudes starting in the
-    ! Southwest corner and moving anticlockwise
-    CornerLon(ix,iy,1) = rivers%rivers_lon2d(ix,iy) - 0.5 * rivers_dlon
-    CornerLon(ix,iy,2) = rivers%rivers_lon2d(ix,iy) + 0.5 * rivers_dlon
-    CornerLon(ix,iy,3) = rivers%rivers_lon2d(ix,iy) + 0.5 * rivers_dlon
-    CornerLon(ix,iy,4) = rivers%rivers_lon2d(ix,iy) - 0.5 * rivers_dlon
-
-    CornerLat(ix,iy,1) = rivers%rivers_lat2d(ix,iy) - 0.5 * rivers_dlat
-    CornerLat(ix,iy,2) = rivers%rivers_lat2d(ix,iy) - 0.5 * rivers_dlat
-    CornerLat(ix,iy,3) = rivers%rivers_lat2d(ix,iy) + 0.5 * rivers_dlat
-    CornerLat(ix,iy,4) = rivers%rivers_lat2d(ix,iy) + 0.5 * rivers_dlat
-
-    ! Calculate area in square radians
-    lat_radians = rivers%rivers_lat2d(ix,iy) * pi_over_180
-    area(ix,iy) = (rivers_dlat*pi_over_180) *                                  &
-                  (rivers_dlon*pi_over_180) *                                  &
-                  COS(lat_radians)
-
-    ! 1 = masked, 0 = unmasked
-    mask(ix,iy) = 0
-  END DO
+  area(i,1) = rivers_dlat * rivers_dlon
+  mask(i,1) = 1
 END DO
-
 !
-CALL oasis_write_grid('rivT',nx_rivers,ny_rivers,                              &
-                      rivers%rivers_lon2d, rivers%rivers_lat2d,il_part_id)
-CALL oasis_write_corner('rivT',nx_rivers,ny_rivers,4,CornerLon,CornerLat,il_part_id)
-CALL oasis_write_area('rivT',nx_rivers,ny_rivers,area,il_part_id)
-CALL oasis_write_mask('rivT',nx_rivers,ny_rivers,mask,il_part_id)
+CALL oasis_write_grid('rivt',np_rivers,1,                                      &
+                      RESHAPE(rivers%rivers_lon_rp, [np_rivers,1 ]),           &
+                      RESHAPE(rivers%rivers_lat_rp, [np_rivers,1 ]),il_part_id)
+CALL oasis_write_corner('rivt',np_rivers,1,4,CornerLon,CornerLat,il_part_id)
+CALL oasis_write_area('rivt',np_rivers,1,area,il_part_id)
+CALL oasis_write_mask('rivt',np_rivers,1,mask,il_part_id)
 !
 ! Close grid file
 CALL oasis_terminate_grids_writing()
@@ -234,7 +223,6 @@ SUBROUTINE oasis_variables()
 USE mod_oasis,        ONLY: oasis_def_var, oasis_enddef, oasis_in, oasis_out,  &
                             oasis_real
 USE oasis_rivers_mod, ONLY: np_receive, np_send, cpl_receive, cpl_send
-USE jules_rivers_mod, ONLY: n_rivers, nx_rivers, ny_rivers
 !
 IMPLICIT NONE
 
@@ -250,27 +238,22 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------
 
 ! Local variables
-INTEGER, PARAMETER :: var_nodims_1d(2) = [1,1 ]
-INTEGER, PARAMETER :: var_nodims_2d(2) = [2,1 ]
-INTEGER            :: var_actual_shape_1d(2)
-INTEGER            :: var_actual_shape_2d(4)
+INTEGER, PARAMETER :: var_nodims(2) = [1,1 ]
+INTEGER, PARAMETER :: var_actual_shape(2) = [1,1 ]
 INTEGER :: i, ierror
 
 CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'OASIS_VARIABLES'
 
-var_actual_shape_1d(:) = [1,n_rivers]
-var_actual_shape_2d(:) = [1,nx_rivers,1,ny_rivers]
-
 !------------------------------------------------------------------------------
 ! Declare oasis send fields
 DO i = 1, np_send
-  IF (TRIM(cpl_send(i)%field_name) == "outflow_per_river") THEN
+  IF (TRIM(cpl_send(i)%field_name) == "rflow_outflow") THEN
     CALL oasis_def_var(cpl_send(i)%field_id, TRIM(cpl_send(i)%field_name),     &
-                       il_part_id_1d, var_nodims_1d, oasis_out, var_actual_shape_1d, &
+                       il_part_id_1d, var_nodims, oasis_out, var_actual_shape, &
                        oasis_real, ierror)
   ELSE
     CALL oasis_def_var(cpl_send(i)%field_id, TRIM(cpl_send(i)%field_name),     &
-                       il_part_id, var_nodims_2d, oasis_out, var_actual_shape_2d, &
+                       il_part_id, var_nodims, oasis_out, var_actual_shape,    &
                        oasis_real, ierror)
   END IF
   IF (ierror /= 0) THEN
@@ -291,7 +274,7 @@ END DO
 ! Declare oasis receive fields
 DO i = 1, np_receive
   CALL oasis_def_var(cpl_receive(i)%field_id, TRIM(cpl_receive(i)%field_name), &
-                     il_part_id, var_nodims_2d, oasis_in, var_actual_shape_2d, &
+                     il_part_id, var_nodims, oasis_in, var_actual_shape,       &
                      oasis_real, ierror)
   IF (ierror /= 0) THEN
     CALL log_fatal(RoutineName,                                                &
@@ -329,8 +312,7 @@ USE mod_oasis,        ONLY: oasis_put, oasis_sent, oasis_loctrans,             &
                             oasis_torest, oasis_output, oasis_sentout,         &
                             oasis_torestout, oasis_waitgroup, oasis_ok
 USE oasis_rivers_mod, ONLY: np_send, cpl_send
-USE jules_rivers_mod, ONLY: rivers_type, n_rivers,                             &
-                            l_outflow_per_river, calc_outflow_per_river
+USE jules_rivers_mod, ONLY: rivers_type, l_riv_number, np_rivers
 USE missing_data_mod, ONLY: imdi
 !
 IMPLICIT NONE
@@ -351,7 +333,7 @@ TYPE(rivers_type), INTENT(IN) :: rivers
 INTEGER, INTENT(IN) :: TIME
 
 ! Local variables
-REAL, ALLOCATABLE :: outflow_per_river(:)
+REAL, ALLOCATABLE :: rflow_outflow(:)
 INTEGER :: i, ip, ierror, ERROR
 
 CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'OASIS_SEND'
@@ -359,19 +341,26 @@ CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'OASIS_SEND'
 !------------------------------------------------------------------------------
 ! Calculate the total runoff if necessary. This is done here so that other send
 ! variables do not have to wait for this to be calculated in the following loop
-IF (l_outflow_per_river) THEN
+IF (l_riv_number) THEN
   ! Calculate river outflow for each river. This can be done like this here
   ! because the river executable runs in only one processor
-  ALLOCATE(outflow_per_river(n_rivers), STAT = ERROR)
-  outflow_per_river = calc_outflow_per_river(rivers)
+  ALLOCATE(rflow_outflow(n_rivers), STAT = ERROR)
+  rflow_outflow = 0.0
+  DO ip = 1, np_rivers
+    IF (rivers%rivers_outflow_number_rp(ip) > 0) THEN
+      rflow_outflow(rivers%rivers_outflow_number_rp(ip)) =                     &
+                        rflow_outflow(rivers%rivers_outflow_number_rp(ip)) +   &
+                        rivers%riverout_rp(ip)
+    END IF
+  END DO
 END IF
 
 ! Loop in all variables that are sent via coupling
 DO i = 1, np_send
   SELECT CASE(TRIM(cpl_send(i)%field_name))
     ! send the right field
-  CASE ('outflow_per_river')
-    CALL oasis_put(cpl_send(i)%field_id,TIME,outflow_per_river,ierror)
+  CASE ('rflow_outflow')
+    CALL oasis_put(cpl_send(i)%field_id,TIME,rflow_outflow,ierror)
   END SELECT
 
   IF (ierror /= oasis_sent .AND. ierror /= oasis_loctrans .AND.                &
@@ -385,8 +374,8 @@ DO i = 1, np_send
   END IF
 END DO
 
-IF (l_outflow_per_river) THEN
-  DEALLOCATE(outflow_per_river)
+IF (l_riv_number) THEN
+  DEALLOCATE(rflow_outflow)
 END IF
 
 RETURN
@@ -399,8 +388,7 @@ USE mod_oasis,        ONLY: oasis_get, oasis_recvd, oasis_fromrest,            &
                             oasis_input, oasis_recvout, oasis_fromrestout,     &
                             oasis_ok
 USE oasis_rivers_mod, ONLY: np_receive, cpl_receive
-USE jules_rivers_mod, ONLY: rivers_type, nx_rivers, ny_rivers
-USE rivers_regrid_mod, ONLY: twod_to_rp
+USE jules_rivers_mod, ONLY: rivers_type
 
 IMPLICIT NONE
 
@@ -421,7 +409,6 @@ INTEGER, INTENT(IN) :: TIME
 
 ! Local variables
 INTEGER :: i, ierror
-REAL    :: received_field_2d(nx_rivers, ny_rivers)
 
 CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'OASIS_RECEIVE'
 
@@ -430,12 +417,10 @@ CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'OASIS_RECEIVE'
 DO i = 1, np_receive
   SELECT CASE(TRIM(cpl_receive(i)%field_name))
     ! receive the right field
-  CASE ('sub_surf_roff')
-    CALL oasis_get(cpl_receive(i)%field_id,TIME,received_field_2d,ierror)
-    CALL twod_to_rp(received_field_2d, rivers%sub_surf_roff_rp, rivers)
-  CASE ('surf_roff')
-    CALL oasis_get(cpl_receive(i)%field_id,TIME,received_field_2d,ierror)
-    CALL twod_to_rp(received_field_2d, rivers%surf_roff_rp, rivers)
+  CASE ('sub_surf_roff_rp')
+    CALL oasis_get(cpl_receive(i)%field_id,TIME,rivers%sub_surf_roff_rp,ierror)
+  CASE ('surf_roff_rp')
+    CALL oasis_get(cpl_receive(i)%field_id,TIME,rivers%surf_roff_rp,ierror)
   END SELECT
 
   IF (ierror /= oasis_recvd .AND. ierror /= oasis_fromrest .AND.               &

@@ -216,6 +216,14 @@ IF ( l_irrig_dmd ) THEN
   END SELECT
 END IF
 
+! Check that a valid integer timestep was given for nstep_irrig
+IF ( l_irrig_dmd ) THEN
+  IF ( nstep_irrig <= 0 ) THEN
+    errcode = 101
+    CALL ereport(RoutineName, errcode, 'nstep_irrig must be > 0')
+  END IF
+END IF
+
 ! Verify that if switches are on that other switches are also available
 IF ( l_irrig_limit .AND. .NOT. l_irrig_dmd ) THEN
   errcode = 101

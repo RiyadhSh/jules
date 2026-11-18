@@ -1,11 +1,5 @@
     [[SCRIPTS]]
 
-    [[export_simsys_scripts]]
-        inherit = SCRIPTS, EXTRACT
-        [[[environment]]]
-            ROSE_TASK_APP = export_simsys_scripts
-            github_branch = {{SIMSYS_BRANCH}}
-
 # UMDP3 compliance checker - run on ROSE_ORIG_HOST use EXTRACT family
     [[umdp3_checker]]
         inherit = SCRIPTS, EXTRACT
@@ -19,8 +13,3 @@
         [[[environment]]]
             APP_DIRS = "*"
             ROSE_TASK_APP = metadata_checker
-
-    [[site_validator]]
-        inherit = SCRIPTS, EXTRACT
-        [[[environment]]]
-            ROSE_TASK_APP = site_validator

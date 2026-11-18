@@ -7,12 +7,6 @@
             ROSE_TASK_N_JOBS = 2
             JULES_PLATFORM = vm
 
-    [[remote_init_vm]]
-        inherit = VM_BUILD
-        script = true
-        [[[job]]]
-            execution time limit = PT2M
-
     [[fcm_make_debug]]
         inherit = VM_BUILD
         [[[environment]]]
@@ -51,9 +45,8 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
         [[[environment]]]
             LOOBOS_INSTALL_DIR = ../install_loobos_data
             GSWP2_INSTALL_DIR = /jules/benchmarking-data/gswp2
-            ERAINT_INSTALL_DIR = /jules/benchmarking-data/eraint
-            IMOGEN_INSTALL_DIR = /jules/benchmarking-data/imogen
-
+	    ERAINT_INSTALL_DIR = /jules/benchmarking-data/eraint
+	    IMOGEN_INSTALL_DIR = /jules/benchmarking-data/imogen
     [[VM_LOOBOS]]
         inherit = None, VM_COMPUTE
         [[[environment]]]
@@ -112,7 +105,7 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
         inherit = LOOBOS, VM_LOOBOS
         [[[environment]]]
             DUMP_FILE = ../loobos_julesc_spinup/output/loobos_julesc_spinup.dump.19971231.82800.nc
-
+            
     [[loobos_jules_c1p1_fire]]
         inherit = LOOBOS, VM_LOOBOS
         [[[environment]]]
@@ -222,14 +215,12 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
             NPROC = $MPI_NUM_TASKS
 
     [[gswp2_rivers]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = GSWP2, VM_GSWP2
 
     [[gswp2_rivers_spinup]]
         inherit = GSWP2, VM_GSWP2
 
     [[gswp2_rivers_restart]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = GSWP2, VM_GSWP2
         [[[environment]]]
             DUMP_FILE = ../gswp2_rivers_spinup/output/gswp2_rivers_spinup.dump.19820701.10800.nc
@@ -241,23 +232,21 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
             ROSE_APP_OPT_CONF_KEYS = overbank_hypso
 
     [[gswp2_trip]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = GSWP2, VM_GSWP2
 
     [[gswp2_trip_spinup]]
         inherit = GSWP2, VM_GSWP2
 
     [[gswp2_trip_restart]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = GSWP2, VM_GSWP2
         [[[environment]]]
             DUMP_FILE = ../gswp2_trip_spinup/output/gswp2_trip_spinup.dump.19820701.10800.nc
-
+    
     [[gswp2_irrig_limit_low_river_storage]]
         inherit = GSWP2, VM_GSWP2
         [[[environment]]]
             DUMP_FILE = ../gswp2_trip_spinup/output/gswp2_trip_spinup.dump.19820701.10800.nc
-
+    
     [[gswp2_irrig_limit_high_river_storage]]
         inherit = GSWP2, VM_GSWP2
         [[[environment]]]
@@ -280,7 +269,7 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
             EXT_NAME = gswp2_ukv
             ROSE_TASK_APP = gswp2_ukv
             ROSE_APP_OPT_CONF_KEYS=threading
-
+    
     [[gswp2_ukv_noomp]]
         inherit = GSWP2, GSWP2_UKV, VM_GSWP2
         [[[environment]]]
@@ -327,28 +316,6 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
     [[imogen_layeredc]]
         inherit = IMOGEN, VM_IMOGEN
         [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_co2conc]]
-        inherit = IMOGEN, VM_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = co2conc
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_dtempg]]
-        inherit = IMOGEN, VM_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = dtempg
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_ch4]]
-        inherit = IMOGEN, VM_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = ch4
             DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
 
 ###############################################################################
@@ -468,7 +435,7 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
         inherit = KGO_CHECK, VM_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../loobos_irrig/output
-
+ 
     [[nccmp_loobos_irrig_nirrtile]]
         inherit = KGO_CHECK, VM_NETCDF_COMPARISON
         [[[environment]]]
@@ -543,7 +510,7 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
         inherit = KGO_CHECK, VM_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../gswp2_irrig_limit_high_river_storage/output
-
+            
     [[nccmp_gswp2_closures]]
         inherit = KGO_CHECK, VM_NETCDF_COMPARISON
         [[[environment]]]
@@ -612,20 +579,6 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
         [[[environment]]]
             OUTPUT_DIR = ../imogen_layeredc/output
 
-    [[nccmp_imogen_layeredc_co2conc]]
-        inherit = KGO_CHECK, VM_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_co2conc/output
-
-    [[nccmp_imogen_layeredc_dtempg]]
-        inherit = KGO_CHECK, VM_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_dtempg/output
-
-    [[nccmp_imogen_layeredc_ch4]]
-        inherit = KGO_CHECK, VM_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_ch4/output
 
 ###############################################################################
 ## Housekeeping jobs
@@ -825,7 +778,7 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
         inherit = HOUSEKEEPING, LINUX
 	[[[environment]]]
 	    DIR1 = ../gswp2_rivers_spinup
-
+				
     [[housekeep_gswp2_rivers_restart]]
         inherit = HOUSEKEEPING, LINUX
         [[[environment]]]
@@ -926,18 +879,4 @@ fcm export --force fcm:jules_doc.x_tr/loobos/Loobos_1997_day.dat
         [[[environment]]]
             DIR1 = ../imogen_layeredc
 
-    [[housekeep_imogen_layeredc_co2conc]]
-        inherit = HOUSEKEEPING, LINUX
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_co2conc
-
-    [[housekeep_imogen_layeredc_dtempg]]
-        inherit = HOUSEKEEPING, LINUX
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_dtempg
-
-    [[housekeep_imogen_layeredc_ch4]]
-        inherit = HOUSEKEEPING, LINUX
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_ch4
-
+	    

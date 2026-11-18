@@ -72,8 +72,8 @@ REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
 !-----------------------------------------------------------------------------
 ! Local parameters:
 !-----------------------------------------------------------------------------
-REAL(KIND=real_jlslsm), PARAMETER :: log_ti_sc_const = LOG(2.7)
-    ! log_ti_sc_const Constant required to ensure that there is no underflow
+REAL(KIND=real_jlslsm), PARAMETER :: ti_sc_const = 2.7
+    ! ti_sc_const Constant required to ensure that there is no underflow
     ! or overflow in the pdf calculation. (See Documentation).
 
 !-----------------------------------------------------------------------------
@@ -163,7 +163,7 @@ IF (l_gamtot) THEN
     DO nti = 1,mti
       ti_sc = (nti-0.5) * dti_sc
       IF ((alf_ksat-1.0) * LOG(ti_sc) > LOG(TINY(ti_sc))) THEN
-        calc      = (alf_ksat-1.0) * (LOG(ti_sc) + log_ti_sc_const)            &
+        calc      = (alf_ksat-1.0) * (LOG(ti_sc) + LOG(ti_sc_const))           &
                     - (alf_ksat * ti_sc)
         gamtot(i) = gamtot(i) + EXP(calc)
       END IF
@@ -196,7 +196,7 @@ ELSE
         DO nti = 1,mti
           ti_sc = (nti-0.5) * dti_sc
           IF ((alf_ksat-1.0) * LOG(ti_sc) > LOG(TINY(ti_sc))) THEN
-            calc = (alf_ksat-1.0) * (LOG(ti_sc) + log_ti_sc_const)             &
+            calc = (alf_ksat-1.0) * (LOG(ti_sc) + LOG(ti_sc_const))            &
                    - (alf_ksat * ti_sc)
             cum  = cum + EXP(calc)
           END IF
@@ -206,7 +206,7 @@ ELSE
         fbox_s = (ticr_sc - mti * dti_sc) / dti_sc
         ti_sc  = (mti+0.5 * fbox_s) * dti_sc
         IF ((alf_ksat-1.0) * LOG(ti_sc) > LOG(TINY(ti_sc))) THEN
-          calc = (alf_ksat-1.0) * (LOG(ti_sc) + log_ti_sc_const)               &
+          calc = (alf_ksat-1.0) * (LOG(ti_sc) + LOG(ti_sc_const))              &
                  - (alf_ksat * ti_sc)
           cum  = cum + EXP(calc) * fbox_s
         END IF
@@ -230,7 +230,7 @@ ELSE
 
           ti_sc = (mti+0.5 * fbox_w) * dti_sc
           IF ((alf_ksat-1.0) * LOG(ti_sc) > LOG(TINY(ti_sc))) THEN
-            calc = (alf_ksat-1.0) * (LOG(ti_sc) + log_ti_sc_const)             &
+            calc = (alf_ksat-1.0) * (LOG(ti_sc) + LOG(ti_sc_const))            &
                    - (alf_ksat * ti_sc)
             cum = cum + EXP(calc) * (fbox_w - fbox_s)
           END IF
@@ -238,7 +238,7 @@ ELSE
           DO nti = mti+2,mti_w
             ti_sc = (nti-0.5) * dti_sc
             IF ((alf_ksat-1.0) * LOG(ti_sc) > LOG(TINY(ti_sc))) THEN
-              calc = (alf_ksat-1.0) * (LOG(ti_sc) + log_ti_sc_const)           &
+              calc = (alf_ksat-1.0) * (LOG(ti_sc) + LOG(ti_sc_const))          &
                      - (alf_ksat * ti_sc)
               cum  = cum + EXP(calc)
             END IF
@@ -248,7 +248,7 @@ ELSE
           fbox_w = (ticr_sc_w - mti_w * dti_sc) / dti_sc
           ti_sc  = (mti_w+0.5 * fbox_w) * dti_sc
           IF ((alf_ksat-1.0) * LOG(ti_sc) > LOG(TINY(ti_sc))) THEN
-            calc = (alf_ksat-1.0) * (LOG(ti_sc) + log_ti_sc_const)             &
+            calc = (alf_ksat-1.0) * (LOG(ti_sc) + LOG(ti_sc_const))            &
                    - (alf_ksat * ti_sc)
             cum  = cum + EXP(calc) * fbox_w
           END IF

@@ -37,7 +37,7 @@ SUBROUTINE jules_land_sf_implicit (                                            &
  n_wtrac_jls, n_evap_srce,                                                     &
 ! IN everything not covered so far :
  lw_down,sw_surft,sky,t_soil_soilt,r_gamma,alpha1,ashtf_prime_surft,           &
- dtrdz_charney_grid_1,fracaero_t,fracaero_s,resfs,resft,rhokh_surft,           &
+ dtrdz_charney_grid_1,fraca,resfs,resft,rhokh_surft,                           &
  emis_surft,snow_surft,dtstar_surft,                                           &
 ! INOUT data :
  tstar_surft,fqw_surft,fqw_1,ftl_1,ftl_surft,sf_diag,                          &
@@ -45,7 +45,7 @@ SUBROUTINE jules_land_sf_implicit (                                            &
  ecan,ei_surft,esoil_surft,surf_ht_flux_land,ei_land,surf_htf_surft,           &
 ! OUT data required elsewhere in UM system :
  tstar_land,le_surft,radnet_surft,ecan_surft,esoil_soilt,                      &
- ext_soilt,melt_surft,snowinc_surft,tstar_surft_old,ERROR,                     &
+ ext_soilt,melt_surft,tstar_surft_old,ERROR,                                   &
  !New arguments replacing USE statements
  ! lake_mod (IN)
  lake_h_ice_gb,                                                                &
@@ -63,15 +63,7 @@ SUBROUTINE jules_land_sf_implicit (                                            &
  ! jules_mod (IN)
  snowdep_surft,                                                                &
  ! JULES Types containing field data (IN OUT)
- crop_vars,                                                                    &
- ! Water tracers (IN)
- snow_surft_wtrac, smc_soilt_wtrac, canopy_wtrac, fqw_evapsrce_wtrac,          &
- ! Water tracers (INOUT)
- fqw_surft_wtrac,                                                              &
- ! Water tracers (OUT)
- ei_surft_wtrac, ei_wtrac, esoil_surft_wtrac, esoil_soilt_wtrac,               &
- ext_soilt_wtrac, ecan_surft_wtrac, ecan_wtrac, lake_evap_wtrac,               &
- fqw_1_wtrac, dfqw_wtrac                                                       &
+ crop_vars                                                                     &
 )
 
 !TYPE definitions
@@ -207,43 +199,23 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 ,dtrdz_charney_grid_1(pdims%i_start:pdims%i_end,                               &
                       pdims%j_start:pdims%j_end)                               &
                              ! IN -g.dt/dp for model layers.
-,fracaero_t(land_pts,nsurft)                                                   &
-                             ! IN Total fraction of surface moisture
-                             !    flux with only aerodynamic
-                             !    resistance
-,fracaero_s(land_pts,nsurft)                                                   &
+,fraca(land_pts,nsurft)                                                        &
                              ! IN Fraction of surface moisture
                              !    flux with only aerodynamic
-                             !    resistance over the frozen part of the
-                             !    surface
+                             !    resistance for snow-free land
+                             !    tiles.
 ,resfs(land_pts,nsurft)                                                        &
                              ! IN Combined soil, stomatal
                              !    and aerodynamic resistance
-                             !    factor for fraction (1-fracaero_t) of
+                             !    factor for fraction (1-FRACA) of
                              !    snow-free land tiles.
 ,resft(land_pts,nsurft)                                                        &
                              ! IN Total resistance factor.
-                             !    fracaero+(1-fracaero)*resfs for
+                             !    FRACA+(1-FRACA)*RESFS for
                              !    snow-free land, 1 for snow.
 ,rhokh_surft(land_pts,nsurft)
                              ! IN Surface exchange coefficients
                              !    for land tiles
-
-! Water tracers (IN)
-REAL(KIND=real_jlslsm), INTENT(IN) :: snow_surft_wtrac(land_pts,nsurft,        &
-                                                       n_wtrac_jls)
-                             ! Water tracer lying snow on tiles (kg/m2)
-REAL(KIND=real_jlslsm), INTENT(IN) :: smc_soilt_wtrac(land_pts,nsoilt,         &
-                                                       n_wtrac_jls)
-                             ! Water tracer in available soil moisture
-                             !    (kg/m2).
-REAL(KIND=real_jlslsm), INTENT(IN) :: canopy_wtrac(land_pts,nsurft,n_wtrac_jls)
-                             ! Water tracer surface/canopy water for
-                             !    snow-free land tiles (kg/m2)
-REAL(KIND=real_jlslsm), INTENT(IN) :: fqw_evapsrce_wtrac(land_pts,             &
-                                               n_evap_srce,nsurft,n_wtrac_jls)
-                             ! Water tracer surface FQW for each
-                             !     evap source for land tiles (kg/m2/s)
 
 
 !--------------------------------------------------------------------
@@ -268,13 +240,6 @@ REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
                              ! INOUT Surface FTL for land tiles
 ,fqw_surft(land_pts,nsurft)
                              ! INOUT Surface FQW for land tiles
-
-
-! Water tracers (INOUT)
-REAL(KIND=real_jlslsm), INTENT(IN OUT) :: fqw_surft_wtrac(land_pts,nsurft,     &
-                                                         n_wtrac_jls)
-                             ! Water tracer surface FQW for land tiles
-                             !    (kg/m2/s)
 
 !--------------------------------------------------------------------
 !  Outputs :-
@@ -325,12 +290,6 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
                              !     soil layer (kg/m2/s).
 ,melt_surft(land_pts,nsurft)                                                   &
                              ! OUT Snowmelt on land tiles (kg/m2/s
-,snowinc_surft(land_pts,nsurft)                                                &
-                             ! OUT Total increment to snow on land tiles
-                             !     (kg m-2 TS-1). This is used in preference
-                             !     to the rate to ensure the precise removal
-                             !     of snow, rather than allowing rounding
-                             !     errors to generate very small amounts.
 ,tstar_surft_old(land_pts,nsurft)                                              &
                              ! OUT Tile surface temperatures at
                              !     beginning of timestep.
@@ -341,50 +300,6 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
 INTEGER, INTENT(OUT) ::                                                        &
  ERROR                       ! OUT 0 - AOK;
                              !     1 to 7  - bad grid definition detected;
-
-
-! Water tracers (OUT)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: ei_surft_wtrac(land_pts,nsurft,         &
-                                                        n_wtrac_jls)
-                             ! Water tracer sublimation for land tiles
-                             !     (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: ei_wtrac(tdims%i_start:tdims%i_end,     &
-                                        tdims%j_start:tdims%j_end,n_wtrac_jls)
-                             ! Water tracer sublimation from lying snow
-                             !     (kg/m2/s).
-REAL(KIND=real_jlslsm), INTENT(OUT) :: esoil_surft_wtrac(land_pts,nsurft,      &
-                                                         n_wtrac_jls)
-                             ! Water tracer sfc evapotranspiration for
-                             !                 snow-free land tiles (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: esoil_soilt_wtrac(                      &
-                                            tdims%i_start:tdims%i_end,         &
-                                            tdims%j_start:tdims%j_end,nsoilt,  &
-                                            n_wtrac_jls)
-                             ! Water tracer surface evapotranspiration
-                             !     from soil moisture store per soil tile
-                             !     (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: ext_soilt_wtrac(land_pts,nsoilt,        &
-                                                       sm_levels,n_wtrac_jls)
-                             ! Water tracer extraction of water from each
-                             !     soil layer (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: ecan_surft_wtrac(land_pts,nsurft,       &
-                                                        n_wtrac_jls)
-                             ! Water tracer canopy evaporation for snow-free
-                             !     land tiles (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: ecan_wtrac(tdims%i_start:tdims%i_end,   &
-                                         tdims%j_start:tdims%j_end,n_wtrac_jls)
-                             ! Water tracer GBM evaporation from
-                             !     canopy/surface store (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: lake_evap_wtrac(land_pts,n_wtrac_jls)
-                             ! Water tracer lake evaporation
-REAL(KIND=real_jlslsm), INTENT(OUT) :: fqw_1_wtrac(                            &
-                                          tdims%i_start:tdims%i_end,           &
-                                          tdims%j_start:tdims%j_end,n_wtrac_jls)
-                             ! Water tracer surface flux (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: dfqw_wtrac(tdims%i_start:tdims%i_end,   &
-                                        tdims%j_start:tdims%j_end,n_wtrac_jls)
-                             ! Increment in water tracer GBM moisture flux
-                             !      (kg/m2/s)
 
 !New arguments replacing USE statements
 ! lake_mod (IN)
@@ -417,22 +332,78 @@ REAL(KIND=real_jlslsm) ::                                                      &
 ,lake_ice_mass(land_pts)                                                       &
                              ! areal density equivalent to
                              ! lake ice of a given depth (kg/m2)
-,snowmelt(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)                 &
+,snowmelt(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)
                              ! Snowmelt (kg/m2/s).
-,snowinc_flake(land_pts,nsurft)
-                             ! Increment to ice for FLake
-
-REAL(KIND=real_jlslsm) ::                                                      &
- elake_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
-                             ! Lake evaporation on land tiles
-                             ! (When using tiles, this will only be non-zero
-                             !  on the 'lake' tile.)
 
 REAL(KIND=real_jlslsm) ::                                                      &
  canhc_surf(land_pts)
                              ! Areal heat capacity of canopy
                              ! for land tiles (J/K/m2).
 
+! Water tracers fields which will be INTENT(IN) when the water tracers
+! are fully in JULES (currently these fields are not used as l_wtrac_jls=F)
+
+REAL(KIND=real_jlslsm) :: snow_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! Water tracer lying snow on tiles (kg/m2)
+REAL(KIND=real_jlslsm) :: smc_soilt_wtrac(land_pts,nsoilt,n_wtrac_jls)
+                             ! Water tracer in available soil moisture
+                             !    (kg/m2).
+REAL(KIND=real_jlslsm) :: canopy_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! Water tracer surface/canopy water for
+                             !    snow-free land tiles (kg/m2)
+REAL(KIND=real_jlslsm) :: fqw_evapsrce_wtrac(land_pts,                         &
+                                               n_evap_srce,nsurft,n_wtrac_jls)
+                             ! Water tracer surface FQW for each
+                             !     evap source for land tiles (kg/m2/s)
+
+! Water tracers fields which will be INTENT(IN OUT) when the water tracers
+! are fully in JULES (currently these fields are not used as l_wtrac_jls=F)
+
+REAL(KIND=real_jlslsm) :: fqw_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! Water tracer surface FQW for land tiles
+                             !    (kg/m2/s)
+
+! Water tracers fields which will be INTENT(OUT) when the water tracers
+! are fully in JULES (currently these fields are not used as l_wtrac_jls=F)
+
+REAL(KIND=real_jlslsm) :: ei_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! Water tracer sublimation for land tiles
+                             !     (kg/m2/s)
+REAL(KIND=real_jlslsm) :: ei_wtrac(tdims%i_start:tdims%i_end,                  &
+                                        tdims%j_start:tdims%j_end,n_wtrac_jls)
+                             ! Water tracer sublimation from lying snow
+                             !     (kg/m2/s).
+REAL(KIND=real_jlslsm) :: esoil_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! Water tracer sfc evapotranspiration for
+                             !                 snow-free land tiles (kg/m2/s)
+REAL(KIND=real_jlslsm) :: esoil_soilt_wtrac(tdims%i_start:tdims%i_end,         &
+                                            tdims%j_start:tdims%j_end,nsoilt,  &
+                                            n_wtrac_jls)
+                             ! Water tracer surface evapotranspiration
+                             !     from soil moisture store per soil tile
+                             !     (kg/m2/s)
+REAL(KIND=real_jlslsm) :: ext_soilt_wtrac(land_pts,nsoilt,                     &
+                                                       sm_levels,n_wtrac_jls)
+                             ! Water tracer extraction of water from each
+                             !     soil layer (kg/m2/s)
+REAL(KIND=real_jlslsm) :: ecan_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! Water tracer canopy evaporation for snow-free
+                             !     land tiles (kg/m2/s)
+REAL(KIND=real_jlslsm) :: ecan_wtrac(tdims%i_start:tdims%i_end,                &
+                                         tdims%j_start:tdims%j_end,n_wtrac_jls)
+                             ! Water tracer GBM evaporation from
+                             !     canopy/surface store (kg/m2/s)
+REAL(KIND=real_jlslsm) :: elake_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! Water tracer lake evaporation for land tiles
+
+REAL(KIND=real_jlslsm) :: fqw_1_wtrac(tdims%i_start:tdims%i_end,               &
+                                          tdims%j_start:tdims%j_end,n_wtrac_jls)
+                             ! Water tracer surface flux (kg/m2/s)
+
+REAL(KIND=real_jlslsm) :: dfqw_wtrac(tdims%i_start:tdims%i_end,                &
+                                        tdims%j_start:tdims%j_end,n_wtrac_jls)
+                             ! Increment in water tracer GBM moisture flux
+                             !      (kg/m2/s)
 !  Local scalars :-
 
 INTEGER ::                                                                     &
@@ -449,12 +420,6 @@ INTEGER ::                                                                     &
 ,i_wt
             ! Loop counter for water tracers
 
-#if defined(LFRIC)
-LOGICAL, PARAMETER :: using_lfric = .TRUE.
-#else
-LOGICAL, PARAMETER :: using_lfric = .FALSE.
-#endif
-
 INTEGER :: errorstatus
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
@@ -464,6 +429,14 @@ REAL(KIND=jprb)               :: zhook_handle
 CHARACTER(LEN=*), PARAMETER :: RoutineName='JULES_LAND_SF_IMPLICIT'
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
+
+! Temporary code to initialise water tracer fields that will be INTENT(IN)
+! in the future
+snow_surft_wtrac(:,:,:)     = 0.0
+smc_soilt_wtrac(:,:,:)      = 0.0
+canopy_wtrac(:,:,:)         = 0.0
+fqw_evapsrce_wtrac(:,:,:,:) = 0.0
+fqw_surft_wtrac(:,:,:)      = 0.0
 
 !-----------------------------------------------------------------------
 
@@ -566,7 +539,7 @@ END IF
 CALL sf_evap (                                                                 &
   land_pts,nsurft,                                                             &
   land_index,surft_index,surft_pts,sm_levels,fland,                            &
-  ashtf_prime_surft,canopy,dtrdz_charney_grid_1,flake,fracaero_t,fracaero_s,   &
+  ashtf_prime_surft,canopy,dtrdz_charney_grid_1,flake,fraca,                   &
   snow_surft,resfs,resft,rhokh_surft,tile_frac,smc_soilt,wt_ext_surft,         &
   timestep,r_gamma,fqw_1,fqw_surft,ftl_1,ftl_surft,tstar_surft,                &
   ecan,ecan_surft,elake_surft,esoil_soilt,esoil_surft,ei_surft,ext_soilt,      &
@@ -586,8 +559,7 @@ CALL sf_evap (                                                                 &
 !$OMP PARALLEL                                                                 &
 !$OMP DEFAULT(NONE)                                                            &
 !$OMP PRIVATE(l,n,j,i)                                                         &
-!$OMP SHARED(tdims,ei_land,snowmelt,nsurft,land_pts,melt_ice_surft,            &
-!$OMP snowinc_flake)
+!$OMP SHARED(tdims,ei_land,snowmelt,nsurft,land_pts,melt_ice_surft)
 
 !$OMP DO SCHEDULE(STATIC)
 DO j = tdims%j_start,tdims%j_end
@@ -603,7 +575,6 @@ DO n = 1,nsurft
 !$OMP DO SCHEDULE(STATIC)
   DO l = 1,land_pts
     melt_ice_surft(l,n) = 0.0
-    snowinc_flake(l,n) = 0.0
   END DO
 !$OMP END DO NOWAIT
 END DO
@@ -615,10 +586,10 @@ DO n = 1,nsurft
     land_pts,land_index,                                                       &
     surft_index(:,n),surft_pts(n),flandg,                                      &
     alpha1(:,n),ashtf_prime_surft(:,n),dtrdz_charney_grid_1,                   &
-    fracaero_s(:,n),resft(:,n),rhokh_surft(:,n),tile_frac(:,n),                &
-    timestep,r_gamma, ei_surft(:,n),fqw_1,ftl_1,fqw_surft(:,n),ftl_surft(:,n), &
+    resft(:,n),rhokh_surft(:,n),tile_frac(:,n),timestep,r_gamma,               &
+    ei_surft(:,n),fqw_1,ftl_1,fqw_surft(:,n),ftl_surft(:,n),                   &
     tstar_surft(:,n),snow_surft(:,n),snowdep_surft(:,n),                       &
-    melt_surft(:,n),snowinc_surft(:,n)                                         &
+    melt_surft(:,n)                                                            &
     )
 
   !-----------------------------------------------------------------------
@@ -644,11 +615,10 @@ DO n = 1,nsurft
       land_pts,land_index,                                                     &
       surft_index(:,n),surft_pts(n),flandg,                                    &
       alpha1(:,n),ashtf_prime_surft(:,n),dtrdz_charney_grid_1,                 &
-      fracaero_s(:,n),resft(:,n),rhokh_surft(:,n),tile_frac(:,n),              &
-      timestep,r_gamma,                                                        &
+      resft(:,n),rhokh_surft(:,n),tile_frac(:,n),timestep,r_gamma,             &
       ei_surft(:,n),fqw_1,ftl_1,fqw_surft(:,n),ftl_surft(:,n),                 &
       tstar_surft(:,n),lake_ice_mass,lake_ice_mass / rho_snow_const,           &
-      melt_ice_surft(:,n),snowinc_flake(:,n)                                   &
+      melt_ice_surft(:,n)                                                      &
         )
   END IF
 
@@ -803,7 +773,7 @@ ELSE
 END IF
 
 ! Get lake evaporation based on method of conserving water in lakes
-IF ( (l_rivers .AND. i_river_vn == rivers_um_trip) .OR. using_lfric ) THEN
+IF ( l_rivers .AND. i_river_vn == rivers_um_trip ) THEN
   SELECT CASE (lake_water_conserve_method)
     !
   CASE ( use_fqw_surft )
@@ -941,23 +911,10 @@ IF (l_wtrac_imp_jls) THEN
       ecan_wtrac(:,:,i_wt), ecan_surft_wtrac(:,:,i_wt),                        &
       elake_surft_wtrac(:,:,i_wt), fqw_1_wtrac(:,:,i_wt),                      &
       dfqw_wtrac(:,:,i_wt))
-
-    ! Set lake evaporation which is used in river_routing for conservation
-    ! purposes.
-    ! Water tracers always used lake_water_conserve_method=use_elake_surft
-
-!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(NONE)                               &
-!$OMP PRIVATE(l) SHARED(i_wt,land_pts,lake_evap_wtrac,lake,elake_surft_wtrac)
-    DO l = 1, land_pts
-      lake_evap_wtrac(l,i_wt) = elake_surft_wtrac(l,lake,i_wt)
-    END DO
-!$OMP END PARALLEL DO
-
   END DO
 END IF
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
-
 RETURN
 END SUBROUTINE jules_land_sf_implicit
 END MODULE jules_land_sf_implicit_mod

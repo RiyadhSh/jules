@@ -28,8 +28,8 @@ CONTAINS
 
 SUBROUTINE riv_rout_1a(global_row_length, global_rows,                         &
      surf_runoffin, sub_runoffin, row_length, rows, invert_atmos, xua,         &
-     yva, river_row_length, river_rows, frac, regrid,                          &
-     dt, gridbox_areas,                                                        &
+     yva, river_row_length, river_rows, frac, regrid, ru,                      &
+     ratmed, dt, cyclic_trip, gridbox_areas, global_trip, invert_trip,         &
      twatstor, trip_outflow,                                                   &
      riverdir, riverseq, riverout_trip, runoff_trip_kgs, riverout_inv,         &
      inlandout_trip, inlandout_atm, g_river_row_length, g_river_rows,          &
@@ -57,7 +57,6 @@ USE umPrintMgr, ONLY: printstatus, prstatus_diag, umMessage, umPrint
 
 USE areaver_mod, ONLY: pre_areaver, do_areaver
 USE do_map_max_mod, ONLY: do_map_max
-USE jules_rivers_mod, ONLY: rivers_speed, rivers_meander
 
 IMPLICIT NONE
 
@@ -156,14 +155,23 @@ LOGICAL, INTENT(IN) ::                                                         &
 
        invert_atmos                                                            &
      ! invert rows
-     , regrid
+     , regrid                                                                  &
      ! whether to regrid atmos to river grid
+     , cyclic_trip                                                             &
+     ! indicates if trips grid is cyclic
+     , global_trip                                                             &
+     ! indicates if atmos grid is cyclic
+     , invert_trip
 
 LOGICAL, INTENT(IN) :: first
 ! true if first entry into this routine
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
-       dt
+     ru                                                                        &
+     ! effective river flow velocity (m/s)
+     , ratmed                                                                  &
+     ! river meander ratio
+     , dt
      ! river routing time step (s)
 
 REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
@@ -413,17 +421,16 @@ IF (printstatus >= prstatus_diag) THEN
   CALL umPrint(umMessage,src='riv_rout-river1a')
   WRITE(umMessage, '(A,F8.2,A)') 'routing timestep =  ', dt, ' secs.'
   CALL umPrint(umMessage,src='riv_rout-river1a')
-  WRITE(umMessage, '(A,F6.4)') 'Meandering Ratio  = ', rivers_meander
+  WRITE(umMessage, '(A,F6.4)') 'Meandering Ratio  = ', ratmed
   CALL umPrint(umMessage,src='riv_rout-river1a')
-  WRITE(umMessage, '(A,F6.4,A)') 'Effective Velocity ru =', rivers_speed,      &
-      ' (m/s)'
+  WRITE(umMessage, '(A,F6.4,A)') 'Effective Velocity ru =', ru, ' (m/s)'
   CALL umPrint(umMessage,src='riv_rout-river1a')
 END IF
 
 jmax = river_rows
 
 ! need to pass offset values for routine, remember to lat rotate grid
-CALL routedbl(runoff_trip, rivers_speed, rivers_meander, ndev, dt              &
+CALL routedbl(runoff_trip, ru, ratmed, ndev, dt                                &
      , river_row_length, river_rows, trivdir, trivseq, twatstor                &
      , jmax, rmdi, riverout_trip, runoff_trip_kgs, trip_areas                  &
      , local_rstart_rl, (local_rstart_rows+90))

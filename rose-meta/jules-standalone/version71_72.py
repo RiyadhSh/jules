@@ -1,13 +1,11 @@
+import rose.upgrade
+import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
-class vn71_t1191(MacroUpgrade):
-
+class vn71_t1191(rose.upgrade.MacroUpgrade):
+	
     """Upgrade macro from JULES by Juan M Castillo"""
-
+	
     BEFORE_TAG = "vn7.1"
     AFTER_TAG = "vn7.1_t1191"
 
@@ -39,7 +37,7 @@ class vn71_t1191(MacroUpgrade):
 
         return config, self.reports
 
-class vn71_t1348(MacroUpgrade):
+class vn71_t1348(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eleanor Burke"""
 
@@ -57,7 +55,7 @@ class vn71_t1348(MacroUpgrade):
         return config, self.reports
 
 
-class vn71_t1317(MacroUpgrade):
+class vn71_t1317(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -71,15 +69,15 @@ class vn71_t1317(MacroUpgrade):
         # Setting to TRUE as most applications likely use a lat-lon grid.
         self.add_setting(config, ["namelist:jules_latlon", "l_coord_latlon"], ".true.")
         # Change some names.
-        self.rename_setting(config, ["namelist:jules_model_grid", "latlon_region"],
+        self.rename_setting(config, ["namelist:jules_model_grid", "latlon_region"], 
                                     ["namelist:jules_model_grid", "l_bounds"])
-        self.rename_setting(config, ["namelist:jules_model_grid", "lat_bounds"],
+        self.rename_setting(config, ["namelist:jules_model_grid", "lat_bounds"], 
                                     ["namelist:jules_model_grid", "y_bounds"])
-        self.rename_setting(config, ["namelist:jules_model_grid", "lon_bounds"],
+        self.rename_setting(config, ["namelist:jules_model_grid", "lon_bounds"], 
                                     ["namelist:jules_model_grid", "x_bounds"])
         return config, self.reports
 
-class vn71_t1399(MacroUpgrade):
+class vn71_t1399(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -93,12 +91,12 @@ class vn71_t1399(MacroUpgrade):
         return config, self.reports
 
 
-class vn71_vn72(MacroUpgrade):
+class vn71_vn72(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn7.1_t1399"
     AFTER_TAG = "vn7.2"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

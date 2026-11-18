@@ -22,7 +22,7 @@ CONTAINS
 
 SUBROUTINE hydrol (                                                            &
      land_pts, soil_pts, lice_pts, sm_levels, npft, nsurft, dim_cs1,           &
-     asteps_since_triffid, n_wtrac_jls, timestep, l_lice_surft,                &
+     asteps_since_triffid, timestep, l_lice_surft,                             &
      l_inland, l_pdm, l_soil_sat_down, l_top, stf_sub_surf_roff,               &
      soil_index, lice_index,                                                   &
      surft_pts, surft_index, nsnow_surft,                                      &
@@ -32,20 +32,17 @@ SUBROUTINE hydrol (                                                            &
      catch_surft, frac_irr_soilt,  infil_surft,                                &
      non_lake_frac, slope_gb, tile_frac,                                       &
      con_rainfrac_land,  con_rain_land, ls_rainfrac_land, ls_rain_land,        &
-     con_rain_land_wtrac, ls_rain_land_wtrac,                                  &
      surf_ht_flux_ld,                                                          &
-     ecan_surft, ext_irr_soilt,  ext_soilt, ecan_surft_wtrac,                  &
-     ext_soilt_wtrac,                                                          &
-     snowdepth_surft, melt_surft, snow_melt, melt_surft_wtrac,                 &
-     snow_melt_wtrac, snow_soil_htf,                                           &
+     ecan_surft, ext_irr_soilt,  ext_soilt,                                    &
+     snowdepth_surft, melt_surft, snow_melt,                                   &
+     snow_soil_htf,                                                            &
      a_fsat_soilt, c_fsat_soilt, a_fwet_soilt,  c_fwet_soilt,                  &
      fexp_soilt, ti_mean_soilt,                                                &
-     npp_soilt, inlandout_atm_gb, inlandout_atm_gb_wtrac,                      &
-     canopy_surft, canopy_surft_wtrac, smcl_soilt, sthf_soilt,                 &
+     npp_soilt, inlandout_atm_gb,                                              &
+     canopy_surft, smcl_soilt, sthf_soilt,                                     &
      sthu_soilt,  sthu_irr_soilt, tsoil_deep_gb,                               &
      t_soil_soilt, t_soil_soilt_acc, tsurf_elev_surft,                         &
-     smcl_soilt_wtrac, sthf_soilt_wtrac, sthu_soilt_wtrac,                     &
-     fsat_soilt, fwetl_soilt, sthzw_soilt, zw_soilt, sthzw_soilt_wtrac,        &
+     fsat_soilt, fwetl_soilt, sthzw_soilt, zw_soilt,                           &
      cs_pool_soilt,resp_s_soilt,                                               &
      cs_ch4_soilt, fch4_wetl_acc_soilt,                                        &
      substr_ch4, mic_ch4, mic_act_ch4, acclim_ch4,                             &
@@ -54,8 +51,7 @@ SUBROUTINE hydrol (                                                            &
      canopy_gb, smc_soilt,                                                     &
      drain_soilt, dun_roff_soilt, sub_surf_roff_gb,                            &
      surf_roff_gb, tot_tfall_gb, tot_tfall_surft,                              &
-     w_flux_soilt, surf_roff_gb_wtrac, sub_surf_roff_gb_wtrac, qbase_soilt,    &
-     qbase_l_soilt, qbase_zw_soilt,                                            &
+     w_flux_soilt, qbase_soilt, qbase_l_soilt, qbase_zw_soilt,                 &
      fch4_wetl_soilt, fch4_wetl_cs_soilt,                                      &
      fch4_wetl_npp_soilt, fch4_wetl_resps_soilt,                               &
      n_leach_soilt)
@@ -72,9 +68,7 @@ USE n_leach_mod,              ONLY: n_leach
 USE soil_hyd_wt_mod,          ONLY: soil_hyd_wt
 USE soil_hyd_update_mod,      ONLY: soil_hyd_update
 USE soil_hyd_mod,             ONLY: soil_hyd
-USE soil_hyd_wtrac_mod,       ONLY: soil_hyd_wtrac
 USE soil_htc_mod,             ONLY: soil_htc
-USE soil_htc_wtrac_mod,       ONLY: soil_htc_wtrac
 USE soilmc_mod,               ONLY: soilmc
 USE soilt_mod,                ONLY: soilt
 USE surf_hyd_mod,             ONLY: surf_hyd
@@ -98,9 +92,7 @@ USE jules_soil_mod, ONLY:                                                      &
      ! Thicknesses of the soil layers (m).
   dzsoil_elev, ns_deep
 
-USE jules_water_tracers_mod, ONLY: l_wtrac_jls
-USE wtrac_hyd_mod,           ONLY: wtrac_hy_type, wtrac_alloc_hyd,             &
-                                   wtrac_dealloc_hyd
+
 #if !defined(UM_JULES)
 USE update_mod,     ONLY: l_imogen
 #endif
@@ -134,10 +126,8 @@ INTEGER, INTENT(IN) ::                                                         &
     ! Number of tiles
   dim_cs1,                                                                     &
     ! Number of soil carbon pools
-  asteps_since_triffid,                                                        &
+  asteps_since_triffid
     ! Number of atmospheric timesteps since last call to TRIFFID.
-  n_wtrac_jls
-    ! Number of water tracers
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   timestep
@@ -214,12 +204,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     ! Large-scale rain (kg/m2/s).
   ls_rainfrac_land(land_pts),                                                  &
     ! large scale rain fraction
-  surf_ht_flux_ld(land_pts),                                                   &
+  surf_ht_flux_ld(land_pts)
     ! Net downward surface heat flux (W/m2).
-  con_rain_land_wtrac(land_pts,n_wtrac_jls),                                   &
-    ! Water tracer convective rain (kg/m2/s).
-  ls_rain_land_wtrac(land_pts,n_wtrac_jls)
-    ! Water tracer large-scale rain (kg/m2/s).
 
 ! Evaporation variables.
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
@@ -227,12 +213,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     ! Canopy evaporation from land tiles (kg/m2/s).
   ext_irr_soilt(land_pts,nsoilt,sm_levels),                                    &
     ! Extraction of water from each soil layer over irrigation (kg m-2 s-1).
-  ext_soilt(land_pts,nsoilt,sm_levels),                                        &
+  ext_soilt(land_pts,nsoilt,sm_levels)
     ! Extraction of water from each soil layer (kg/m2/s).
-  ecan_surft_wtrac(land_pts,nsurft,n_wtrac_jls),                               &
-    ! Water tracer canopy evaporation from land tiles (kg/m2/s).
-  ext_soilt_wtrac(land_pts,nsoilt,sm_levels,n_wtrac_jls)
-    ! Extraction of water tracer from each soil layer (kg/m2/s).
 
 ! Snow and melt
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
@@ -242,12 +224,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     ! Snowmelt on tiles (kg/m2/s).
   snow_melt(land_pts),                                                         &
     ! Snowmelt (kg/m2/s).
-  snow_soil_htf(land_pts,nsurft),                                              &
+  snow_soil_htf(land_pts,nsurft)
     ! Tiled snowpack-> soil heat flux.
-  melt_surft_wtrac(land_pts,nsurft,n_wtrac_jls),                               &
-    ! Water tracer snowmelt on tiles (kg/m2/s).
-  snow_melt_wtrac(land_pts,n_wtrac_jls)
-    ! Water tracer snowmelt (kg/m2/s).
 
 ! TOPMODEL variables.
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
@@ -271,11 +249,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 
 ! Other variables.
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
-  inlandout_atm_gb(land_pts),                                                  &
+  inlandout_atm_gb(land_pts)
     ! IN TRIP INLAND BASIN OUTFLOW FOR LAND POINTS ONLY,kg/m2/s=mm.
-  inlandout_atm_gb_wtrac(land_pts,n_wtrac_jls)
-    ! IN TRIP inland basin water tracer outflow for land points only
-    ! (kg/m2/s=mm)
 
 !-----------------------------------------------------------------------------
 ! Array arguments with INTENT(IN OUT):
@@ -283,10 +258,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 
 ! Canopy water.
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
-  canopy_surft(land_pts,nsurft),                                               &
+  canopy_surft(land_pts,nsurft)
     ! Canopy water content for land tiles (kg/m2).
-  canopy_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
-    ! Canopy water tracer content for land tiles (kg/m2).
 
 ! Soil water and temperature.
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
@@ -310,16 +283,8 @@ REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
   t_soil_soilt_acc(land_pts,nsoilt,sm_levels),                                 &
     ! Sub-surface temperature on layers and soil tiles
     ! accumulated over TRIFFID timestep (K).
-  tsurf_elev_surft(land_pts,nsurft),                                           &
+  tsurf_elev_surft(land_pts,nsurft)
     ! Tiled sub-surface temperatures (K).
-  smcl_soilt_wtrac(land_pts,nsoilt,sm_levels,n_wtrac_jls),                     &
-    ! Soil moisture content of each layer (kg/m2).
-  sthf_soilt_wtrac(land_pts,nsoilt,sm_levels,n_wtrac_jls),                     &
-    ! Frozen soil moisture content of each layer as a fraction of saturation.
-  sthu_soilt_wtrac(land_pts,nsoilt,sm_levels,n_wtrac_jls)
-    ! Unfrozen soil moisture content of each layer as a fraction of
-    ! saturation.
-
 
 ! TOPMODEL variables.
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
@@ -329,11 +294,8 @@ REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
      ! Wetland fraction.
   sthzw_soilt(land_pts,nsoilt),                                                &
      ! Soil moisture fraction in deep LSH/TOPMODEL layer.
-  zw_soilt(land_pts,nsoilt),                                                   &
+  zw_soilt(land_pts,nsoilt)
      ! Water table depth (m).
-  sthzw_soilt_wtrac(land_pts,nsoilt,n_wtrac_jls)
-     ! Soil moisture fraction in deep LSH/TOPMODEL layer.
-
 
 ! Soil carbon variables.
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
@@ -393,12 +355,8 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
     ! Total throughfall (kg/m2/s).
   tot_tfall_surft(land_pts,nsurft),                                            &
     ! Surface-tiled contributions to throughfall.
-  w_flux_soilt(land_pts,nsoilt,0:sm_levels),                                   &
+  w_flux_soilt(land_pts,nsoilt,0:sm_levels)
     ! Fluxes of water between layers (kg/m2/s).
-  sub_surf_roff_gb_wtrac(land_pts,n_wtrac_jls),                                &
-    ! Sub-surface water tracer runoff (kg/m2/s).
-  surf_roff_gb_wtrac(land_pts,n_wtrac_jls)
-    ! Water tracer surface runoff (kg/m2/s).
 
 ! TOPMODEL variables.
 REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
@@ -438,11 +396,6 @@ INTEGER ::                                                                     &
     ! Counter for soil level.
   m,                                                                           &
     ! Counter for soil tile.
-  i_wt,                                                                        &
-    ! Counter for water tracers.
-  m_wt,                                                                        &
-    ! Actual or dummy pointer to array defined only when running with water
-    ! tracers
   errorstatus
 
 !-----------------------------------------------------------------------------
@@ -479,7 +432,7 @@ REAL(KIND=real_jlslsm) ::                                                      &
     ! Soil-tiled contributions to surface runoff (kg m-2 s-1).
   sub_surf_roff_soilt(land_pts,nsoilt),                                        &
     ! Soil-tiled contributions to subsurface runoff (kg m-2 s-1).
-  smcl_old_soilt(land_pts,nsoilt,sm_levels)
+    smcl_old_soilt(land_pts,nsoilt,sm_levels)
     ! Retain original soil moisture for leaching code
 
 ! Variables required for irrigation code
@@ -507,18 +460,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
   smclsatzw_soilt(land_pts,nsoilt)
     ! moisture content in deep layer (kg/m2).
 
-! Water tracer local fields
-TYPE(wtrac_hy_type) :: wtrac_hy
-
-REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
-  sthu_soilt_old(:,:,:),                                                       &
-    ! Initial value of unfrozen soil moisture content of each layer as a
-    ! fraction of saturation.
-  sthf_soilt_old(:,:,:)
-    ! Initial value of frozen soil moisture content of each layer as a
-    ! fraction of saturation.
-
-
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 REAL(KIND=jprb)               :: zhook_handle
@@ -527,18 +468,6 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='HYDROL'
 
 ! End of header---------------------------------------------------------------
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
-
-! Set up water tracer working arrays
-CALL wtrac_alloc_hyd(land_pts, nsoilt, sm_levels, n_wtrac_jls, wtrac_hy)
-
-! Set up arrays to store some initial fields which are needed by water tracers
-IF (l_wtrac_jls) THEN
-  ALLOCATE(sthu_soilt_old(land_pts,nsoilt,sm_levels))
-  ALLOCATE(sthf_soilt_old(land_pts,nsoilt,sm_levels))
-ELSE
-  ALLOCATE(sthu_soilt_old(1,1,1))
-  ALLOCATE(sthf_soilt_old(1,1,1))
-END IF
 
 ! Calculate soil carbon for use in the wetland CH4 scheme only
 ! (only used if single-pool C model is used):
@@ -585,7 +514,6 @@ DO n = 0, sm_levels
 !$OMP END DO NOWAIT
   END DO
 END DO
-! (Note, water tracer initialisations done in wtrac_alloc_hyd)
 !$OMP END PARALLEL
 
 !-----------------------------------------------------------------------------
@@ -602,20 +530,16 @@ END DO
 ! Calculate throughfall and surface runoff, and update the canopy water
 ! content
 !-----------------------------------------------------------------------------
-CALL surf_hyd (land_pts, nsurft, sm_levels, soil_pts, n_wtrac_jls, timestep,   &
-               l_top, l_pdm,                                                   &
+CALL surf_hyd (land_pts, nsurft, sm_levels, soil_pts, timestep, l_top, l_pdm,  &
                surft_pts, surft_index, soil_index,                             &
                catch_surft, ecan_surft, tile_frac, non_lake_frac, infil_surft, &
                con_rain_land, ls_rain_land, con_rainfrac_land,                 &
                ls_rainfrac_land, melt_surft, slope_gb, snow_melt,              &
-               fsat_soilt, smvcst_soilt, sthf_soilt, sthu_soilt,               &
-               ecan_surft_wtrac, melt_surft_wtrac,                             &
-               snow_melt_wtrac, con_rain_land_wtrac, ls_rain_land_wtrac,       &
-               canopy_surft, canopy_surft_wtrac, canopy_gb, dsmc_dt_soilt,     &
+               fsat_soilt, smvcst_soilt,                                       &
+               sthf_soilt, sthu_soilt,                                         &
+               canopy_surft, canopy_gb, dsmc_dt_soilt,                         &
                surf_roff_gb, tot_tfall_gb, tot_tfall_surft,                    &
-               dun_roff_soilt, surf_roff_soilt, wtrac_hy%canopy_gb,            &
-               wtrac_hy%dsmc_dt_soilt, surf_roff_gb_wtrac,                     &
-               wtrac_hy%surf_roff_soilt)
+               dun_roff_soilt, surf_roff_soilt)
 
 !-----------------------------------------------------------------------------
 ! Specify the reduction of hydraulic conductivity with depth.
@@ -626,8 +550,7 @@ CALL surf_hyd (land_pts, nsurft, sm_levels, soil_pts, n_wtrac_jls, timestep,   &
 !$OMP        smclsat_soilt, qbase_l_soilt, qbase_l_unfr_soilt, dumsthf_soilt,  &
 !$OMP        dzsoil, smvcst_soilt, land_pts, qbase_soilt,                      &
 !$OMP        qbase_zw_soilt, wutot_soilt, drain_soilt, qbase_unfr_soilt,       &
-!$OMP        zw_inund_soilt, surf_roff_inc_soilt, l_wtrac_jls,                 &
-!$OMP        sthu_soilt, sthu_soilt_old, sthf_soilt, sthf_soilt_old)
+!$OMP        zw_inund_soilt, surf_roff_inc_soilt)
 DO n = 0, sm_levels
   DO m = 1, nsoilt
 !$OMP DO SCHEDULE(STATIC)
@@ -667,24 +590,6 @@ DO m = 1, nsoilt
   END DO
 !$OMP END DO NOWAIT
 END DO
-
-! (Note, water tracers fields have been initialised in wtrac_alloc_hyd)
-
-IF (l_wtrac_jls) THEN
-  ! Store initial sthu and sthf for water tracer use later on
-  DO n = 1, sm_levels
-    DO m = 1, nsoilt
-!$OMP DO SCHEDULE(STATIC)
-      DO j = 1,soil_pts
-        i = soil_index(j)
-        sthu_soilt_old(i,m,n) = sthu_soilt(i,m,n)
-        sthf_soilt_old(i,m,n) = sthf_soilt(i,m,n)
-      END DO
-!$OMP END DO NOWAIT
-    END DO
-  END DO
-
-END IF   ! l_wtrac_jls
 !$OMP END PARALLEL
 
 IF (l_top) THEN
@@ -725,7 +630,6 @@ IF (l_top) THEN
     END IF
 
   END IF
-  ! (Note, baseflow for water tracers is calculated later on in soil_hyd_wtrac)
 END IF  !  l_top
 
 IF (l_inland) THEN
@@ -736,17 +640,7 @@ IF (l_inland) THEN
     ! not compatible with nsoilt > 1.
     dsmc_dt_soilt(i,1) = dsmc_dt_soilt(i,1) + inlandout_atm_gb(i)
   END DO
-
-  ! Repeat for water tracers
-  IF (l_wtrac_jls) THEN
-    DO i_wt = 1, n_wtrac_jls
-      DO i = 1,land_pts
-        wtrac_hy%dsmc_dt_soilt(i,1,i_wt) = wtrac_hy%dsmc_dt_soilt(i,1,i_wt)    &
-                                           + inlandout_atm_gb_wtrac(i,i_wt)
-      END DO
-    END DO
-  END IF  ! l_wtrac_jls
-END IF    ! l_inland
+END IF
 
 !-----------------------------------------------------------------------------
 ! Update the layer soil moisture contents and calculate the
@@ -871,7 +765,6 @@ IF (soil_pts /= 0) THEN
                            smclsatzw_soilt(:,m))
     END DO
 
-    ! Note, water tracers not currently coded for l_irrig_dmd = T
   ELSE
     ! .NOT. l_irrig_dmd
 
@@ -886,43 +779,6 @@ IF (soil_pts /= 0) THEN
         w_flux_soilt(:,m,:), smclzw_soilt(:,m), smclsatzw_soilt(:,m))
     END DO
 
-    ! Water tracers - calculate the gravitational drainage, baseflow and
-    ! update the layer water tracer soil moisture contents
-    ! (Note, sthzw_soilt has not been changed at this point, hence, there
-    ! is no need for an 'old' value.)
-    IF (l_wtrac_jls) THEN
-      DO i_wt = 1, n_wtrac_jls
-        DO m = 1, nsoilt
-          CALL soil_hyd_wtrac(                                                 &
-                land_pts, sm_levels, soil_pts, i_wt, timestep, l_top,          &
-                soil_index, sthzw_soilt(:,m), smclsat_soilt(:,m,:),            &
-                qbase_l_soilt(:,m,:), w_flux_soilt(:,m,:),                     &
-                sthzw_soilt_wtrac(:,m,i_wt), ext_soilt_wtrac(:,m,:,i_wt),      &
-                dsmc_dt_soilt(:,m), wtrac_hy%dsmc_dt_soilt(:,m,i_wt),          &
-                sthu_soilt_old(:,m,:), wtrac_hy%qbase_l_soilt(:,m,:,i_wt),     &
-                wtrac_hy%qbase_soilt(:,m,i_wt), smcl_soilt_wtrac(:,m,:,i_wt),  &
-                sthu_soilt_wtrac(:,m,:,i_wt),                                  &
-                wtrac_hy%w_flux_soilt(:,m,:,i_wt) )
-        END DO
-      END DO
-
-      ! Store current sthu values for later use in soil_htc_wtrac
-!$OMP PARALLEL DEFAULT(NONE) PRIVATE(i, j, m, n)                               &
-!$OMP SHARED(sm_levels, nsoilt, soil_pts, soil_index, sthu_soilt_old,          &
-!$OMP        sthu_soilt)
-      DO n = 1, sm_levels
-        DO m = 1, nsoilt
-!$OMP DO SCHEDULE(STATIC)
-          DO j = 1,soil_pts
-            i = soil_index(j)
-            sthu_soilt_old(i,m,n) = sthu_soilt(i,m,n)
-          END DO
-!$OMP END DO NOWAIT
-        END DO
-      END DO
-!$OMP END PARALLEL
-    END IF  ! l_wtrac_jls
-
   END IF  !  l_irrig_dmd
 
   !----------------------------------------------------------------------------
@@ -933,91 +789,43 @@ IF (soil_pts /= 0) THEN
     !surface runoff.
     m = 1
     CALL soil_hyd_wt (                                                         &
-      land_pts, sm_levels, soil_pts, m, nsoilt, n_wtrac_jls, timestep,         &
-      stf_sub_surf_roff, l_top,  soil_index,                                   &
+      land_pts, sm_levels, soil_pts, timestep, stf_sub_surf_roff,              &
+      l_top,  soil_index,                                                      &
       bexp_soilt(:,m,:), dsmc_dt_soilt(:,m), sathh_soilt(:,m,:),               &
       smclsat_soilt(:,m,:), smclsatzw_soilt(:,m), smvcst_soilt(:,m,:),         &
-      w_flux_soilt(:,m,:),  wtrac_hy%dsmc_dt_soilt(:,m,:),                     &
-      wtrac_hy%w_flux_soilt(:,m,:,:), smcl_soilt(:,m,:),                       &
+      w_flux_soilt(:,m,:), smcl_soilt(:,m,:),                                  &
       surf_roff_gb,                                                            &
       qbase_l_soilt(:,m,:), smclzw_soilt(:,m), zw_soilt(:,m),                  &
-      surf_roff_gb_wtrac, wtrac_hy%qbase_l_soilt(:,m,:,:), sthzw_soilt_wtrac,  &
       sub_surf_roff_soilt(:,m), drain_soilt(:,m), qbase_soilt(:,m),            &
-      sthzw_soilt(:,m), surf_roff_inc_soilt(:,m),                              &
-      wtrac_hy%sub_surf_roff_soilt(:,m,:), wtrac_hy%qbase_soilt(:,m,:),        &
-      wtrac_hy%surf_roff_inc_soilt(:,m,:) )
+      sthzw_soilt(:,m), surf_roff_inc_soilt(:,m) )
 
     ! For a single soil tile, simply copy across to the output variable.
     sub_surf_roff_gb(:) = sub_surf_roff_soilt(:,m)
     ! Update the tiled surface runoff.
     surf_roff_soilt(:,m) = surf_roff_soilt(:,m) + surf_roff_inc_soilt(:,m)
-
-    IF (l_wtrac_jls) THEN
-      ! Repeat for water tracers
-      DO i_wt = 1, n_wtrac_jls
-        sub_surf_roff_gb_wtrac(:,i_wt) = wtrac_hy%sub_surf_roff_soilt(:,m,i_wt)
-        ! Update the tiled surface runoff.
-        wtrac_hy%surf_roff_soilt(:,m,i_wt) =                                   &
-                                    wtrac_hy%surf_roff_soilt(:,m,i_wt)         &
-                                    + wtrac_hy%surf_roff_inc_soilt(:,m,i_wt)
-      END DO
-    END IF ! l_wtrac_jls
   ELSE
 
     ! Initialise output variable
     DO i = 1, land_pts
       sub_surf_roff_gb(i) = 0.0
     END DO
-
-    IF (l_wtrac_jls) THEN
-      DO i_wt = 1, n_wtrac_jls
-        DO i = 1, land_pts
-          sub_surf_roff_gb_wtrac(i,i_wt) = 0.0
-        END DO
-      END DO
-    END IF
-
     DO m = 1, nsoilt
-
-      ! Set soil tile pointer for water tracers
-      IF (l_wtrac_jls) THEN
-        m_wt = m
-      ELSE
-        m_wt = 1  ! Dummy pointer
-      END IF
-
       CALL soil_hyd_wt (                                                       &
-        land_pts, sm_levels, soil_pts, m, nsoilt, n_wtrac_jls, timestep,       &
-        stf_sub_surf_roff, l_top, soil_index,                                  &
+        land_pts, sm_levels, soil_pts, timestep, stf_sub_surf_roff,            &
+        l_top, soil_index,                                                     &
         bexp_soilt(:,m,:), dsmc_dt_soilt(:,m), sathh_soilt(:,m,:),             &
         smclsat_soilt(:,m,:), smclsatzw_soilt(:,m), smvcst_soilt(:,m,:),       &
-        w_flux_soilt(:,m,:),  wtrac_hy%dsmc_dt_soilt(:,m_wt,:),                &
-        wtrac_hy%w_flux_soilt(:,m_wt,:,:), smcl_soilt(:,m,:),                  &
+        w_flux_soilt(:,m,:), smcl_soilt(:,m,:),                                &
         surf_roff_soilt(:,m),                                                  &
         qbase_l_soilt(:,m,:), smclzw_soilt(:,m), zw_soilt(:,m),                &
-        wtrac_hy%surf_roff_soilt(:,m_wt,:),                                    &
-        wtrac_hy%qbase_l_soilt(:,m_wt,:,:), sthzw_soilt_wtrac,                 &
         sub_surf_roff_soilt(:,m), drain_soilt(:,m), qbase_soilt(:,m),          &
-        sthzw_soilt(:,m), surf_roff_inc_soilt(:,m),                            &
-        wtrac_hy%sub_surf_roff_soilt(:,m_wt,:),                                &
-        wtrac_hy%qbase_soilt(:,m_wt,:),                                        &
-        wtrac_hy%surf_roff_inc_soilt(:,m_wt,:) )
+        sthzw_soilt(:,m), surf_roff_inc_soilt(:,m) )
 
       ! For multiple soil tiles, add up the contributions, allowing for frac
       sub_surf_roff_gb(:) = sub_surf_roff_gb(:)                                &
                             + ( tile_frac(:,m) * sub_surf_roff_soilt(:,m))
       surf_roff_gb(:) = surf_roff_gb(:) + tile_frac(:,m)                       &
                                           * surf_roff_inc_soilt(:,m)
-
-      IF (l_wtrac_jls) THEN
-        ! Repeat for water tracers
-        DO i_wt = 1, n_wtrac_jls
-          sub_surf_roff_gb_wtrac(:,i_wt) = sub_surf_roff_gb_wtrac(:,i_wt)      &
-                  + ( tile_frac(:,m) * wtrac_hy%sub_surf_roff_soilt(:,m,i_wt))
-          surf_roff_gb_wtrac(:,i_wt) = surf_roff_gb_wtrac(:,i_wt)              &
-                  + ( tile_frac(:,m) * wtrac_hy%surf_roff_inc_soilt(:,m,i_wt))
-        END DO
-      END IF ! l_wtrac_jls
 
     END DO
   END IF !nsoilt == 1
@@ -1073,14 +881,6 @@ ELSE ! soil pts
   IF (stf_sub_surf_roff) THEN
     DO i = 1,land_pts
       sub_surf_roff_gb(i) = 0.0
-    END DO
-  END IF
-
-  IF (l_wtrac_jls) THEN
-    DO i_wt = 1, n_wtrac_jls
-      DO i = 1,land_pts
-        sub_surf_roff_gb_wtrac(i,i_wt) = 0.0
-      END DO
     END DO
   END IF
 
@@ -1142,20 +942,6 @@ IF (soil_pts /= 0) THEN
         t_soil_soilt(:,m,:), tsoil_deep_gb )
     END DO
   END IF
-
-  ! Update water tracers for phase change
-  IF (l_wtrac_jls) THEN
-    DO i_wt = 1, n_wtrac_jls
-      DO m = 1, nsoilt
-        CALL soil_htc_wtrac (                                                  &
-                land_pts, sm_levels, soil_pts, i_wt, soil_index,               &
-                sthf_soilt(:,m,:), sthf_soilt_old(:,m,:),                      &
-                sthu_soilt_old(:,m,:),                                         &
-                sthf_soilt_wtrac(:,m,:,i_wt), sthu_soilt_wtrac(:,m,:,i_wt) )
-      END DO
-    END DO
-  END IF
-
 END IF
 !=============================================================================
 ! *END NOTICE REGARDING SOIL TILING**
@@ -1257,11 +1043,6 @@ IF (soil_bgc_model == soil_model_4pool .AND. l_nitrogen) THEN
                smcl_old_soilt, n_inorg_avail_pft, n_inorg_soilt_lyrs,          &
                n_leach_gb_acc, n_leach_soilt)
 END IF
-
-! Deallocate water tracer working arrays
-CALL wtrac_dealloc_hyd(wtrac_hy)
-DEALLOCATE(sthf_soilt_old)
-DEALLOCATE(sthu_soilt_old)
 
 !-----------------------------------------------------------------------------
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)

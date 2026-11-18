@@ -64,7 +64,8 @@ CONTAINS
 !   For consistency with other routines (for now), the output is converted
 !   again to a flux density kg/m2/s
 
-SUBROUTINE rivers_route_rfm( sfc_runoff, sub_sfc_runoff, outflow, baseflow,    &
+SUBROUTINE rivers_route_rfm( sfc_runoff, sub_sfc_runoff,                       &
+                             outflow, baseflow, riverout_rgrid,                &
                              rivers )
 
 USE jules_rivers_mod, ONLY:                                                    &
@@ -74,8 +75,6 @@ USE jules_rivers_mod, ONLY:                                                    &
        ,cbriver, retl, retr, rfm_land, rfm_river, rfm_sea,                     &
 ! imported type
         rivers_type
-
-USE jules_water_resources_mod, ONLY: sw_river_source
 
 USE timestep_mod, ONLY: timestep
 
@@ -96,7 +95,6 @@ IMPLICIT NONE
 ! Array arguments with intent(in)
 REAL(KIND=real_jlslsm), INTENT(IN) :: sfc_runoff(np_rivers)
        !  average rate of surface runoff since last rivers call (kg m-2 s-1)
-       !  This includes any abstraction of water for water resources.
 REAL(KIND=real_jlslsm), INTENT(IN) :: sub_sfc_runoff(np_rivers)
        !  average rate of sub-surface runoff since last call (kg m-2 s-1)
 
@@ -104,6 +102,8 @@ REAL(KIND=real_jlslsm), INTENT(OUT) :: outflow(np_rivers)
        !  rate of channel surface flow leaving gridbox (kg m-2 s-1)
 REAL(KIND=real_jlslsm), INTENT(OUT) :: baseflow(np_rivers)
        !  rate of channel base flow leaving gridbox (kg m-2 s-1)
+REAL(KIND=real_jlslsm), INTENT(OUT) :: riverout_rgrid(np_rivers)
+       ! River outflow into the ocean on river grid (kg s-1)
 
 ! internal variables
 INTEGER ::                                                                     &
@@ -178,6 +178,7 @@ END IF
 ! Initialise variables at first timestep
 !-----------------------------------------------------------------------------
 IF (rivers_first) THEN
+  rivers_first = .FALSE.
 
   DO ip = 1, np_rivers
     ! Initialise surface and sub-surface stores using flow observations if
@@ -200,14 +201,7 @@ END IF   ! end rivers_first
 ! Convert runoff from (kg m-2 s-1) to (m3 per gridcell per timestep)
 !-----------------------------------------------------------------------------
 DO ip = 1,np_rivers
-  ! Historically RFM has ignored negative runoff fluxes, but that is not
-  ! appropriate if water is abstracted from rivers for water resource purposes
-  ! (when the configuration includes sw_river_source > 0). It would be
-  ! preferable not to use water resource information in here (and for RFM to
-  ! always route what it is given).
-  IF ( (sw_river_source == 0 .AND. sfc_runoff(ip) >= 0.0 .AND.                 &
-        sub_sfc_runoff(ip) >= 0.0)                                             &
-       .OR. sw_river_source > 0 ) THEN
+  IF ( sfc_runoff(ip) >= 0.0 .AND. sub_sfc_runoff(ip) >= 0.0 ) THEN
 
     surf_roff(ip) = runoff_factor * sfc_runoff(ip) *                           &
                           dt * rivers%rivers_boxareas_rp(ip) / rho_water
@@ -308,8 +302,8 @@ END DO !end of rivers loop, ip
 ! Save the outflow going into the sea.
 !-----------------------------------------------------------------------------
 DO ip = 1,np_rivers
-  IF ( rivers%rivers_next_rp(ip) == river_mouth ) THEN
-    rivers%rivers_outflow_rp(ip) = rivers%rfm_rivflow_rp(ip)  * rho_water
+  IF ( rivers%rivers_next_rp(ip) == -river_mouth ) THEN
+    riverout_rgrid(ip) = rivers%rfm_rivflow_rp(ip)  * rho_water
   END IF
 END DO
 

@@ -1,8 +1,6 @@
+import rose.upgrade
+import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 
 class UpgradeError(Exception):
@@ -19,7 +17,7 @@ class UpgradeError(Exception):
     __str__ = __repr__
 
 
-class vn53_t859(MacroUpgrade):
+class vn53_t859(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -33,7 +31,7 @@ class vn53_t859(MacroUpgrade):
         return config, self.reports
 
 
-class vn53_t872(MacroUpgrade):
+class vn53_t872(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Chantelle Burton"""
 
@@ -52,19 +50,19 @@ class vn53_t872(MacroUpgrade):
         ncpft_in = self.get_setting_value(config, ["namelist:jules_surface_types", "ncpft"])
         if ncpft_in:
             ncpft = int(ncpft_in)
-        else:
+        else:    
             ncpft = 0
-
+         
         if npft == 9:
            self.change_setting_value(config, ["namelist:jules_pftparm", "fire_mort_io"],"9*1.0")
 
-        # Change if there are 13 PFTs
-        if npft == 13:
-           self.change_setting_value(config, ["namelist:jules_pftparm", "fire_mort_io"],"13*1.0")
-
+        # Change if there are 13 PFTs  
+        if npft == 13:  
+           self.change_setting_value(config, ["namelist:jules_pftparm", "fire_mort_io"],"13*1.0")  
+                                 
         return config, self.reports
 
-class vn53_t610(MacroUpgrade):
+class vn53_t610(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -97,7 +95,7 @@ class vn53_t610(MacroUpgrade):
 
         return config, self.reports
 
-class vn53_t766(MacroUpgrade):
+class vn53_t766(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -108,12 +106,12 @@ class vn53_t766(MacroUpgrade):
         """Upgrade a JULES runtime app configuration."""
 
         # Add new switch and related parameter.
-        self.add_setting(config, ["namelist:jules_vegetation", "stomata_model"], "1")
+        self.add_setting(config, ["namelist:jules_vegetation", "stomata_model"], "1")      
         npft = int(self.get_setting_value(config, ["namelist:jules_surface_types", "npft"]))
         self.add_setting(config, ["namelist:jules_pftparm", "g1_stomata_io"],','.join(['2.0']*npft))
         return config, self.reports
 
-class vn53_t874(MacroUpgrade):
+class vn53_t874(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for ticket #874 by Malcolm Brooks."""
 
@@ -128,7 +126,7 @@ class vn53_t874(MacroUpgrade):
         # Add settings
         return config, self.reports
 
-class vn53_t867(MacroUpgrade):
+class vn53_t867(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Juan Castillo"""
 
@@ -163,12 +161,12 @@ class vn53_t867(MacroUpgrade):
 
         return config, self.reports
 
-class vn53_vn54(MacroUpgrade):
+class vn53_vn54(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn5.3_t867"
     AFTER_TAG = "vn5.4"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

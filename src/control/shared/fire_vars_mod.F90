@@ -114,62 +114,6 @@ TYPE :: fire_vars_data_type
       ! DPM fire BC emission (kg/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_BC_RPM(:)
       ! RPM fire BC emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C2H4(:)
-      ! Gridbox mean fire C2H4 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C2H4_ft(:,:)
-      ! PFT fire C2H4 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C2H4_DPM(:)
-      ! DPM fire C2H4 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C2H4_RPM(:)
-      ! RPM fire C2H4 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C2H6(:)
-      ! Gridbox mean fire C2H6 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C2H6_ft(:,:)
-      ! PFT fire C2H6 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C2H6_DPM(:)
-      ! DPM fire C2H6 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C2H6_RPM(:)
-      ! RPM fire C2H6 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C3H8(:)
-      ! Gridbox mean fire C3H8 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C3H8_ft(:,:)
-      ! PFT fire C3H8 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C3H8_DPM(:)
-      ! DPM fire C3H8 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_C3H8_RPM(:)
-      ! RPM fire C3H8 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_HCHO(:)
-      ! Gridbox mean fire HCHO emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_HCHO_ft(:,:)
-      ! PFT fire HCHO emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_HCHO_DPM(:)
-      ! DPM fire HCHO emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_HCHO_RPM(:)
-      ! RPM fire HCHO emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_MeCHO(:)
-      ! Gridbox mean fire MeCHO emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_MeCHO_ft(:,:)
-      ! PFT fire MeCHO emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_MeCHO_DPM(:)
-      ! DPM fire MeCHO emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_MeCHO_RPM(:)
-      ! RPM fire MeCHO emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_NH3(:)
-      ! Gridbox mean fire NH3 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_NH3_ft(:,:)
-      ! PFT fire NH3 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_NH3_DPM(:)
-      ! DPM fire NH3 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_NH3_RPM(:)
-      ! RPM fire NH3 emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_DMS(:)
-      ! Gridbox mean fire DMS emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_DMS_ft(:,:)
-      ! PFT fire DMS emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_DMS_DPM(:)
-      ! DPM fire DMS emission (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: fire_em_DMS_RPM(:)
-      ! RPM fire DMS emission (kg/m2/s)
 END TYPE fire_vars_data_type
 
 TYPE :: fire_vars_type
@@ -211,34 +155,6 @@ TYPE :: fire_vars_type
   REAL(KIND=real_jlslsm), POINTER :: fire_em_BC_ft(:,:)
   REAL(KIND=real_jlslsm), POINTER :: fire_em_BC_DPM(:)
   REAL(KIND=real_jlslsm), POINTER :: fire_em_BC_RPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C2H4(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C2H4_ft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C2H4_DPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C2H4_RPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C2H6(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C2H6_ft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C2H6_DPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C2H6_RPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C3H8(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C3H8_ft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C3H8_DPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_C3H8_RPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_HCHO(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_HCHO_ft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_HCHO_DPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_HCHO_RPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_MeCHO(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_MeCHO_ft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_MeCHO_DPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_MeCHO_RPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_NH3(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_NH3_ft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_NH3_DPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_NH3_RPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_DMS(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_DMS_ft(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_DMS_DPM(:)
-  REAL(KIND=real_jlslsm), POINTER :: fire_em_DMS_RPM(:)
 END TYPE fire_vars_type
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='FIRE_VARS_MOD'
@@ -305,34 +221,6 @@ ALLOCATE(fire_vars_data%fire_em_BC(land_pts))
 ALLOCATE(fire_vars_data%fire_em_BC_ft(land_pts,npft))
 ALLOCATE(fire_vars_data%fire_em_BC_DPM(land_pts))
 ALLOCATE(fire_vars_data%fire_em_BC_RPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C2H4(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C2H4_ft(land_pts,npft))
-ALLOCATE(fire_vars_data%fire_em_C2H4_DPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C2H4_RPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C2H6(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C2H6_ft(land_pts,npft))
-ALLOCATE(fire_vars_data%fire_em_C2H6_DPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C2H6_RPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C3H8(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C3H8_ft(land_pts,npft))
-ALLOCATE(fire_vars_data%fire_em_C3H8_DPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_C3H8_RPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_HCHO(land_pts))
-ALLOCATE(fire_vars_data%fire_em_HCHO_ft(land_pts,npft))
-ALLOCATE(fire_vars_data%fire_em_HCHO_DPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_HCHO_RPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_MeCHO(land_pts))
-ALLOCATE(fire_vars_data%fire_em_MeCHO_ft(land_pts,npft))
-ALLOCATE(fire_vars_data%fire_em_MeCHO_DPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_MeCHO_RPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_NH3(land_pts))
-ALLOCATE(fire_vars_data%fire_em_NH3_ft(land_pts,npft))
-ALLOCATE(fire_vars_data%fire_em_NH3_DPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_NH3_RPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_DMS(land_pts))
-ALLOCATE(fire_vars_data%fire_em_DMS_ft(land_pts,npft))
-ALLOCATE(fire_vars_data%fire_em_DMS_DPM(land_pts))
-ALLOCATE(fire_vars_data%fire_em_DMS_RPM(land_pts))
 ALLOCATE(fire_vars_data%pop_den(land_pts))
 ALLOCATE(fire_vars_data%wealth_index(land_pts))
 ALLOCATE(fire_vars_data%flash_rate(land_pts))
@@ -372,34 +260,6 @@ fire_vars_data%fire_em_BC(:)          = 0.0
 fire_vars_data%fire_em_BC_ft(:,:)     = 0.0
 fire_vars_data%fire_em_BC_DPM(:)      = 0.0
 fire_vars_data%fire_em_BC_RPM(:)      = 0.0
-fire_vars_data%fire_em_C2H4(:)        = 0.0
-fire_vars_data%fire_em_C2H4_ft(:,:)   = 0.0
-fire_vars_data%fire_em_C2H4_DPM(:)    = 0.0
-fire_vars_data%fire_em_C2H4_RPM(:)    = 0.0
-fire_vars_data%fire_em_C2H6(:)        = 0.0
-fire_vars_data%fire_em_C2H6_ft(:,:)   = 0.0
-fire_vars_data%fire_em_C2H6_DPM(:)    = 0.0
-fire_vars_data%fire_em_C2H6_RPM(:)    = 0.0
-fire_vars_data%fire_em_C3H8(:)        = 0.0
-fire_vars_data%fire_em_C3H8_ft(:,:)   = 0.0
-fire_vars_data%fire_em_C3H8_DPM(:)    = 0.0
-fire_vars_data%fire_em_C3H8_RPM(:)    = 0.0
-fire_vars_data%fire_em_HCHO(:)        = 0.0
-fire_vars_data%fire_em_HCHO_ft(:,:)   = 0.0
-fire_vars_data%fire_em_HCHO_DPM(:)    = 0.0
-fire_vars_data%fire_em_HCHO_RPM(:)    = 0.0
-fire_vars_data%fire_em_MeCHO(:)       = 0.0
-fire_vars_data%fire_em_MeCHO_ft(:,:)  = 0.0
-fire_vars_data%fire_em_MeCHO_DPM(:)   = 0.0
-fire_vars_data%fire_em_MeCHO_RPM(:)   = 0.0
-fire_vars_data%fire_em_NH3(:)         = 0.0
-fire_vars_data%fire_em_NH3_ft(:,:)    = 0.0
-fire_vars_data%fire_em_NH3_DPM(:)     = 0.0
-fire_vars_data%fire_em_NH3_RPM(:)     = 0.0
-fire_vars_data%fire_em_DMS(:)         = 0.0
-fire_vars_data%fire_em_DMS_ft(:,:)    = 0.0
-fire_vars_data%fire_em_DMS_DPM(:)     = 0.0
-fire_vars_data%fire_em_DMS_RPM(:)     = 0.0
 fire_vars_data%pop_den(:)             = 0.0
 fire_vars_data%wealth_index(:)        = 0.0
 fire_vars_data%flash_rate(:)          = 0.0
@@ -469,34 +329,6 @@ DEALLOCATE(fire_vars_data%fire_em_BC)
 DEALLOCATE(fire_vars_data%fire_em_BC_ft)
 DEALLOCATE(fire_vars_data%fire_em_BC_DPM)
 DEALLOCATE(fire_vars_data%fire_em_BC_RPM)
-DEALLOCATE(fire_vars_data%fire_em_C2H4)
-DEALLOCATE(fire_vars_data%fire_em_C2H4_ft)
-DEALLOCATE(fire_vars_data%fire_em_C2H4_DPM)
-DEALLOCATE(fire_vars_data%fire_em_C2H4_RPM)
-DEALLOCATE(fire_vars_data%fire_em_C2H6)
-DEALLOCATE(fire_vars_data%fire_em_C2H6_ft)
-DEALLOCATE(fire_vars_data%fire_em_C2H6_DPM)
-DEALLOCATE(fire_vars_data%fire_em_C2H6_RPM)
-DEALLOCATE(fire_vars_data%fire_em_C3H8)
-DEALLOCATE(fire_vars_data%fire_em_C3H8_ft)
-DEALLOCATE(fire_vars_data%fire_em_C3H8_DPM)
-DEALLOCATE(fire_vars_data%fire_em_C3H8_RPM)
-DEALLOCATE(fire_vars_data%fire_em_HCHO)
-DEALLOCATE(fire_vars_data%fire_em_HCHO_ft)
-DEALLOCATE(fire_vars_data%fire_em_HCHO_DPM)
-DEALLOCATE(fire_vars_data%fire_em_HCHO_RPM)
-DEALLOCATE(fire_vars_data%fire_em_MeCHO)
-DEALLOCATE(fire_vars_data%fire_em_MeCHO_ft)
-DEALLOCATE(fire_vars_data%fire_em_MeCHO_DPM)
-DEALLOCATE(fire_vars_data%fire_em_MeCHO_RPM)
-DEALLOCATE(fire_vars_data%fire_em_NH3)
-DEALLOCATE(fire_vars_data%fire_em_NH3_ft)
-DEALLOCATE(fire_vars_data%fire_em_NH3_DPM)
-DEALLOCATE(fire_vars_data%fire_em_NH3_RPM)
-DEALLOCATE(fire_vars_data%fire_em_DMS)
-DEALLOCATE(fire_vars_data%fire_em_DMS_ft)
-DEALLOCATE(fire_vars_data%fire_em_DMS_DPM)
-DEALLOCATE(fire_vars_data%fire_em_DMS_RPM)
 DEALLOCATE(fire_vars_data%pop_den)
 DEALLOCATE(fire_vars_data%wealth_index)
 DEALLOCATE(fire_vars_data%flash_rate)
@@ -565,34 +397,6 @@ fire_vars%fire_em_BC => fire_vars_data%fire_em_BC
 fire_vars%fire_em_BC_ft => fire_vars_data%fire_em_BC_ft
 fire_vars%fire_em_BC_DPM => fire_vars_data%fire_em_BC_DPM
 fire_vars%fire_em_BC_RPM => fire_vars_data%fire_em_BC_RPM
-fire_vars%fire_em_C2H4 => fire_vars_data%fire_em_C2H4
-fire_vars%fire_em_C2H4_ft => fire_vars_data%fire_em_C2H4_ft
-fire_vars%fire_em_C2H4_DPM => fire_vars_data%fire_em_C2H4_DPM
-fire_vars%fire_em_C2H4_RPM => fire_vars_data%fire_em_C2H4_RPM
-fire_vars%fire_em_C2H6 => fire_vars_data%fire_em_C2H6
-fire_vars%fire_em_C2H6_ft => fire_vars_data%fire_em_C2H6_ft
-fire_vars%fire_em_C2H6_DPM => fire_vars_data%fire_em_C2H6_DPM
-fire_vars%fire_em_C2H6_RPM => fire_vars_data%fire_em_C2H6_RPM
-fire_vars%fire_em_C3H8 => fire_vars_data%fire_em_C3H8
-fire_vars%fire_em_C3H8_ft => fire_vars_data%fire_em_C3H8_ft
-fire_vars%fire_em_C3H8_DPM => fire_vars_data%fire_em_C3H8_DPM
-fire_vars%fire_em_C3H8_RPM => fire_vars_data%fire_em_C3H8_RPM
-fire_vars%fire_em_HCHO => fire_vars_data%fire_em_HCHO
-fire_vars%fire_em_HCHO_ft => fire_vars_data%fire_em_HCHO_ft
-fire_vars%fire_em_HCHO_DPM => fire_vars_data%fire_em_HCHO_DPM
-fire_vars%fire_em_HCHO_RPM => fire_vars_data%fire_em_HCHO_RPM
-fire_vars%fire_em_MeCHO => fire_vars_data%fire_em_MeCHO
-fire_vars%fire_em_MeCHO_ft => fire_vars_data%fire_em_MeCHO_ft
-fire_vars%fire_em_MeCHO_DPM => fire_vars_data%fire_em_MeCHO_DPM
-fire_vars%fire_em_MeCHO_RPM => fire_vars_data%fire_em_MeCHO_RPM
-fire_vars%fire_em_NH3 => fire_vars_data%fire_em_NH3
-fire_vars%fire_em_NH3_ft => fire_vars_data%fire_em_NH3_ft
-fire_vars%fire_em_NH3_DPM => fire_vars_data%fire_em_NH3_DPM
-fire_vars%fire_em_NH3_RPM => fire_vars_data%fire_em_NH3_RPM
-fire_vars%fire_em_DMS => fire_vars_data%fire_em_DMS
-fire_vars%fire_em_DMS_ft => fire_vars_data%fire_em_DMS_ft
-fire_vars%fire_em_DMS_DPM => fire_vars_data%fire_em_DMS_DPM
-fire_vars%fire_em_DMS_RPM => fire_vars_data%fire_em_DMS_RPM
 fire_vars%pop_den => fire_vars_data%pop_den
 fire_vars%wealth_index => fire_vars_data%wealth_index
 fire_vars%flash_rate => fire_vars_data%flash_rate
@@ -658,34 +462,6 @@ NULLIFY(fire_vars%fire_em_BC)
 NULLIFY(fire_vars%fire_em_BC_ft)
 NULLIFY(fire_vars%fire_em_BC_DPM)
 NULLIFY(fire_vars%fire_em_BC_RPM)
-NULLIFY(fire_vars%fire_em_C2H4)
-NULLIFY(fire_vars%fire_em_C2H4_ft)
-NULLIFY(fire_vars%fire_em_C2H4_DPM)
-NULLIFY(fire_vars%fire_em_C2H4_RPM)
-NULLIFY(fire_vars%fire_em_C2H6)
-NULLIFY(fire_vars%fire_em_C2H6_ft)
-NULLIFY(fire_vars%fire_em_C2H6_DPM)
-NULLIFY(fire_vars%fire_em_C2H6_RPM)
-NULLIFY(fire_vars%fire_em_C3H8)
-NULLIFY(fire_vars%fire_em_C3H8_ft)
-NULLIFY(fire_vars%fire_em_C3H8_DPM)
-NULLIFY(fire_vars%fire_em_C3H8_RPM)
-NULLIFY(fire_vars%fire_em_HCHO)
-NULLIFY(fire_vars%fire_em_HCHO_ft)
-NULLIFY(fire_vars%fire_em_HCHO_DPM)
-NULLIFY(fire_vars%fire_em_HCHO_RPM)
-NULLIFY(fire_vars%fire_em_MeCHO)
-NULLIFY(fire_vars%fire_em_MeCHO_ft)
-NULLIFY(fire_vars%fire_em_MeCHO_DPM)
-NULLIFY(fire_vars%fire_em_MeCHO_RPM)
-NULLIFY(fire_vars%fire_em_NH3)
-NULLIFY(fire_vars%fire_em_NH3_ft)
-NULLIFY(fire_vars%fire_em_NH3_DPM)
-NULLIFY(fire_vars%fire_em_NH3_RPM)
-NULLIFY(fire_vars%fire_em_DMS)
-NULLIFY(fire_vars%fire_em_DMS_ft)
-NULLIFY(fire_vars%fire_em_DMS_DPM)
-NULLIFY(fire_vars%fire_em_DMS_RPM)
 NULLIFY(fire_vars%pop_den)
 NULLIFY(fire_vars%wealth_index)
 NULLIFY(fire_vars%flash_rate)

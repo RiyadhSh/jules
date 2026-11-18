@@ -124,13 +124,12 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 END SUBROUTINE um_scatter_field
 
 !-----------------------------------------------------------------------------
-SUBROUTINE scatter_land_field(field_global_land, field_local_land,             &
-                              global_land_index)
+SUBROUTINE scatter_land_field(field_global_land, field_local_land)
 
 USE ancil_info, ONLY: land_pts
 USE atm_fields_mod, ONLY: ainfo
 USE theta_field_sizes, ONLY: t_i_length, t_j_length
-USE atm_land_sea_mask, ONLY: global_land_pts => atmos_number_of_landpts
+USE um_latlon_mod, ONLY: global_land_pts
 
 USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
@@ -150,10 +149,6 @@ IMPLICIT NONE
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
 ! Argument types
-INTEGER, INTENT(IN) :: global_land_index(global_land_pts)
-                                     ! List of indices for the land grid. For
-                                     ! every land point, this gives the
-                                     ! location in a 2-D grid.
 REAL, INTENT(IN) :: field_global_land(global_land_pts)
                                      ! The field on the global land points
                                      ! This only has to be properly defined
@@ -180,8 +175,7 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !-----------------------------------------------------------------------------
 ! Scatter global land field to a 2D local grid
 !-----------------------------------------------------------------------------
-CALL scatter_land2d_field(field_global_land, field_local_2d,                   &
-                          global_land_index)
+CALL scatter_land2d_field(field_global_land, field_local_2d)
 
 !-----------------------------------------------------------------------------
 ! Convert the local 2d parts into land point arrays
@@ -200,13 +194,12 @@ END SUBROUTINE scatter_land_field
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
-SUBROUTINE scatter_land2d_field(field_global_land, field_local_2d,             &
-                                global_land_index)
+SUBROUTINE scatter_land2d_field(field_global_land, field_local_2d)
 
 USE UM_ParVars,   ONLY: glsize
 USE Field_Types,  ONLY: fld_type_p
 USE theta_field_sizes, ONLY: t_i_length, t_j_length
-USE atm_land_sea_mask, ONLY: global_land_pts => atmos_number_of_landpts
+USE um_latlon_mod, ONLY: global_land_pts, global_land_index
 
 USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
@@ -226,10 +219,6 @@ IMPLICIT NONE
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
 ! Argument types
-INTEGER, INTENT(IN) :: global_land_index(global_land_pts)
-                                     ! List of indices for the land grid. For
-                                     ! every land point, this gives the
-                                     ! location in a 2-D grid.
 REAL, INTENT(IN) :: field_global_land(global_land_pts)
                                      ! The field on the global land points
                                      ! This only has to be properly defined
@@ -347,13 +336,12 @@ END SUBROUTINE um_gather_field
 
 !-----------------------------------------------------------------------------
 !-----------------------------------------------------------------------------
-SUBROUTINE gather_land_field(field_local_land, field_global_land,              &
-                             global_land_index)
+SUBROUTINE gather_land_field(field_local_land, field_global_land)
 
 USE ancil_info, ONLY: land_pts
 USE atm_fields_mod, ONLY: ainfo
-USE atm_land_sea_mask, ONLY: global_land_pts => atmos_number_of_landpts
 USE theta_field_sizes, ONLY: t_i_length, t_j_length
+USE um_latlon_mod, ONLY: global_land_pts
 
 USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
@@ -373,15 +361,11 @@ IMPLICIT NONE
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
 ! Argument types
-INTEGER, INTENT(IN) :: global_land_index(global_land_pts)
-                                     ! List of indices for the land grid. For
-                                     ! every land point, this gives the
-                                     ! location in a 2-D grid.
 REAL, INTENT(IN) :: field_local_land(land_pts)
-                                     ! The field on the land points for the
-                                     ! current task
-                                     ! This must be defined for all tasks
-REAL, INTENT(OUT) :: field_global_land(:)
+                                       ! The field on the land points for the
+                                       ! current task
+                                       ! This must be defined for all tasks
+REAL, INTENT(OUT) :: field_global_land(global_land_pts)
                                      ! The field on the global land points
                                      ! This only has to be properly defined
                                      ! for the master task
@@ -423,8 +407,7 @@ END DO
 ! using the block datatype and calculated counts and offsets
 !-----------------------------------------------------------------------------
 
-CALL gather_land2d_field(field_local_2d, field_global_land,                    &
-                         global_land_index)
+CALL gather_land2d_field(field_local_2d, field_global_land)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
@@ -432,13 +415,12 @@ RETURN
 END SUBROUTINE gather_land_field
 
 !-----------------------------------------------------------------------------
-SUBROUTINE gather_land2d_field(field_local_2d, field_global_land,              &
-                               global_land_index)
+SUBROUTINE gather_land2d_field(field_local_2d, field_global_land)
 
 USE UM_ParVars,   ONLY: glsize
 USE Field_Types,  ONLY: fld_type_p
 USE theta_field_sizes, ONLY: t_i_length, t_j_length
-USE atm_land_sea_mask, ONLY: global_land_pts => atmos_number_of_landpts
+USE um_latlon_mod, ONLY: global_land_index, global_land_pts
 
 USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
@@ -458,15 +440,11 @@ IMPLICIT NONE
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
 ! Argument types
-INTEGER, INTENT(IN) :: global_land_index(global_land_pts)
-                                     ! List of indices for the land grid. For
-                                     ! every land point, this gives the
-                                     ! location in a 2-D grid.
 REAL, INTENT(IN) :: field_local_2d(t_i_length,t_j_length)
-                                     ! The local field on the model grid
-                                     ! for the current task
-                                     ! This must be defined for all tasks
-REAL, INTENT(OUT) :: field_global_land(:)
+                                       ! The local field on the model grid
+                                       ! for the current task
+                                       ! This must be defined for all tasks
+REAL, INTENT(OUT) :: field_global_land(global_land_pts)
                                      ! The field on the global land points
                                      ! This only has to be properly defined
                                      ! for the master task
@@ -488,7 +466,9 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !-----------------------------------------------------------------------------
 ! Initialise output variable to zero
 !-----------------------------------------------------------------------------
-field_global_land(:) = 0.0
+DO i = 1, global_land_pts
+  field_global_land(i) = 0.0
+END DO
 
 !-----------------------------------------------------------------------------
 ! Gather the values from each task into the global field in the main task

@@ -49,9 +49,9 @@ INTEGER, INTENT(IN) ::                                                         &
     ! Array of soil points.
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
-  bexp(npnts,nshyd),                                                           &
+  bexp(npnts),                                                                 &
     ! Brooks & Corey exponent.
-  sathh(npnts,nshyd),                                                          &
+  sathh(npnts),                                                                &
     ! Saturated soil water pressure (m).
   smcl(npnts,nshyd),                                                           &
     ! Total soil moisture contents of each layer (kg/m2).
@@ -201,38 +201,39 @@ DO j = 1,soil_pts
     END IF
 
     !-------------------------------------------------------------------------
-    ! Interpolate thetaf to zw and use this in psisat
-    ! and include frozen soil into calc of psisat
+    ! Interpolate thetaf to zw and use this in psisat.
     !-------------------------------------------------------------------------
     IF (zw(i) < avgzd(1)) THEN
       sthfk = sthf(i,1)
-      fac1 = MAX(MIN(1.0 - sthfk, 1.0), 0.0)
-      facb = MAX(fac1**bexp(i,1), EPSILON(1.0))
-      psisat = -sathh(i,1) / facb
     END IF
-
     DO n = 1,nshyd-1
       IF (zw(i) >= avgzd(n) .AND. zw(i) < avgzd(n+1)) THEN
         sthfk = (sthf(i,n) * (avgzd(n+1) - zw(i))                              &
                 +sthf(i,n+1) * (zw(i) - avgzd(n))) / (avgzd(n+1) - avgzd(n))
-        fac1 = MAX(MIN(1.0 - sthfk, 1.0), 0.0)
-        facb = MAX(fac1**bexp(i,n), EPSILON(1.0))
-        psisat = -sathh(i,n) / facb
       END IF
     END DO
-
     IF (zw(i) >= avgzd(nshyd)) THEN
       sthfk = sthf(i,nshyd)
-      fac1 = MAX(MIN(1.0 - sthfk, 1.0), 0.0)
-      facb = MAX(fac1**bexp(i,nshyd), EPSILON(1.0))
-      psisat = -sathh(i,nshyd) / facb
     END IF
+
+    !-------------------------------------------------------------------------
+    ! Now include frozen soil into calc of PSI_sat:
+    !-------------------------------------------------------------------------
+    fac1   = (1.0 - sthfk)
+    fac1   = MIN(fac1,1.0)
+    fac1   = MAX(fac1,0.0)
+    facb   = fac1**bexp(i)
+    facb   = MAX(facb,EPSILON(1.0))
+    psisat = -sathh(i) / facb
 
     DO n = 1,nshyd
 
-      fac2 = MAX(MIN(sthu(i,n), 1.0), 0.0)
-      facb = MAX(fac2**bexp(i,n), EPSILON(1.0))
-      psi(n) = -sathh(i,n) / facb
+      fac2       = sthu(i,n)
+      fac2       = MIN(fac2,1.0)
+      fac2       = MAX(fac2,0.0)
+      facb       = fac2**bexp(i)
+      facb       = MAX(facb,EPSILON(1.0))
+      psi(n)     = -sathh(i) / facb
 
       zwest_l(n) = psisat - psi(n) + (0.5 * (zdepth(n) + zdepth(n-1)))
       zwest_l(n) = MAX(zwest_l(n),0.0)

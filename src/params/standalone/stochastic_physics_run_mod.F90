@@ -49,34 +49,16 @@ LOGICAL, PARAMETER :: l_rp2 = .FALSE.
 
 INTEGER, PARAMETER :: i_rp_scheme = imdi ! Switch to specify RP scheme option
 INTEGER, PARAMETER :: i_rp2b = 1 ! Parameter corresponding to RP2b scheme
-INTEGER, PARAMETER :: n_rp = 3 ! Length of RP entry
-INTEGER, PARAMETER :: rp_idx = 2  ! Index of RP value for rp
 
 ! Default values for land-surface random parameters
 ! These values are only used when l_rp2 = .TRUE. and
 ! i_rp_scheme = i_rp2b
 REAL :: lai_mult_rp(npft_max)
 DATA lai_mult_rp / npft_max * rmdi /
+REAL :: dz0v_dh_rp(npft_max)
+DATA dz0v_dh_rp / npft_max * rmdi /
 REAL :: z0hm_pft_rp(npft_max)
 DATA z0hm_pft_rp / npft_max * rmdi /
-REAL :: z0hm_soil_rp(n_rp)
-DATA z0hm_soil_rp / n_rp * rmdi /
-REAL :: z0v_rp(npft_max)
-DATA z0v_rp / npft_max * rmdi /
-REAL :: z0_soil_rp(n_rp)
-DATA z0_soil_rp / n_rp * rmdi /
-REAL :: z0_urban_mult_rp(n_rp)
-DATA z0_urban_mult_rp / n_rp * rmdi /
-REAL :: orog_drag_param_rp(n_rp)
-DATA orog_drag_param_rp / n_rp * rmdi /
-REAL :: alnir_rp(npft_max)
-DATA alnir_rp / npft_max * rmdi /
-REAL :: alpar_rp(npft_max)
-DATA alpar_rp / npft_max * rmdi /
-REAL :: omega_rp(npft_max)
-DATA omega_rp / npft_max * rmdi /
-REAL :: omnir_rp(npft_max)
-DATA omnir_rp / npft_max * rmdi /
 
 END MODULE stochastic_physics_run_mod
 

@@ -37,6 +37,7 @@ USE logging_mod, ONLY:                                                         &
 !  imported procedures
     log_error, log_warn
 
+
 IMPLICIT NONE
 
 !-----------------------------------------------------------------------------
@@ -78,13 +79,14 @@ IF ( l_deposition ) THEN
 END IF
 
 !-----------------------------------------------------------------------------
-! Warn if the water resource model is used - it is still under development.
+! Warn if the water resource model is used - it is not fully functional in
+! this version.
 !-----------------------------------------------------------------------------
 IF ( l_water_resources ) THEN
   CALL log_warn(proc_name, '#############################################')
   CALL log_warn(proc_name, 'Water resource modelling (l_water_resources) ' //  &
-                           'is still under development. It should be '     //  &
-                           'used with caution!')
+                           'is not fully functional in this version. '     //  &
+                           'It should not be used!')
   CALL log_warn(proc_name, '#############################################')
 END IF
 

@@ -50,8 +50,6 @@ CHARACTER(LEN=max_file_name_len) ::                                            &
 
 REAL :: q             ! OUT non-CO2 radiative forcing (W/m2).
 
-INTEGER :: io_error
-
 !-----------------------------------------------------------------------
 ! Local parameters
 !-----------------------------------------------------------------------
@@ -77,16 +75,9 @@ END IF
 ! File of non-co2 forcings read in if required
 !-----------------------------------------------------------------------
 OPEN(imogen_unit, FILE=file_non_co2_radf,                                      &
-      POSITION = 'rewind', ACTION = 'read', IOSTAT=io_error)
-IF (io_error /= 0) THEN
-  CALL log_fatal("radf_non_co2", ':file_non_co2_radf not found')
-END IF
-
+                    STATUS='old', POSITION='rewind', ACTION='read')
 DO i = 1,nyr_non_co2
-  READ(imogen_unit,*, IOSTAT=io_error) years(i), q_non_co2(i)
-  IF (io_error /= 0) THEN
-    CALL log_fatal("radf_non_co2", ': error reading file_non_co2_radf')
-  END IF
+  READ(imogen_unit,*) years(i),q_non_co2(i)
 END DO
 CLOSE(imogen_unit)
 

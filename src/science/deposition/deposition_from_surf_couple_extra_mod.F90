@@ -26,8 +26,7 @@ SUBROUTINE deposition_from_surf_couple_extra(                                  &
   pstar_ij, qw_1_ij, tstar_ij, sw_surft, z0h_surft,                            &
   gc_surft, lai_pft, canht_pft, tstar_surft, canopy_surft, smc_soilt,          &
   zh, dzl, frac_types,                                                         &
-  chemvars, nsurft, nsoilt, sm_levels, dim_cslayer, dim_cs1,                   &
-  vol_smc_sat, snow_depth, soil_carbon, deep_soil_temp )
+  chemvars)
 
 USE nlsizes_namelist_mod,    ONLY: bl_levels
 
@@ -42,8 +41,7 @@ USE deposition_ukca_var_mod, ONLY: deposition_ukca_var_alloc,                  &
 USE jules_chemvars_mod,      ONLY: chemvars_type
 
 USE jules_deposition_mod,    ONLY: l_deposition, l_deposition_gc_corr,         &
-                                   ndry_dep_species, dep_h2_soil_scheme,       &
-                                   dep_h2_scheme_conrad, dep_h2_scheme_paulot
+                                   ndry_dep_species
 
 USE jules_surface_types_mod, ONLY: ntype, npft
 
@@ -61,16 +59,6 @@ INTEGER, INTENT(IN) ::                                                         &
     ! Atmospheric timestep number.
   land_pts,                                                                    &
     ! Number of land points
-  nsurft,                                                                      &
-    ! Number of surface tiles
-  sm_levels,                                                                   &
-    ! Number of soil layers
-  nsoilt,                                                                      &
-    ! Number of soil tiles
-  dim_cs1,                                                                     &
-    ! Number of pools for soil carbon (cs)
-  dim_cslayer,                                                                 &
-    ! Number of depth dimensions for soil carbon (cs)
   row_length,                                                                  &
     ! Number of points on a row
   rows
@@ -117,23 +105,7 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   canopy_surft(land_pts, npft),                                                &
     ! Canopy water content
   smc_soilt(land_pts),                                                         &
-    ! soil moisture
-  vol_smc_sat(land_pts,nsoilt,sm_levels),                                      &
-    ! volumetric saturation point (m3 water / m3 of soil)
-    ! for Paulot H2 deposition scheme
-    ! equivalent to psparms%smvcst_soilt
-  snow_depth(land_pts,nsurft),                                                 &
-    ! snow depth on ground on tiles (m)
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%snowdepth_surft
-  soil_carbon(land_pts,nsoilt,dim_cslayer,dim_cs1),                            &
-    ! soil moisture
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%cs_pool_soilt
-  deep_soil_temp(land_pts,nsoilt,sm_levels),                                   &
-    ! soil moisture
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%t_soil_soilt
+   ! soil moisture
   frac_types(land_pts,ntype)
    ! surface tile fractions (-)
 
@@ -149,20 +121,9 @@ REAL(KIND=real_jlslsm) ::                                                      &
    ! Surface saturated water vapour mixing ratio (kg kg-1)
   rh_ij(row_length, rows),                                                     &
    ! Relative humidity
-  surf_wetness_ij(row_length, rows),                                           &
+  surf_wetness_ij(row_length, rows)
    ! surface wetness
-  vol_smc_sat_dep(land_pts),                                                   &
-    ! volumetric saturation point (m3 water / m3 of soil)
-    ! for Paulot H2 deposition scheme
-    ! Reduce # of dimensions: nsoilt = 1 and using top soil layer
-  soil_carbon_dep(land_pts,dim_cs1),                                           &
-    ! soil carbon for Paulot H2 deposition scheme
-    ! Reduce # of dimensions: nsoilt = 1 and using top soil layer
-  deep_soil_temp_dep(land_pts),                                                &
-    ! deep soil temperature for Paulot H2 deposition scheme
-    ! Reduce # of dimensions: nsoilt = 1 and using top soil layer
-  soil_sand(land_pts)
-   ! fraction of soil that is sand - fixed at 0.3
+
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
@@ -204,22 +165,6 @@ END IF
 ! ukca_chemistry_ctl_col
 surf_wetness_ij(:,:) = 1.0
 
-! Initialise variables used in the Paulot et al H2 deposition scheme
-SELECT CASE( dep_h2_soil_scheme )
-CASE ( dep_h2_scheme_paulot )
-  vol_smc_sat_dep(1:land_pts) = vol_smc_sat(1:land_pts,1,1)
-  soil_carbon_dep(1:land_pts,dim_cs1) = soil_carbon(1:land_pts,1,1,dim_cs1)
-  deep_soil_temp_dep(1:land_pts) = deep_soil_temp(1:land_pts,1,1)
-  ! Fixed value for sand fraction of soil as soil composition not available
-  ! in standalone JULES
-  soil_sand(:) = 0.3
-CASE DEFAULT
-  vol_smc_sat_dep(1:land_pts) = 0.0
-  soil_carbon_dep(1:land_pts,dim_cs1) = 0.0
-  deep_soil_temp_dep(1:land_pts) = 0.0
-  soil_sand(:) = 0.0
-END SELECT
-
 ! Initialise deposition diagnostics
 chemvars%dep_flux_ij(:,:,:) = 0.0
 chemvars%dep_loss_rate_ij(:,:,:) = 0.0
@@ -229,7 +174,6 @@ chemvars%dep_rc_ij(:,:,:,:) = 0.0
 chemvars%dep_rc_stom_ij(:,:,:,:) = 0.0
 chemvars%dep_rc_nonstom_ij(:,:,:,:) = 0.0
 chemvars%dep_vd_ij(:,:,:,:) = 0.0
-chemvars%dep_vd_gb(:,:,:)   = 0.0
 chemvars%nlev_with_ddep = 0
 
 ! Federico Centoni identified that 'standard' stomatal conductance
@@ -277,14 +221,11 @@ CALL deposition_jules_ddepctl(a_step, secs_per_step,                           &
   z0h_surft, sw_surft, surf_wetness_ij, stom_con_pft,                          &
   lai_pft, canht_pft, tstar_surft, canopy_surft, smc_soilt,                    &
   zh, dzl, frac_types, chemvars%dep_ustar_ij, chemvars%dep_surfconc_ij,        &
-    ! Parameters for Paulot et al H2 deposition scheme
-  nsurft, dim_cs1,                                                             &
-  vol_smc_sat_dep, snow_depth, soil_carbon_dep, deep_soil_temp_dep, soil_sand, &
-    ! Output deposition parameters
+  ! Output deposition parameters
   chemvars%dep_ra_ij, chemvars%dep_rb_ij, chemvars%dep_rc_ij,                  &
   chemvars%dep_rc_stom_ij, chemvars%dep_rc_nonstom_ij,                         &
   chemvars%dep_vd_ij, chemvars%dep_loss_rate_ij, chemvars%dep_flux_ij,         &
-  chemvars%nlev_with_ddep, chemvars%dep_vd_gb                                  &
+  chemvars%nlev_with_ddep                                                      &
   )
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)

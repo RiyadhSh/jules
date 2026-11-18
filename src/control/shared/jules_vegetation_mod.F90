@@ -42,11 +42,8 @@ INTEGER, PARAMETER ::                                                          &
   photo_collatz = 1,                                                           &
     ! C3 plants use the model of Collatz et al., 1991, Agricultural and
     ! Forest Meteorology, 54, 107-136.
-  photo_farquhar = 2,                                                          &
+  photo_farquhar = 2
     ! C3 plants use the model of Farquhar et al. ,1980, Planta, 149: 78-90.
-  photo_sox_collatz = 3
-    ! C3 plants use the model of Collatz et al.as derived for use with the
-    ! SOX stomata model.
 
 ! Parameters identifying alternative models for the thermal response of
 ! photosynthetic capacity.
@@ -98,13 +95,71 @@ INTEGER, PARAMETER ::                                                          &
   stomata_jacobs = 1,                                                          &
     ! Use the original JULES model, including the Jacobs closure
     !   - see Eqn.9 of Best et al. (2011), doi:10.5194/gmd-4-677-2011.
-  stomata_medlyn = 2,                                                          &
+  stomata_medlyn = 2
     ! Use the model of Medlyn et al. (2011) - see Eqn.11,
     !   doi: 10.1111/j.1365-2486.2010.02375.x.
-  stomata_sox = 3
-    ! Use the semi-analytical version of the SOX model (Eller et al 2020)
-    ! doi: 10.1111/nph.16419 - Eqns. 4 & 5
 
+! Parameters identifying alternate models for determaning the net carbon
+! uptake and stomatal conductance within plants.
+! These should have unique values. JBaguley
+INTEGER, PARAMETER ::                                                          &
+  leaf_flux_fsmc = 1,                                                          &
+    ! Use the fsmc factor to down regulate net photosynthesis based on
+    ! the soil moisture stress factor fsmc.
+  leaf_flux_stom_opt = 2
+    ! Use the stomatal optimisation model to determin the optimal net
+    ! photosynthesis and stomatal conductance.
+
+! Parameters identifying alternate physical properties that can be uniformly
+! itterated over when determaning the optimal stomatal conductance.
+! These should be unique values. JBaguley
+INTEGER, PARAMETER ::                                                          &
+  som_base_parm_ci = 1,                                                        &
+    ! Itterate uniformly over intercellular carbon.
+  som_base_parm_psi = 2
+    ! Iterate uniformly over leaf water potential.
+
+! Parameters identifying different xylem conductance models.
+! These should have unique values. JBaguley
+INTEGER, PARAMETER ::                                                          &
+  CW_conductance = 1,                                                          &
+    ! Use the cumulative weibull function to calculate the xylem conductance.
+    !   k(psi) = kmax * (1 - exp(-b * psi^c))
+  SOX_conductance = 2
+    ! Use the SOX conductance model when calculating xylem conductance.
+    !   k(psi) = kmax / (1 + (psi / b)^c)
+
+! Parameters identifying different aproximation methods for determaning the
+! the leaf water potential from transpiration rate.
+! These should have unique values. JBaguley
+INTEGER, PARAMETER ::                                                          &
+  psi_aprox_TE = 1,                                                            &
+    ! Use a zeroth order Taylor series expansion of the xylem conductence
+    ! model to aproximate leaf water potential from transpiration rate.
+  psi_aprox_NR = 2
+    ! Use the Newton Raphson method to aproximate leaf water potential
+     ! from transpiration rate.
+
+! Parameters identifying different profit models for determaning the optimal
+! stomatal conductance.
+! These should have unique values. JBaguley
+INTEGER, PARAMETER ::                                                          &
+  profit_max_profit_model = 1,                                                 &
+    ! Use the profit max profit model to determan the optimal
+    !  stomatal conductance.
+    !      Profit(psi) = CarbonGain(psi) - HydraulicCost(psi)
+    !
+    !      CarbonGain(psi) = Anet(psi) / max(Anet(psi))
+    !
+    !      HydraulicCost(psi) =   (max(k(psi)) - k(psi))
+    !                           / (max(k(psi)) - kcrit))
+  SOX_profit_model = 2
+    ! Use the SOX profit model to determan the optimal stomatal conductance.
+    !      Profit(psi) = CarbonGain(psi) * (1 - HydraulicCost(psi))
+    !
+    !      CarbonGain(psi) = Anet(psi)
+    !
+    !      HydraulicCost(psi) = 1 - (k(psi) / kmax)
 
 !-----------------------------------------------------------------------------
 ! Items set in namelist
@@ -215,11 +270,9 @@ LOGICAL ::                                                                     &
         ! Switch for using vegetation canopy drag scheme.
         ! This is what appears in the namelist, to ensure that true
         ! values can only given for pfts
-    l_rsl_scalar = .FALSE.,                                                    &
+    l_rsl_scalar = .FALSE.
         ! Switch for using roughness sublayer correction scheme in scalar
         ! variables. This is only valid when l_vegdrag_surft = .true.
-    l_red = .FALSE.
-        ! Switch for using the Robust Ecosystem Demography (RED).
 
 DATA l_vegdrag_surft / nsurft_max * .FALSE. /
 DATA l_vegdrag_pft / npft_max * .FALSE. /
@@ -229,8 +282,31 @@ INTEGER ::                                                                     &
       ! Switch for thermal vegetation
   can_rad_mod = 4,                                                             &
       ! Canopy radiation model
-  ilayers = imdi
+  ilayers = imdi,                                                              &
       ! Number of layers for canopy radiation model
+  leaf_flux_mod = 1
+      ! Switch to select the model used to dertermin leaf level fluxes.
+      ! JBaguley
+
+! Stomatal optimisation model (som) integers
+INTEGER ::                                                                     &
+  som_base_parm = 1,                                                           &
+      ! Switch used to determin the physical property that is uniformly
+      ! itterated over when determaning the optimal stomatal conductance.
+      ! JBaguley
+  som_n_sample = 100,                                                          &
+      ! Number of sample points used by the stomatal optimisation model.
+      ! JBaguley
+  som_psi_aprox_method = 1,                                                    &
+      ! Flag for the method used to approximate the leaf water potential from
+      !  transpiration rate.
+      !      1: Zeroth order taylor series expansion of the
+      !         conductance model.
+      !      2: Precalculated lookup table.
+  som_profit_model = 1
+      ! Switch used to select the profit model used to determan the optimal
+      ! stomatal conductance.
+      ! JBaguley
 
 INTEGER ::                                                                     &
   ignition_method = 1,                                                         &
@@ -341,7 +417,8 @@ NAMELIST  / jules_vegetation/                                                  &
 ! Shared
     l_phenol, l_triffid, l_trif_eq, l_veg_compete,                             &
     phenol_period, triffid_period, l_trait_phys, l_ht_compete,                 &
-    l_bvoc_emis, l_o3_damage, can_model, can_rad_mod, ilayers,                 &
+    l_bvoc_emis, l_o3_damage, can_model, can_rad_mod, ilayers, leaf_flux_mod,  &
+    som_base_parm, som_n_sample, som_psi_aprox_method, som_profit_model,       &
     frac_min, frac_seed, pow, l_landuse, l_leaf_n_resp_fix, l_stem_resp_fix,   &
     l_nitrogen, l_vegcan_soilfx, l_trif_crop, l_trif_fire,                     &
     l_inferno, ignition_method, l_vegdrag_pft, l_rsl_scalar,                   &
@@ -353,9 +430,7 @@ NAMELIST  / jules_vegetation/                                                  &
 ! Not used in the UM yet
     l_prescsow, l_recon,l_gleaf_fix,                                           &
     l_scale_resp_pm, l_use_pft_psi, fsmc_shape, l_croprotate,                  &
-    l_trif_biocrop, l_ag_expand, l_sugar,                                      &
-    ! RED variables
-    l_red
+    l_trif_biocrop, l_ag_expand, l_sugar
 
 !-----------------------------------------------------------------------------
 ! Items derived from namelist inputs
@@ -475,9 +550,56 @@ CASE DEFAULT
                'can_rad_mod should be 1, 4, 5 or 6')
 END SELECT
 
+! Check that the leaf_flux_mod is suitable. JBaguley
+SELECT CASE( leaf_flux_mod)
+CASE ( 1, 2, 3)
+  ! Valid values
+CASE DEFAULT
+  errcode = 101
+  CALL ereport("check_jules_vegetation", errcode,                              &
+               'leaf_flux_mod should be 1 or 2 or 3')
+END SELECT
+
+! Check that the som_base_parm is suitable. JBaguley
+SELECT CASE( som_base_parm)
+CASE ( 1, 2)
+  ! Valid values
+CASE DEFAULT
+  errcode = 101
+  CALL ereport("check_jules_vegetation", errcode,                              &
+               'som_bas_parm should be 1 or 2')
+END SELECT
+
+! Check that the som_n_sample is suficently large. JBaguley
+IF (som_n_sample < 10) THEN
+  errcode = 101
+  CALL ereport("check_jules_vegetation", errcode,                              &
+               'som_n_sample should be grater than or equal to 10')
+END IF
+
+! Check that the som_psi_aprox_method is suitable. JBaguley
+SELECT CASE( som_psi_aprox_method)
+CASE ( 1, 2)
+  ! Valid values
+CASE DEFAULT
+  errcode = 101
+  CALL ereport("check_jules_vegetation", errcode,                              &
+     'som_psi_aprox_method should be Taylore series (1) or Lookup table (2)')
+END SELECT
+
+! Check that the som_profit_model is suitable. JBaguley
+SELECT CASE( som_profit_model)
+CASE ( 1, 2)
+  ! Valid values
+CASE DEFAULT
+  errcode = 101
+  CALL ereport("check_jules_vegetation", errcode,                              &
+               'som_profit_model should be profit max (1) or SOX (2)')
+END SELECT
+
 ! Check that the photosynthesis option is reasonable.
 SELECT CASE ( photo_model )
-CASE ( photo_collatz, photo_farquhar, photo_sox_collatz )
+CASE ( photo_collatz, photo_farquhar )
   ! These are valid, nothing more to do.
 CASE DEFAULT
   errcode = 101  !  a fatal error
@@ -700,7 +822,7 @@ END IF  !  photo_model == photo_farquhar
 
 ! Check that the stomatal conductance model is reasonable.
 SELECT CASE ( stomata_model )
-CASE ( stomata_jacobs, stomata_medlyn, stomata_sox )
+CASE ( stomata_jacobs, stomata_medlyn )
   ! These are valid, so nothing to do.
 CASE DEFAULT
   errcode = 101
@@ -800,19 +922,6 @@ ELSE
   l_vegdrag_surft(1:npft) = l_vegdrag_pft(1:npft)
 END IF
 
-! Check crop options are sensible
-IF ( l_crop .AND. l_red ) THEN
-  errcode = 101
-  CALL ereport("check_jules_vegetation", errcode,                              &
-               'Crop model and RED are incompatible')
-END IF
-
-IF ( l_red .AND. .NOT. l_triffid ) THEN
-  errcode = 101
-  CALL ereport("check_jules_vegetation", errcode,                              &
-               'RED needs to be run with l_triffid=T')
-END IF
-
 END SUBROUTINE check_jules_vegetation
 #endif
 
@@ -908,6 +1017,26 @@ CALL jules_print('jules_vegetation_mod',lineBuffer)
 WRITE(lineBuffer,*) ' ilayers = ',ilayers
 CALL jules_print('jules_vegetation_mod',lineBuffer)
 
+!JBaguley
+WRITE(lineBuffer,*) ' leaf_flux_mod = ', leaf_flux_mod
+CALL jules_print('jules_vegetation_mod',lineBuffer)
+
+!JBaguley
+WRITE(lineBuffer,*) ' som_base_parm = ', som_base_parm
+CALL jules_print('jules_vegetation_mod',lineBuffer)
+
+!JBaguley
+WRITE(lineBuffer,*) ' som_n_sample = ', som_n_sample
+CALL jules_print('jules_vegetation_mod',lineBuffer)
+
+!JBaguley
+WRITE(lineBuffer,*) ' som_psi_aprox_method = ', som_psi_aprox_method
+CALL jules_print('jules_vegetation_mod',lineBuffer)
+
+!JBaguley
+WRITE(lineBuffer,*) ' som_profit_model = ', som_profit_model
+CALL jules_print('jules_vegetation_mod',lineBuffer)
+
 WRITE(lineBuffer,*) ' frac_min = ',frac_min
 CALL jules_print('jules_vegetation_mod',lineBuffer)
 
@@ -974,9 +1103,6 @@ CALL jules_print('jules_vegetation_mod',lineBuffer)
 WRITE(lineBuffer,*)' l_sugar = ',l_sugar
 CALL jules_print('jules_vegetation_mod',lineBuffer)
 
-WRITE(lineBuffer,*)' l_red = ',l_red
-CALL jules_print('jules_vegetation_mod',lineBuffer)
-
 CALL jules_print('jules_vegetation_mod',                                       &
     '- - - - - - end of namelist - - - - - -')
 
@@ -1017,9 +1143,9 @@ CHARACTER(LEN=errormessagelength) :: iomessage
 
 ! set number of each type of variable in my_namelist type
 INTEGER, PARAMETER :: no_of_types = 3
-INTEGER, PARAMETER :: n_int = 11
+INTEGER, PARAMETER :: n_int = 16 ! was 11 JBaguley
 INTEGER, PARAMETER :: n_real = 11 + (n_photo_coef * 5)
-INTEGER, PARAMETER :: n_log = 29 + npft_max
+INTEGER, PARAMETER :: n_log = 28 + npft_max
 
 TYPE :: my_namelist
   SEQUENCE
@@ -1028,6 +1154,11 @@ TYPE :: my_namelist
   INTEGER :: can_model
   INTEGER :: can_rad_mod
   INTEGER :: ilayers
+  INTEGER :: leaf_flux_mod !JBaguley
+  INTEGER :: som_base_parm !JBaguley
+  INTEGER :: som_n_sample !JBaguley
+  INTEGER :: som_psi_aprox_method !JBaguley
+  INTEGER :: som_profit_model !JBaguley
   INTEGER :: ignition_method
   INTEGER :: photo_acclim_model
   INTEGER :: photo_act_model
@@ -1079,7 +1210,6 @@ TYPE :: my_namelist
   LOGICAL :: l_spec_veg_z0
   LOGICAL :: l_limit_canhc
   LOGICAL :: l_sugar
-  LOGICAL :: l_red
 END TYPE my_namelist
 
 TYPE (my_namelist) :: my_nml
@@ -1102,6 +1232,11 @@ IF (mype == 0) THEN
   my_nml % can_model       = can_model
   my_nml % can_rad_mod     = can_rad_mod
   my_nml % ilayers         = ilayers
+  my_nml % leaf_flux_mod   = leaf_flux_mod !JBaguley
+  my_nml % som_base_parm   = som_base_parm !JBaguley
+  my_nml % som_n_sample    = som_n_sample  !JBaguley
+  my_nml % som_psi_aprox_method = som_psi_aprox_method !JBaguley
+  my_nml % som_profit_model = som_profit_model !JBaguley
   my_nml % ignition_method = ignition_method
   my_nml % photo_acclim_model = photo_acclim_model
   my_nml % photo_act_model = photo_act_model
@@ -1153,7 +1288,6 @@ IF (mype == 0) THEN
   my_nml % l_spec_veg_z0   = l_spec_veg_z0
   my_nml % l_limit_canhc   = l_limit_canhc
   my_nml % l_sugar         = l_sugar
-  my_nml % l_red           = l_red
 END IF
 
 CALL mpl_bcast(my_nml,1,mpl_nml_type,0,my_comm,icode)
@@ -1165,6 +1299,11 @@ IF (mype /= 0) THEN
   can_model       = my_nml % can_model
   can_rad_mod     = my_nml % can_rad_mod
   ilayers         = my_nml % ilayers
+  leaf_flux_mod   = my_nml % leaf_flux_mod !JBaguley
+  som_base_parm   = my_nml % som_base_parm !JBaguley
+  som_n_sample    = my_nml % som_n_sample  !JBaguley
+  som_psi_aprox_method = my_nml % som_psi_aprox_method !JBaguley
+  som_profit_model = my_nml % som_profit_model !JBaguley
   ignition_method = my_nml % ignition_method
   photo_acclim_model = my_nml % photo_acclim_model
   photo_act_model = my_nml % photo_act_model
@@ -1216,7 +1355,6 @@ IF (mype /= 0) THEN
   l_spec_veg_z0   = my_nml % l_spec_veg_z0
   l_limit_canhc   = my_nml % l_limit_canhc
   l_sugar         = my_nml % l_sugar
-  l_red           = my_nml % l_red
 END IF
 
 CALL mpl_type_free(mpl_nml_type,icode)

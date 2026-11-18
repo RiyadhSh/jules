@@ -61,23 +61,5 @@ REAL, PARAMETER ::  mps_to_kph = (60.0 * 60.0) / 1000.0 !m/s to km/h
 ! Conversion mm to m
 REAL, PARAMETER :: mm_2_m = 1000.0
 
-! below are used in imogen
-! Converts global emission of C (Gt) to change in atmospheric CO2 (ppm)
-REAL, PARAMETER :: conv_gtc_to_ppm = 0.471
-
-! converts ppm to ppb multiplier
-REAL, PARAMETER :: ppm_to_ppb = 1.0e3
-
-! converts Pg to kg multiplier
-REAL, PARAMETER :: pg_to_kg = 1.0e12
-
-! converts ppm to mmr multiplier (g/g)
-! mol mass co2 / mol mass dry air * 1e-6
-REAL, PARAMETER :: ppm_to_mmr = 44.0 / 28.97 * 1.0e-6
-
-! Ocean area (m2)
-REAL, PARAMETER :: ocean_area = 3.627e14
-
-
 END MODULE conversions_mod
 #endif

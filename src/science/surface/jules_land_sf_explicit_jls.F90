@@ -27,8 +27,8 @@ CONTAINS
 !---------------------------------------------------------------------
 !    Arguments :-
 SUBROUTINE jules_land_sf_explicit (                                            &
-! IN date- and time-related values
- curr_day_number, curr_time,                                                   &
+! IN date-related values
+ curr_day_number,                                                              &
 ! IN values defining field dimensions and subset to be processed :
  land_pts,                                                                     &
 ! IN values defining water tracer field dimensions
@@ -51,7 +51,7 @@ SUBROUTINE jules_land_sf_explicit (                                            &
  photosynth_act_rad,lai_pft,                                                   &
  l_mr_physics,t_soil_soilt,tsurf_elev_surft,tstar_surft,z_land,                &
  albsoil_soilt,cos_zenith_angle,l_aero_classic,l_dust,l_dust_diag,             &
- clay_soilt,o3,l_emis_surft_set,latitude,longitude,                            &
+ clay_soilt,o3, l_emis_surft_set,                                              &
 ! INOUT diagnostics
  sf_diag,                                                                      &
 ! INOUT data :
@@ -64,13 +64,13 @@ SUBROUTINE jules_land_sf_explicit (                                            &
 ! OUT data required for mineral dust scheme
  u_s_std_surft,                                                                &
 ! OUT data required elsewhere in boundary layer or surface code
- alpha1,ashtf_prime_surft,fqw_surft,epot_surft,fracaero_t,fracaero_s,          &
+ alpha1,ashtf_prime_surft,fqw_surft,epot_surft,fraca,                          &
  resfs,resft,rhokh_surft,dtstar_surft,z0h_surft, z0m_surft,                    &
- chr1p5m,smc_soilt,hcons_soilt,gpp,npp,resp_p,g_leaf,gpp_pft,npp_pft,          &
+ chr1p5m,smc_soilt,hcons_soilt,gpp,npp,resp_p,g_leaf,gpp_pft,el_pft,npp_pft,   &
  resp_p_pft,resp_s_soilt,resp_s_tot_soilt,resp_l_pft,resp_r_pft,               &
  resp_w_pft,n_leaf,n_root,n_stem,lai_bal,gc_surft,canhc_surft,wt_ext_surft,    &
  flake,surft_index,surft_pts,tile_frac,fsmc_pft,emis_soil,                     &
- growth_sug_pft,growth_sug_gb,f_nsc_pft,lwp_c_pft,psi_root_zone_pft,           &
+ growth_sug_pft,growth_sug_gb,f_nsc_pft,                                       &
 ! OUT required for classic aerosols
  cd_land,rib_surft,ch_surft_classic,cd_std_classic,                            &
 ! OUT required for sea and sea-ice calculations
@@ -94,7 +94,10 @@ SUBROUTINE jules_land_sf_explicit (                                            &
  !crop_vars_mod (OUT)
  gs_irr_surft, smc_irr_soilt, wt_ext_irr_surft, gc_irr_surft,                  &
  !p_s_parms (IN)
- bexp_soilt, sathh_soilt, v_close_pft, v_open_pft,                             &
+ bexp_soilt, sathh_soilt, v_close_pft, v_open_pft, satcon_soilt,               &
+ !p_s_parms (out) JBaguley
+ soil_wp_soilt,soil_k_soilt,soil_root_k_soilt,psi_root_zone_pft,psi_leaf_pft,  &
+ cica_ratio_pft,leaf_k_pft,                                                    &
  !urban_param (IN)
  wrr_gb,                                                                       &
  !Fluxes (IN OUT)
@@ -118,11 +121,9 @@ SUBROUTINE jules_land_sf_explicit (                                            &
  !jules_surface_types (IN)
  diff_frac,                                                                    &
  !chemvars (OUT)
- flux_o3_pft, fo3_pft,                                                         &
- !Water tracers (IN)
- snow_surft_wtrac, canopy_wtrac, sthu_soilt_wtrac, qw_1_wtrac,                 &
- ! Water tracers (OUT)
- fqw_1_wtrac, fqw_surft_wtrac, fqw_evapsrce_wtrac, smc_soilt_wtrac             &
+ flux_o3_pft, fo3_pft,   psi_soil_pd,                                          &
+ !TEMPORARY (OUT)
+ carbon_gain, hydraulic_cost                                                   &
  )
 
 USE ancil_info,              ONLY: dim_cslayer, nsoilt, rad_nband
@@ -150,8 +151,7 @@ USE sfl_int_mod,                ONLY: sfl_int
 USE snowtherm_mod,              ONLY: snowtherm
 USE solinc_data,                ONLY: l_skyview
 USE stdev1_mod,                 ONLY: stdev1
-USE stochastic_physics_run_mod, ONLY: l_rp2, i_rp_scheme, i_rp2b, rp_idx,      &
-                                      z0hm_pft_rp, z0hm_soil_rp
+USE stochastic_physics_run_mod, ONLY: l_rp2, i_rp_scheme, i_rp2b, z0hm_pft_rp
 USE theta_field_sizes,          ONLY: t_i_length,t_j_length
 USE tilepts_mod,                ONLY: tilepts
 USE timestep_mod,               ONLY: timestep
@@ -194,8 +194,8 @@ USE jules_surface_mod, ONLY: l_aggregate, formdrag, l_anthrop_heat_src,        &
                              IP_ScrnDecpl2, IP_ScrnDecpl3,                     &
                              l_vary_z0m_soil, l_elev_land_ice, ls
 
-USE jules_vegetation_mod, ONLY: can_model, can_rad_mod, ilayers, l_triffid,    &
-                                l_vegdrag_surft
+USE jules_vegetation_mod, ONLY: can_model, can_rad_mod, ilayers, leaf_flux_mod,&
+                                som_base_parm, l_triffid,  l_vegdrag_surft
 
 USE jules_irrig_mod, ONLY: l_irrig_dmd
 
@@ -227,8 +227,6 @@ IMPLICIT NONE
 INTEGER, INTENT(IN) ::                                                         &
  curr_day_number,                                                              &
             ! IN current day of year
- curr_time,                                                                    &
-            ! IN current time in seconds
  land_pts,                                                                     &
             ! IN No of land points being processed.
  n_wtrac_jls,                                                                  &
@@ -398,12 +396,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
                              ! IN Cosine of the zenith angle
 ,clay_soilt(land_pts,nsoilt,dim_cslayer)                                       &
                              ! IN Soil clay fraction.
-,o3(land_pts)                                                                  &
+,o3(land_pts)
                              ! IN Surface ozone concentration (ppb).
-,latitude(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)                 &
-                             ! IN Latitude (degree)
-,longitude(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)
-                             ! IN Longitude (degree)
 
 LOGICAL, INTENT(IN) ::                                                         &
  l_aero_classic                                                                &
@@ -510,23 +504,19 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
                              ! OUT Surface FQW for land tiles
 ,epot_surft(land_pts,nsurft)                                                   &
                              ! OUT Local EPOT for land tiles.
-,fracaero_t(land_pts,nsurft)                                                   &
-                             ! OUT Total fraction of surface moisture
-                             !     flux with only aerodynamic
-                             !     resistance
-,fracaero_s(land_pts,nsurft)                                                   &
+,fraca(land_pts,nsurft)                                                        &
                              ! OUT Fraction of surface moisture
                              !     flux with only aerodynamic
-                             !     resistance over the frozen portion of the
-                             !     surface alone
+                             !     resistance for snow-free land
+                             !     tiles.
 ,resfs(land_pts,nsurft)                                                        &
                              ! OUT Combined soil, stomatal
                              !     and aerodynamic resistance
-                             !     factor for fraction (1-fracaero_t)
+                             !     factor for fraction (1-FRACA)
                              !     of snow-free land tiles.
 ,resft(land_pts,nsurft)                                                        &
                              ! OUT Total resistance factor.
-                             !     fracaero_t+(1-fracaero_t)*resfs for
+                             !     FRACA+(1-FRACA)*RESFS for
                              !     snow-free land, 1 for snow.
 ,rhokh_surft(land_pts,nsurft)                                                  &
                              ! OUT Surface exchange coefficients
@@ -563,6 +553,9 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
 ,gpp_pft(land_pts,npft)                                                        &
                              ! OUT Gross primary productivity
                              !     on PFTs (kg C/m2/s).
+,el_pft(land_pts,npft)                                                         &
+                             ! OUT Transpiration rate calcuated in the
+                             !      stomatal optimisation code (mol/m2/s).
 ,npp_pft(land_pts,npft)                                                        &
                              ! OUT Net primary productivity
                              !     (kg C/m2/s).
@@ -624,10 +617,9 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
 ,gc_corr(land_pts,npft)                                                        &
                              ! OUT "Stomatal" conductance
                              !     without bare soil evaporation
-,lwp_c_pft(land_pts,npft)                                                      &
-                             ! OUT Canopy leaf water potential (MPa)
-,psi_root_zone_pft(land_pts,npft)
-                             ! OUT Water potential in the root zone (Pa)
+,psi_soil_pd(land_pts,npft)
+                             ! MGDK, empirical g1_stress implementation, 28 Apr, 2026 (MPa)
+
 
 REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
  cd_land(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)                  &
@@ -659,11 +651,22 @@ REAL(KIND=real_jlslsm), INTENT(IN) :: wrr_gb(land_pts)
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
           albobs_scaling_surft(land_pts,ntype,rad_nband)
 
-!p_s_parms (IN)
+!p_s_parms (IN) JBaguley added satcon_soilt
 REAL(KIND=real_jlslsm), INTENT(IN) :: bexp_soilt(land_pts,nsoilt,sm_levels)
 REAL(KIND=real_jlslsm), INTENT(IN) :: sathh_soilt(land_pts,nsoilt,sm_levels)
 REAL(KIND=real_jlslsm), INTENT(IN) :: v_close_pft(land_pts,sm_levels,npft)
 REAL(KIND=real_jlslsm), INTENT(IN) :: v_open_pft(land_pts,sm_levels,npft)
+REAL(KIND=real_jlslsm), INTENT(IN) :: satcon_soilt(land_pts,nsoilt,0:sm_levels)
+
+!p_s_parms (OUT) JBaguley
+REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
+ soil_wp_soilt(land_pts,nsoilt,sm_levels)                                      &
+,soil_k_soilt(land_pts,nsoilt,sm_levels)                                       &
+,soil_root_k_soilt(land_pts,nsoilt,sm_levels)                                  &
+,psi_root_zone_pft(land_pts,npft)                                              &
+,psi_leaf_pft(land_pts,npft)                                                   &
+,cica_ratio_pft(land_pts,npft)                                                 &
+,leaf_k_pft(land_pts,npft)
 
 !crop_vars_mod (IN)
 REAL(KIND=real_jlslsm), INTENT(IN) :: rootc_cpft(land_pts,ncpft)
@@ -749,43 +752,13 @@ REAL(KIND=real_jlslsm), INTENT(IN) :: diff_frac(t_i_length * t_j_length)
 REAL(KIND=real_jlslsm), INTENT(OUT) :: flux_o3_pft(land_pts,npft)
 REAL(KIND=real_jlslsm), INTENT(OUT) :: fo3_pft(land_pts,npft)
 
-! Water tracers (IN)
-REAL(KIND=real_jlslsm), INTENT(IN) :: snow_surft_wtrac(land_pts,nsurft,        &
-                                                        n_wtrac_jls)
-                             ! IN Water tracer in lying snow on tiles (kg/m2)
+! TEMPORARY: output variables for testing
+REAL(KIND=real_jlslsm) ::                                                      &
+ carbon_gain(land_pts,npft)                                                    &
+                            ! Carbon gain for each leaf state
+,hydraulic_cost(land_pts,npft)
+                            ! Hydraulic cost for each leaf state
 
-REAL(KIND=real_jlslsm), INTENT(IN) :: canopy_wtrac(land_pts,nsurft,n_wtrac_jls)
-                             ! IN Water tracer in surface/canopy water for
-                             !    snow-free land tiles (kg/m2)
-
-REAL(KIND=real_jlslsm), INTENT(IN) :: sthu_soilt_wtrac(land_pts,nsoilt,        &
-                                                 sm_levels,n_wtrac_jls)
-                             ! IN Water tracer Unfrozen soil moisture content
-                             !    of each layer as a fraction of saturation.
-
-REAL(KIND=real_jlslsm), INTENT(IN) :: qw_1_wtrac(tdims%i_start:tdims%i_end,    &
-                                       tdims%j_start:tdims%j_end,n_wtrac_jls)
-                             ! IN Total water tracer content in lowest atmos
-                             !    layer
-
-! Water tracers (OUT)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: fqw_1_wtrac(tdims%i_start:tdims%i_end,  &
-                                        tdims%j_start:tdims%j_end,n_wtrac_jls)
-                             ! OUT Water tracer surface moisture flux
-                             !       (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: fqw_surft_wtrac(land_pts,nsurft,        &
-                                                        n_wtrac_jls)
-                             ! OUT Water tracer surface FQW for land tiles
-
-REAL(KIND=real_jlslsm), INTENT(OUT) :: fqw_evapsrce_wtrac(land_pts,            &
-                                              n_evap_srce,nsurft,n_wtrac_jls)
-                             ! OUT Water tracer surface FQW for each
-                             !     evaporative source for land tiles
-
-REAL(KIND=real_jlslsm), INTENT(OUT) :: smc_soilt_wtrac(land_pts,nsoilt,        &
-                                                         n_wtrac_jls)
-                             ! OUT Water tracer in available moisture in the
-                             !     soil profile (kg/m2).
 
 !-----------------------------------------------------------------------
 ! LOCAL variables
@@ -807,14 +780,9 @@ REAL(KIND=real_jlslsm) ::                                                      &
                              ! Snow thermal conductivity
 ,resp_frac(land_pts,dim_cslayer)                                               &
                              ! respired fraction of RESP_S
-,gc_stom_surft(land_pts,nsurft)                                                &
+,gc_stom_surft(land_pts,nsurft)
                              ! canopy conductance
-,sice_surft_tmp(land_pts,nsmax)                                                &
-                             ! Ice content of snow layers (kg/m2)
-,sliq_surft_tmp(land_pts,nsmax)                                                &
-                             ! Liquid content of snow layers (kg/m2)
-,ds_surft_tmp(land_pts,nsmax)
-                             ! Snow layer thicknesses (m)
+
 REAL(KIND=real_jlslsm) ::                                                      &
  lh0                         ! Latent heat for snow free surface
                              !   =LS for sea-ice, =LC otherwise
@@ -957,6 +925,45 @@ REAL(KIND=real_jlslsm) ::                                                      &
                              ! Gridbox sum of absolution changes to downward
                              ! longwave radiation from elevation corrections
 
+! Water tracers fields which will have INTENT (IN) when water tracers
+! are fully in JULES (currently these fields are not used as l_wtrac_jls=F)
+
+REAL(KIND=real_jlslsm) :: snow_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! IN Water tracer in lying snow on tiles (kg/m2)
+
+REAL(KIND=real_jlslsm) :: canopy_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! IN Water tracer in surface/canopy water for
+                             !    snow-free land tiles (kg/m2)
+
+REAL(KIND=real_jlslsm) :: sthu_soilt_wtrac(land_pts,nsoilt,                    &
+                                                 sm_levels,n_wtrac_jls)
+                             ! IN Water tracer Unfrozen soil moisture content
+                             !    of each layer as a fraction of saturation.
+
+REAL(KIND=real_jlslsm) :: qw_1_wtrac(tdims%i_start:tdims%i_end,                &
+                                       tdims%j_start:tdims%j_end,n_wtrac_jls)
+                             ! IN Total water tracer content in lowest atmos
+                             !    layer
+
+! Water tracers fields which will have INTENT (OUT) when water tracers
+! are fully in JULES (currently these fields are not used as l_wtrac_jls=F)
+
+REAL(KIND=real_jlslsm) :: fqw_1_wtrac(tdims%i_start:tdims%i_end,               &
+                                        tdims%j_start:tdims%j_end,n_wtrac_jls)
+                             ! OUT Water tracer surface moisture flux
+                             !       (kg/m2/s)
+REAL(KIND=real_jlslsm) :: fqw_surft_wtrac(land_pts,nsurft,n_wtrac_jls)
+                             ! OUT Water tracer surface FQW for land tiles
+
+REAL(KIND=real_jlslsm) :: fqw_evapsrce_wtrac(land_pts,                         &
+                                              n_evap_srce,nsurft,n_wtrac_jls)
+                             ! OUT Water tracer surface FQW for each
+                             !     evaporative source for land tiles
+
+REAL(KIND=real_jlslsm) :: smc_soilt_wtrac(land_pts,nsoilt,n_wtrac_jls)
+                             ! OUT Water tracer in available moisture in the
+                             !     soil profile (kg/m2).
+
 ! Water tracer local fields
 REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
  resf_wtrac(:,:,:,:)                                                           &
@@ -1050,9 +1057,17 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='JULES_LAND_SF_EXPLICIT'
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
+
 !-----------------------------------------------------------------------
 !  0. Initialisations
 !-----------------------------------------------------------------------
+
+! Temporary code to initialise water tracer fields that will be INTENT(IN)
+! in the future
+snow_surft_wtrac(:,:,:)   = 0.0
+canopy_wtrac(:,:,:)       = 0.0
+sthu_soilt_wtrac(:,:,:,:) = 0.0
+qw_1_wtrac(:,:,:)         = 0.0
 
 !$OMP PARALLEL DEFAULT(NONE) PRIVATE(i, j, l, n, i_wt, n_evap)                 &
 !$OMP SHARED(t_i_length, t_j_length, array_zero, tdims, rhokm_land, cd_land,   &
@@ -1060,8 +1075,7 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !$OMP zdt_surft, db_surft, rhokh_can, nsurft,ftl_surft,fqw_surft,              &
 !$OMP rib_surft,z0m_surft,u_s_std_surft,chr1p5m,resfs,alpha1,radnet_surft,     &
 !$OMP scaling_urban,snowdep_surft,snowdepth_surft,sf_diag, n_wtrac_jls,        &
-!$OMP n_evap_srce, fqw_1_wtrac, fqw_surft_wtrac, fqw_evapsrce_wtrac,           &
-!$OMP l_wtrac_jls)
+!$OMP n_evap_srce, fqw_1_wtrac, fqw_surft_wtrac, fqw_evapsrce_wtrac)
 !$OMP DO SCHEDULE(STATIC)
 DO i = 1,t_i_length * t_j_length
   array_zero(i)     = 0.0
@@ -1147,6 +1161,7 @@ IF (l_wtrac_jls) THEN
   END DO
 END IF
 
+
 IF (sf_diag%l_tau_surft) THEN
   DO n = 1,nsurft
 !$OMP DO SCHEDULE(STATIC)
@@ -1176,13 +1191,11 @@ CALL tilepts(land_pts, frac, surft_pts, surft_index, l_lice_point, l_lice_surft)
 !   Generate the anthropogenic heat for surface calculations
 !-----------------------------------------------------------------------
 IF ( l_anthrop_heat_src .AND. .NOT. l_aggregate ) THEN
-  CALL generate_anthropogenic_heat(curr_day_number, curr_time,                 &
-                                  land_pts, frac, surft_pts, surft_index,      &
-                                  land_index,                                  &
+  CALL generate_anthropogenic_heat( curr_day_number, land_pts, frac,           &
+                                  surft_pts, surft_index,                      &
                                   !New arguments replacing USE statements
                                   !urban_param (IN)
                                   wrr_gb,                                      &
-                                  latitude, longitude,                         &
                                   !Fluxes (IN OUT)
                                   anthrop_heat_surft)
 END IF
@@ -1200,18 +1213,17 @@ CALL physiol (                                                                 &
   lai_pft,pstar,qw_1,sthu_soilt,sthf_soilt,t_soil_soilt,tstar_surft,           &
   smvccl_soilt,smvcst_soilt,smvcwt_soilt,vshr,z0_surft,z1_uv,o3,               &
   canhc_surft,vfrac_surft,emis_surft,l_emis_surft_set,emis_soil,flake,         &
-  g_leaf,gs,gc_surft,gc_stom_surft,gc_corr,gpp,gpp_pft,npp,npp_pft,            &
+  g_leaf,gs,gc_surft,gc_stom_surft,gc_corr,gpp,gpp_pft,el_pft,npp,npp_pft,     &
   resp_p,resp_p_pft,resp_s_soilt,resp_l_pft,                                   &
   resp_r_pft,resp_w_pft,n_leaf,                                                &
   n_root,n_stem,lai_bal,                                                       &
   smc_soilt,wt_ext_surft,fsmc_pft,                                             &
   albsoil_soilt,cos_zenith_angle,                                              &
-  can_rad_mod,ilayers,flux_o3_pft,fo3_pft,sf_diag,asteps_since_triffid,        &
+  can_rad_mod,ilayers,leaf_flux_mod,som_base_parm,                             &
+  flux_o3_pft,fo3_pft,sf_diag,asteps_since_triffid,                            &
   non_lake_frac,                                                               &
   !SUGAR variables
   f_nsc_pft, growth_sug_gb, growth_sug_pft,                                    &
-  ! SOX variables
-  psi_root_zone_pft, lwp_c_pft,                                                &
   !New arguments replacing USE statements
   !Fluxes (IN)
   t_home_gb,t_growth_gb,                                                       &
@@ -1229,7 +1241,10 @@ CALL physiol (                                                                 &
   !crop_vars_mod (OUT)
   gs_irr_surft, smc_irr_soilt, wt_ext_irr_surft, gc_irr_surft,                 &
   !p_s_parms (IN)
-  bexp_soilt, sathh_soilt, v_close_pft, v_open_pft,                            &
+  bexp_soilt, sathh_soilt, v_close_pft, v_open_pft,satcon_soilt,               &
+  !p_s_parms (OUT) JBaguley
+  soil_wp_soilt,soil_k_soilt,soil_root_k_soilt,psi_root_zone_pft,psi_leaf_pft, &
+  cica_ratio_pft,leaf_k_pft,                                                   &
   !ancil_info
   l_soil_point,                                                                &
   !jules_surface_types (IN)
@@ -1237,8 +1252,10 @@ CALL physiol (                                                                 &
   !water tracers (IN)
   sthu_soilt_wtrac,                                                            &
   !water tracers (OUT)
-  smc_soilt_wtrac)
-
+  smc_soilt_wtrac,  psi_soil_pd,                                               &
+  ! TEMPORARY: output variables for testing
+  carbon_gain, hydraulic_cost                                                  &
+)
 
 ! Update gc_surft for canopy snow if using the canopy snow scheme
 IF ( .NOT. l_aggregate .AND. can_model == 4) THEN
@@ -1446,12 +1463,9 @@ IF (land_pts >  0) THEN    ! Omit if no land points
   ! Thermal conductvity of top snow layer if nsmax > 0
   IF (nsmax > 0) THEN
     DO n = 1,nsurft
-      ds_surft_tmp(:,:) = ds_surft(:,n,:)
-      sice_surft_tmp(:,:) = sice_surft(:,n,:)
-      sliq_surft_tmp(:,:) = sliq_surft(:,n,:)
       CALL snowtherm(land_pts,surft_pts(n),nsnow_surft(:,n),                   &
-                     surft_index(:,n),ds_surft_tmp,sice_surft_tmp,             &
-                     sliq_surft_tmp,csnow,ksnow)
+                     surft_index(:,n),ds_surft(:,n,:),sice_surft(:,n,:),       &
+                     sliq_surft(:,n,:),csnow,ksnow)
       DO l = 1,land_pts
         hcons_snow(l,n) = ksnow(l,1)
       END DO
@@ -1463,12 +1477,14 @@ END IF                     ! End test on land points
 !-----------------------------------------------------------------------
 ! Calculate net radiation on land tiles
 !-----------------------------------------------------------------------
+!$OMP PARALLEL                                                                 &
+!$OMP DEFAULT(NONE)                                                            &
+!$OMP PRIVATE(l,k,j,i,n)                                                       &
+!$OMP SHARED(surft_pts,surft_index,land_index,pdims,radnet_surft,sw_surft,     &
+!$OMP        emis_surft,sky,lw_down,tstar_surft,nsurft,l_skyview)
 IF (l_skyview) THEN
   DO n = 1,nsurft
-!$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) SCHEDULE(STATIC)          &
-!$OMP PRIVATE(i, j, k, l)                                                      &
-!$OMP SHARED(n,surft_pts,surft_index,land_index,pdims,radnet_surft,sw_surft,   &
-!$OMP        emis_surft,sky,lw_down,tstar_surft,l_skyview)
+!$OMP DO SCHEDULE(STATIC)
     DO k = 1,surft_pts(n)
       l = surft_index(k,n)
       j=(land_index(l) - 1) / pdims%i_end + 1
@@ -1476,14 +1492,11 @@ IF (l_skyview) THEN
       radnet_surft(l,n) = sw_surft(l,n) + emis_surft(l,n) *                    &
         sky(i,j) * ( lw_down(i,j) - sbcon * tstar_surft(l,n)**4 )
     END DO
-!$OMP END PARALLEL DO
+!$OMP END DO NOWAIT
   END DO
 ELSE
   DO n = 1,nsurft
-!$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) SCHEDULE(STATIC)          &
-!$OMP PRIVATE(i, j, k, l)                                                      &
-!$OMP SHARED(n,surft_pts,surft_index,land_index,pdims,radnet_surft,sw_surft,   &
-!$OMP        emis_surft,lw_down,tstar_surft,l_skyview)
+!$OMP DO SCHEDULE(STATIC)
     DO k = 1,surft_pts(n)
       l = surft_index(k,n)
       j=(land_index(l) - 1) / pdims%i_end + 1
@@ -1491,9 +1504,10 @@ ELSE
       radnet_surft(l,n) = sw_surft(l,n) + emis_surft(l,n) *                    &
                  ( lw_down(i,j) - sbcon * tstar_surft(l,n)**4 )
     END DO
-!$OMP END PARALLEL DO
+!$OMP END DO NOWAIT
   END DO
 END IF
+!$OMP END PARALLEL
 
 
 !-----------------------------------------------------------------------
@@ -1507,7 +1521,6 @@ IF ( l_rp2 .AND. i_rp_scheme == i_rp2b) THEN
   DO n = 1,npft
     z0h_z0m(n) = z0hm_pft_rp(n)
   END DO
-  z0h_z0m(soil) = z0hm_soil_rp(rp_idx)
 END IF
 
 !$OMP PARALLEL PRIVATE(i,j,l,n) DEFAULT(NONE) IF(land_pts>1)                   &
@@ -1587,11 +1600,11 @@ END IF
 !!  Calculate gradient of saturated specific humidity for use in
 !!  calculation of surface fluxes
 !-----------------------------------------------------------------------
+!$OMP PARALLEL DEFAULT(NONE) PRIVATE(k,l,n,d_t, i, j)                          &
+!$OMP SHARED(nsurft,surft_pts,surft_index,tstar_surft,t_elev,alpha1,           &
+!$OMP        qstar_surft,qs1_elev,epsil,c_virtual,r, tdims,rhostar_mom,rhostar)
 DO n = 1,nsurft
-!$OMP PARALLEL DO IF (surft_pts(n) > 1) DEFAULT(NONE) SCHEDULE(STATIC)         &
-!$OMP PRIVATE(k,l,d_t, i, j)                                                   &
-!$OMP SHARED(n,surft_pts,surft_index,tstar_surft,t_elev,alpha1,                &
-!$OMP        qstar_surft,qs1_elev,epsil,c_virtual,r)
+!$OMP DO SCHEDULE(STATIC)
   DO k = 1,surft_pts(n)
     l = surft_index(k,n)
     d_t = tstar_surft(l,n) - t_elev(l,n)
@@ -1607,22 +1620,22 @@ DO n = 1,nsurft
                   ( r * t_elev(l,n) * t_elev(l,n))
     END IF
   END DO
-!$OMP END PARALLEL DO
+!$OMP END DO NOWAIT
 END DO
 
 !-----------------------------------------------------------------------
 ! If requested, improve accuracy of air density, rhostar
 ! On input rhostar = pstar/R*Tstar
 !-----------------------------------------------------------------------
-!$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(STATIC)                               &
-!$OMP PRIVATE( i, j )   SHARED( tdims, rhostar_mom, rhostar )
+!$OMP DO SCHEDULE(STATIC)
 DO j = tdims%j_start,tdims%j_end
   DO i = tdims%i_start,tdims%i_end
     ! original approximation for surface air density
     rhostar_mom(i,j) = rhostar(i,j)
   END DO
 END DO
-!$OMP END PARALLEL DO
+!$OMP END DO
+!$OMP END PARALLEL
 
 IF (l_accurate_rho) THEN
   ! More accurate expressions for surface air density.
@@ -1977,16 +1990,15 @@ DO n = 1,nsurft
       hcons_surf(l,n) = hcon_lake(l)
       dzsurf(l,n)     = dzsoil(1)
     END IF
+    IF ((nsmax > 0) .AND. (nsnow_surft(l,n) > 0)) THEN
 
-    IF ( ( nsmax > 0 ) .AND. ( nsnow_surft(l,n) > 0 ) ) THEN
       ! Snow
       tsurf(l,n) = tsnow_surft(l,n,1)
       ! change the effective surface layer thickness for snow
       dzsurf(l,n)     = ds_surft(l,n,1)
       hcons_surf(l,n) = hcons_snow(l,n)
-      IF ( ( .NOT. cansnowtile(n) ) .AND. l_snow_nocan_hc ) THEN
-        canhc_surf(l,n) = 0.0
-      END IF
+      IF ( ( .NOT. cansnowtile(n)) .AND. l_snow_nocan_hc .AND.                 &
+           (nsmax > 0) .AND. (nsnow_surft(l,n) > 0) ) canhc_surf(l,n) = 0.0
     END IF
 
     ! MORUSES: Uncouple the roof for perfect insulation. hcons should only be zero
@@ -2158,14 +2170,8 @@ IF (formdrag == effective_z0) THEN
      )
   END DO
 ELSE
-!$OMP PARALLEL DO IF(nsurft > 1) DEFAULT(NONE) SCHEDULE(STATIC)                &
-!$OMP SHARED( nsurft, wind_profile_factor, z0m_eff_surft, z0m_surft )          &
-!$OMP PRIVATE( n )
-  DO n = 1,nsurft
-    wind_profile_factor(:,n) = 1.0
-    z0m_eff_surft(:,n)       = z0m_surft(:,n)
-  END DO
-!$OMP END PARALLEL DO
+  wind_profile_factor(:,:) = 1.0
+  z0m_eff_surft(:,:)       = z0m_surft(:,:)
 END IF
 
 !-----------------------------------------------------------------------
@@ -2229,7 +2235,7 @@ DO n = 1,nsurft
    land_pts,surft_pts(n),land_index,surft_index(:,n),cansnowtile(n),           &
    canopy(:,n),catch(:,n),chn(:,n),dq(:,n),epdt,flake(:,n),gc_surft(:,n),      &
    gc_stom_surft(:,n),snowdep_surft(:,n),snow_surft(:,n),vshr_land,            &
-   tstar_surft(:,n),fracaero_t(:,n),fracaero_s(:,n),resfs(:,n),resft(:,n),     &
+   fraca(:,n),resfs(:,n),resft(:,n),                                           &
    sf_diag%resfs_stom(:,n_diag),sf_diag%l_et_stom,sf_diag%l_et_stom_surft)
 
 END DO
@@ -2349,11 +2355,11 @@ IF ((l_dust .OR. l_dust_diag) .AND. l_aggregate) THEN
 
   n = 1
   ! Calculate z0m and z0h for bare soil
-!$OMP PARALLEL IF(surft_pts(n) > 1) DEFAULT(NONE) PRIVATE(k, l)                &
-!$OMP SHARED(l_vary_z0m_soil, n, soil, surft_pts, surft_index, z0m_soil_in,    &
-!$OMP        z0_soil, z0h_soil,z0h_z0m, z0m_soil, wind_profile_fac_soil)
   IF (l_vary_z0m_soil) THEN
-!$OMP DO SCHEDULE(STATIC)
+!$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) PRIVATE(k, l)             &
+!$OMP             SHARED(n, soil, surft_pts, surft_index, z0m_soil_in,         &
+!$OMP                   z0h_soil,z0h_z0m, z0m_soil, wind_profile_fac_soil)     &
+!$OMP             SCHEDULE(STATIC)
     DO k = 1, surft_pts(n)
       l = surft_index(k,n)
       z0m_soil(l,n) = z0m_soil_in(l)
@@ -2361,9 +2367,12 @@ IF ((l_dust .OR. l_dust_diag) .AND. l_aggregate) THEN
       !     Set wind profile factor to 1 as not using orog term in z0m
       wind_profile_fac_soil(l,n) = 1.0
     END DO
-!$OMP END DO
+!$OMP END PARALLEL DO
   ELSE
-!$OMP DO SCHEDULE(STATIC)
+!$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) PRIVATE(k, l)             &
+!$OMP             SHARED(n, soil, surft_pts, surft_index, z0_soil, z0h_soil,   &
+!$OMP                   z0h_z0m, z0m_soil, wind_profile_fac_soil)              &
+!$OMP             SCHEDULE(STATIC)
     DO k = 1, surft_pts(n)
       l = surft_index(k,n)
       z0m_soil(l,n) = z0_soil
@@ -2371,9 +2380,8 @@ IF ((l_dust .OR. l_dust_diag) .AND. l_aggregate) THEN
       !     Set wind profile factor to 1 as not using orog term in z0m
       wind_profile_fac_soil(l,n) = 1.0
     END DO
-!$OMP END DO
+!$OMP END PARALLEL DO
   END IF
-!$OMP END PARALLEL
 
   ! Call fcdch again to calculate dust friction velocity on bare soil.
   ! The canopy drag scheme is not available on the aggregated tile
@@ -2478,39 +2486,22 @@ END IF
 
 ! Land tiles
 DO n = 1,nsurft
-!$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) SCHEDULE(STATIC)          &
-!$OMP SHARED( n, surft_pts, surft_index, land_index, t_i_length, cd_land,      &
-!$OMP         tile_frac, cd_surft, ch_land, ch_surft, rhokm_1_surft,           &
-!$OMP         rhostar_mom, vshr_land, rhokm_land, rhokh_surft )                &
-!$OMP PRIVATE( i, j, k, l )
   DO k = 1,surft_pts(n)
     l = surft_index(k,n)
     j=(land_index(l) - 1) / t_i_length + 1
     i = land_index(l) - (j-1) * t_i_length
     cd_land(i,j) = cd_land(i,j) + tile_frac(l,n) * cd_surft(l,n)
     ch_land(i,j) = ch_land(i,j) + tile_frac(l,n) * ch_surft(l,n)
-
-    rhokm_1_surft(l,n) = rhostar_mom(i,j) * cd_surft(l,n) * vshr_land(i,j)
-    !                                                         ! P243.124
-    rhokm_land(i,j) = rhokm_land(i,j) +                                        &
-           tile_frac(l,n) * rhokm_1_surft(l,n)
-    rhokh_surft(l,n) = rhostar_mom(i,j) * ch_surft(l,n) * vshr_land(i,j)
-    !
   END DO
-!$OMP END PARALLEL DO
 END DO
 
 ! aerodynamic resistance diagnostic
 IF (sf_diag%l_ra) THEN
-!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) SCHEDULE(STATIC)              &
-!$OMP SHARED( land_pts, land_index, t_i_length, sf_diag, ch_land, vshr_land )  &
-!$OMP PRIVATE( i, j, l )
   DO l = 1,land_pts
     j=(land_index(l) - 1) / t_i_length + 1
     i = land_index(l) - (j-1) * t_i_length
     sf_diag%ra(l) = 1.0 / (ch_land(i,j) * vshr_land(i,j))
   END DO
-!$OMP END PARALLEL DO
 END IF
 
 !-----------------------------------------------------------------------
@@ -2520,6 +2511,21 @@ END IF
 !     RHOSTAR * CD * VSHR stored for diagnostic output before
 !     horizontal interpolation.
 !-----------------------------------------------------------------------
+
+! Land tiles
+DO n = 1,nsurft
+  DO k = 1,surft_pts(n)
+    l = surft_index(k,n)
+    j=(land_index(l) - 1) / t_i_length + 1
+    i = land_index(l) - (j-1) * t_i_length
+    rhokm_1_surft(l,n) = rhostar_mom(i,j) * cd_surft(l,n) * vshr_land(i,j)
+    !                                                         ! P243.124
+    rhokm_land(i,j) = rhokm_land(i,j) +                                        &
+           tile_frac(l,n) * rhokm_1_surft(l,n)
+    rhokh_surft(l,n) = rhostar_mom(i,j) * ch_surft(l,n) * vshr_land(i,j)
+    !                                                         ! P243.125
+  END DO
+END DO
 
 !-----------------------------------------------------------------------
 !  Calculate local and gridbox-average surface fluxes of heat and
@@ -2583,7 +2589,7 @@ DO n = 1,nsurft
    land_pts,surft_pts(n),land_index,surft_index(:,n),cansnowtile(n),           &
    canopy(:,n),catch(:,n),ch_surft(:,n),dq(:,n),epdt,flake(:,n),gc_surft(:,n), &
    gc_stom_surft(:,n),snowdep_surft(:,n),snow_surft(:,n),vshr_land,            &
-   tstar_surft(:,n),fracaero_t(:,n),fracaero_s(:,n),resfs(:,n),resft(:,n),     &
+   fraca(:,n),resfs(:,n),resft(:,n),                                           &
    sf_diag%resfs_stom(:,n_diag),sf_diag%l_et_stom,sf_diag%l_et_stom_surft)
 
   CALL sf_flux (                                                               &
@@ -2591,7 +2597,7 @@ DO n = 1,nsurft
    land_index,surft_index(:,n),                                                &
    nsnow_surft(:,n),n,canhc_surf(:,n),dzsurf(:,n),hcons_surf(:,n),             &
    ashtf_surft(:,n),qstar_surft(:,n),q_elev(:,n),                              &
-   radnet_surft(:,n),resft(:,n),fracaero_s(:,n),rhokh_surft(:,n),l_soil_point, &
+   radnet_surft(:,n),resft(:,n),rhokh_surft(:,n),l_soil_point,                 &
    snowdepth_surft(:,n),timestep,t_elev(:,n),tsurf(:,n),                       &
    tstar_surft(:,n),vfrac_surft(:,n),rhokh_can(:,n),z0h_surft(:,n),            &
    z0m_eff_surft(:,n),zdt_surft(:,n),z1_tq,lh0,emis_surft(:,n),emis_soil,      &
@@ -2742,11 +2748,9 @@ IF (l_wtrac_jls) THEN
   DO n = 1,nsurft
 
     ! Calculate the fractional contribution of each evaporative source to the
-    ! total tile flux. Note that this requires only the total fraction of
-    ! the tile subject to potential evaporation. fracaero_s(:,n) is required
-    ! only for energetic purposes.
+    ! total tile flux
     CALL sf_evap_srce_frac(land_pts, surft_pts(n), surft_index(:,n),           &
-                           flake(:,n), fracaero_t(:,n), snowdep_surft(:,n),    &
+                           flake(:,n), fraca(:,n), snowdep_surft(:,n),         &
                            dq(:,n), catch(:,n), cansnowtile(n),                &
                            evap_srce_frac(:,:,n))
 
@@ -2780,7 +2784,6 @@ IF (l_wtrac_jls) THEN
                               fqw_evapsrce_wtrac(:,:,n,i_wt),                  &
                               fqw_surft_wtrac(:,n,i_wt))
 
-
 !$OMP PARALLEL DO IF(surft_pts(n) > 1) SCHEDULE(STATIC)                        &
 !$OMP DEFAULT(NONE) PRIVATE(i, j, k, l) SHARED(surft_pts, surft_index,         &
 !$OMP    land_index, t_i_length, n, i_wt, fqw_1_wtrac, flandg, tile_frac,      &
@@ -2796,14 +2799,16 @@ IF (l_wtrac_jls) THEN
       END DO
 !$OMP END PARALLEL DO
 
+
+
     END DO    ! water tracers
 
   END DO  ! surface tiles
 
   ! Carry out check on total flux for 'normal' water tracer
   CALL sf_flux_land_check_wtrac(land_pts, nsurft, land_index, tile_frac,       &
-               flandg, snowdep_surft, canopy, flake, dq, fracaero_t(:,:),      &
-               resfs, resft, resf_wtrac(:,:,:,1), evap_srce_frac,              &
+               flandg, snowdep_surft, canopy, flake, dq, fraca, resfs, resft,  &
+               resf_wtrac(:,:,:,1), evap_srce_frac,                            &
                fqw_surft, fqw_1, fqw_surft_wtrac(:,:,1), fqw_1_wtrac,          &
                fqw_evapsrce_wtrac(:,:,:,1))
 

@@ -31,7 +31,6 @@ USE jules_rivers_mod, ONLY: rivers_data_type, rivers_type
 USE jules_chemvars_mod, ONLY: chemvars_data_type, chemvars_type
 USE water_resources_vars_mod, ONLY: water_resources_data_type,                 &
                                     water_resources_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_data_type, jls_wtrac_type
 
 !Declare instances of the TYPES required to hold the data
 !TYPES to hold the data
@@ -56,7 +55,6 @@ TYPE(rivers_data_type), TARGET :: rivers_data
 !TYPE(in_dev), TARGET :: veg3_field_data
 TYPE(chemvars_data_type), TARGET :: chemvars_data
 TYPE(water_resources_data_type), TARGET :: water_resources_data
-TYPE(jls_wtrac_data_type), TARGET :: wtrac_jls_data
 
 !TYPES we pass around. These happen to be pointers to the data types above
 !but this should be transparent
@@ -81,6 +79,5 @@ TYPE(rivers_type) :: rivers
 !TYPE(in_dev) :: veg3_field
 TYPE(chemvars_type) :: chemvars
 TYPE(water_resources_type) :: water_resources
-TYPE(jls_wtrac_type) :: wtrac_jls
 
 END MODULE jules_fields_mod

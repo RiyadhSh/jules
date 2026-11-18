@@ -34,9 +34,9 @@ SUBROUTINE leaf_limits(ft, land_field, pft_photo_model, veg_pts, veg_index     &
 ,                      acr, apar, ca, ccp, dq, fsmc, je, kc, km, ko, oa        &
 ,                      pstar, vcmax                                            &
 ,                      clos_pts, open_pts, clos_index, open_index              &
-,                      ci, wcarb, wexpt, wlite )
+,                      ci, wcarb, wexpt, wlite, psi_root_zone, psi_soil_pd, leaf_flux_mod)
 
-USE pftparm, ONLY: alpha, c3, dqcrit, f0, g1_stomata
+USE pftparm, ONLY: alpha, c3, dqcrit, f0, g1_stomata, g1b_stomata
 USE planet_constants_mod, ONLY: repsilon
 USE jules_surface_mod, ONLY: fwe_c3, fwe_c4
 USE jules_vegetation_mod, ONLY:                                                &
@@ -50,6 +50,9 @@ USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
 
 USE um_types, ONLY: real_jlslsm
+
+USE model_time_mod, ONLY: current_time ! MDK
+USE conversions_mod, ONLY: rsec_per_hour ! MDK
 
 IMPLICIT NONE
 
@@ -101,6 +104,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
                             ! Maximum rate of carboxylation of Rubisco
                             ! (mol CO2/m2/s).
 
+
+
 INTEGER, INTENT(OUT) ::                                                        &
  clos_pts                                                                      &
                             ! Number of land points with closed stomata.
@@ -146,7 +151,21 @@ INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 REAL(KIND=jprb)               :: zhook_handle
 
+
+REAL(KIND=real_jlslsm), INTENT(IN) :: psi_root_zone(land_field)
+                            ! IN Root zone water potential (Pa)
+INTEGER :: leaf_flux_mod     ! Switch for leaf stress model, MDK
+
+REAL(KIND=real_jlslsm) :: g1_stress, hour_of_day!! MDK, 24 APR, '26
+REAL(KIND=real_jlslsm) :: pd_offset = 0.3 ! MPa
+
+REAL(KIND=real_jlslsm), INTENT(IN OUT) :: psi_soil_pd(land_field)
+! INOUT MGDK, empirical g1_stress implementation, 28 Apr, 2026
+!      (Mpa)
+
+
 CHARACTER(LEN=*), PARAMETER :: RoutineName='LEAF_LIMITS'
+
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
@@ -192,18 +211,46 @@ DO j = 1,veg_pts
     ! This is Eqn.13 of Medlyn et al. (2012),
     ! doi: 10.1111/j.1365-2486.2012.02790.x, also converting specific humidity
     ! deficit to vapour pressure deficit.
-    ci(l) = ca(l) * g1_stomata(ft)                                             &
-              / ( g1_stomata(ft) + SQRT( dq(l) * pstar(l) * vpd_factor ) )
 
-    ! Flag where the stomata are closed.
-    IF (fsmc(l) == 0.0 .OR. apar(l) == 0.0) THEN
-      l_closed(l) = .TRUE.
+
+
+    IF (leaf_flux_mod == 3) THEN
+
+       hour_of_day = REAL(current_time % time) / rsec_per_hour
+
+       IF (hour_of_day >= 5.0 .AND. hour_of_day <= 5.5) THEN
+         psi_soil_pd(l) = psi_root_zone(l) * 1e-6 !! Pa to MPa
+       END IF
+
+       !! MDK, 24 APR, '26, follows De Kauwe et al. 2015 Biogeosci
+       g1_stress = max( 1E-09, &
+                        g1_stomata(ft) * &
+                        exp( g1b_stomata(ft) * ( psi_soil_pd(l) + pd_offset) ) )
+
+       ci(l) = ca(l) * g1_stress                                         &
+                 / ( g1_stress + SQRT( dq(l) * pstar(l) * vpd_factor ) )
+
+
+       ! Flag where the stomata are closed.
+       IF (g1_stress /g1_stomata(ft) < 0.01 .OR. apar(l) == 0.0) THEN
+         l_closed(l) = .TRUE.
+       ELSE
+         l_closed(l) = .FALSE.
+       END IF
     ELSE
-      l_closed(l) = .FALSE.
-    END IF
+       ci(l) = ca(l) * g1_stomata(ft)                                             &
+                 / ( g1_stomata(ft) + SQRT( dq(l) * pstar(l) * vpd_factor ) )
+
+       ! Flag where the stomata are closed.
+       IF (fsmc(l) == 0.0 .OR. apar(l) == 0.0) THEN
+         l_closed(l) = .TRUE.
+       ELSE
+         l_closed(l) = .FALSE.
+       END IF
+    ENDIF
+
 
   END IF  !  stomata_model
-
 END DO
 !$OMP END PARALLEL DO
 

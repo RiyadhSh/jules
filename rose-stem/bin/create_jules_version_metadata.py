@@ -68,15 +68,15 @@ def run_command(command, shell=False):
 
 
 def copy_metadata(dirs, new_version):
-    '''Create a vnX.Y metadata. This copies the HEAD metadata to vnX.Y.'''
+    '''Create a vnX.Y metadata. This copies the HEAD metadata to vnX.Y for
+     jules-fcm-make and jules-standalone.'''
 
     # First change any spurious umX.Y or vnX.Y in urls to "latest" then copy
     for dir in dirs:
         fname = "%s/HEAD/rose-meta.conf" % dir
         print(fname)
         check_for_spurious_url_tags(fname)
-        rc, stdout, stderr = run_command("fcm cp %s/HEAD %s/vn%s"%(dir, dir,
-                                                                   new_version))
+        rc, stdout, stderr = run_command("fcm cp ../rose-meta/%s/HEAD ../rose-meta/%s/vn%s"%(dir, dir, new_version))
 
 
 def find_dirs(rootdir):

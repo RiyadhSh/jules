@@ -352,7 +352,6 @@ USE jules_vegetation_mod, ONLY: can_model
 IMPLICIT NONE
 
 INTEGER :: errorstatus
-CHARACTER(LEN=*), PARAMETER :: RoutineName='CHECK_JULES_SNOW'
 
 !-----------------------------------------------------------------------------
 
@@ -360,7 +359,7 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='CHECK_JULES_SNOW'
 ! Check that we have a suitable number of snow layers
 IF ( nsmax > snow_layers_max ) THEN
   errorstatus = 101
-  CALL ereport(RoutineName, errorstatus,                                       &
+  CALL ereport("check_jules_snow", errorstatus,                                &
   "Too many snow layers specified - increase snow_layers_max and recompile")
 END IF
 
@@ -372,21 +371,6 @@ END IF
 ! Derive kland and dtland
 kland = kland_numerator / dtland
 tcland = tm - dtland
-
-! If variables are set check that they are in the correct range
-IF ( ANY( ABS( aicemax(:) - rmdi ) > EPSILON(1.0) ) ) THEN
-  IF ( ANY( aicemax(:) < 0.01 ) .OR. ANY( aicemax(:) > 0.99 ) ) THEN
-    CALL ereport(RoutineName, errorstatus,                                     &
-       'aicemax must lie in the range 0.01 to 0.99')
-  END IF
-END IF
-
-IF ( ABS( rho_firn_albedo - rmdi ) > EPSILON(1.0) ) THEN
-  IF ( rho_firn_albedo < 0.01 .OR. rho_firn_albedo > 1000.0 ) THEN
-    CALL ereport(RoutineName, errorstatus,                                     &
-       'rho_firn_albedo must lie in the range 0.01 to 1000.0')
-  END IF
-END IF
 
 END SUBROUTINE check_jules_snow
 #endif

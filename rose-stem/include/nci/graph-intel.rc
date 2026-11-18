@@ -4,11 +4,11 @@
 {%- if COVERAGE == true %}
     # If coverage stats are requested, all Intel runs must use the same build in order for the
     # profiling stats to be generated and aggregated correctly
-    {%- set debug_build   = "remote_init_nci => fcm_make_nci_intel_coverage" %}
-    {%- set opt_build   = "remote_init_nci => fcm_make_nci_intel_coverage" %}
+    {%- set debug_build   = "fcm_make_nci_intel_coverage => fcm_make2_nci_intel_coverage" %}
+    {%- set opt_build   = "fcm_make_nci_intel_coverage => fcm_make2_nci_intel_coverage" %}
 {%- else %}
-    {%- set debug_build   = "remote_init_nci => fcm_make_nci_intel_debug" %}
-    {%- set opt_build   = "remote_init_nci => fcm_make_nci_intel_omp" %}
+    {%- set debug_build   = "fcm_make_nci_intel_debug => fcm_make2_nci_intel_debug" %}
+    {%- set opt_build   = "fcm_make_nci_intel_omp => fcm_make2_nci_intel_omp" %}
 {%- endif %}
 
 {%- set name_graphs_intel = {
@@ -181,12 +181,12 @@
                                         nci_intel_gswp2_trip_spinup => nci_intel_gswp2_irrig_limit_low_river_storage => \
                                         nccmp_nci_intel_gswp2_irrig_limit_low_river_storage =>                          \
                                         housekeep_nci_intel_gswp2_trip_spinup => housekeep_nci_intel_gswp2_irrig_limit_low_river_storage",
-
+        
         "nci_intel_gswp2_irrig_limit_high_river_storage" : opt_build + " => \
                                         nci_intel_gswp2_trip_spinup => nci_intel_gswp2_irrig_limit_high_river_storage => \
                                         nccmp_nci_intel_gswp2_irrig_limit_high_river_storage =>                          \
                                         housekeep_nci_intel_gswp2_trip_spinup => housekeep_nci_intel_gswp2_irrig_limit_high_river_storage",
-
+                                                                        
         "nci_intel_gswp2_closures" : opt_build + " => \
                                           nci_intel_gswp2_closures =>                              \
                                           nccmp_nci_intel_gswp2_closures =>                        \
@@ -246,34 +246,19 @@
                                          nci_intel_imogen_layeredc_spinup => nci_intel_imogen_layeredc =>   \
                                          nccmp_nci_intel_imogen_layeredc =>                                   \
                                          housekeep_nci_intel_imogen_layeredc_spinup & housekeep_nci_intel_imogen_layeredc",
-
-       "nci_intel_imogen_layeredc_co2conc" : opt_build + " =>       \
-                           nci_intel_imogen_layeredc_spinup => nci_intel_imogen_layeredc_co2conc => \
-                           nccmp_nci_intel_imogen_layeredc_co2conc => \
-                           housekeep_nci_intel_imogen_layeredc_spinup & housekeep_nci_intel_imogen_layeredc_co2conc",
-
-       "nci_intel_imogen_layeredc_dtempg" : opt_build + " =>       \
-                           nci_intel_imogen_layeredc_spinup => nci_intel_imogen_layeredc_dtempg => \
-                           nccmp_nci_intel_imogen_layeredc_dtempg => \
-                           housekeep_nci_intel_imogen_layeredc_spinup & housekeep_nci_intel_imogen_layeredc_dtempg",
-
-       "nci_intel_imogen_layeredc_ch4" : opt_build + " =>       \
-                           nci_intel_imogen_layeredc_spinup => nci_intel_imogen_layeredc_ch4 => \
-                           nccmp_nci_intel_imogen_layeredc_ch4 => \
-                           housekeep_nci_intel_imogen_layeredc_spinup & housekeep_nci_intel_imogen_layeredc_ch4",
     }
 %}
 
 {%- set name_graphs_intel_no_coverage = {
-        "nci_intel_gswp2_rivers_rivers-only" : "remote_init_nci => fcm_make_nci_intel_omp => nci_intel_gswp2_rivers => \
+        "nci_intel_gswp2_rivers_rivers-only" : "fcm_make_nci_intel_omp => fcm_make2_nci_intel_omp => nci_intel_gswp2_rivers => \
                                         nccmp_nci_intel_gswp2_rivers & nci_intel_gswp2_rivers_rivers-only
-                                        remote_init_nci => fcm_make_nci_intel_omp_rivers-only => \
+                                        fcm_make_nci_intel_omp_rivers-only => fcm_make2_nci_intel_omp_rivers-only => \
                                         nci_intel_gswp2_rivers_rivers-only => nccmp_nci_intel_gswp2_rivers_rivers-only => \
                                         housekeep_nci_intel_gswp2_rivers_rivers-only & housekeep_nci_intel_gswp2_rivers",
 
-        "nci_intel_gswp2_trip_rivers-only" : "remote_init_nci => fcm_make_nci_intel_omp => nci_intel_gswp2_trip => \
+        "nci_intel_gswp2_trip_rivers-only" : "fcm_make_nci_intel_omp => fcm_make2_nci_intel_omp => nci_intel_gswp2_trip => \
                                         nccmp_nci_intel_gswp2_trip & nci_intel_gswp2_trip_rivers-only
-                                        remote_init_nci => fcm_make_nci_intel_omp_rivers-only  => \
+                                        fcm_make_nci_intel_omp_rivers-only => fcm_make2_nci_intel_omp_rivers-only => \
                                         nci_intel_gswp2_trip_rivers-only => nccmp_nci_intel_gswp2_trip_rivers-only => \
                                         housekeep_nci_intel_gswp2_trip_rivers-only & housekeep_nci_intel_gswp2_trip",
     }
@@ -286,7 +271,7 @@
             "nci_intel_coverage" : "NCI_INTEL_LOOBOS:succeed-all & NCI_INTEL_GSWP2:succeed-all & NCI_INTEL_ERAINT:succeed-all & NCI_INTEL_IMOGEN:succeed-all => coverage_summary"
         })
     %}
-
+    
     # Add the coverage group to RUN_NAMES
     {%- do RUN_NAMES.append("nci_intel_coverage") %}
 {%- else %}
@@ -297,7 +282,7 @@
 ## Group definitions
 ###############################################################################
 {%- set groups_intel = {
-        "intel" : ["intel_loobos", "intel_gswp2", "intel_eraint",
+        "intel" : ["intel_loobos", "intel_gswp2", "intel_eraint", 
                    "intel_gswp2_es", "intel_imogen"],
 
         "intel_loobos" : ["nci_intel_loobos_gl4", "nci_intel_loobos_gl4_cable",
@@ -316,7 +301,7 @@
                     "nci_intel_loobos_crm6_traitT", "nci_intel_loobos_crm6_traitF_srfT"],
 
         "intel_gswp2" : ["nci_intel_gswp2_rivers", "nci_intel_gswp2_rivers_restart", "nci_intel_gswp2_trip",
-                   "nci_intel_gswp2_trip_restart", "nci_intel_gswp2_irrig_limit_low_river_storage",
+                   "nci_intel_gswp2_trip_restart", "nci_intel_gswp2_irrig_limit_low_river_storage", 
                    "nci_intel_gswp2_irrig_limit_high_river_storage", "nci_intel_gswp2_closures",
                    "nci_intel_gswp2_euro4","nci_intel_gswp2_gl4","nci_intel_gswp2_gl7",
                    "nci_intel_gswp2_ukv","nci_intel_gswp2_ukv_flake", "intel_gswp2_rivers-only"],
@@ -327,7 +312,6 @@
 
         "intel_gswp2_es" : ["nci_intel_gswp2_es_1p1", "nci_intel_gswp2_es_curr", "nci_intel_gswp2_es_beta"],
 
-        "intel_imogen" : ["nci_intel_imogen_layeredc", "nci_intel_imogen_layeredc_co2conc",
-                    "nci_intel_imogen_layeredc_dtempg", "nci_intel_imogen_layeredc_ch4"],
+        "intel_imogen" : ["nci_intel_imogen_layeredc"],
  	}
 %}

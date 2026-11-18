@@ -33,17 +33,16 @@ CONTAINS
 SUBROUTINE surf_couple_allocate (land_field, ntiles, sm_levels,                &
                                       nice, nice_use)
 
-USE um_parallel_mod,          ONLY: is_master_task
 USE atm_fields_bounds_mod,    ONLY: tdims, vdims, udims
 USE theta_field_sizes,        ONLY: t_i_length, t_j_length,                    &
                                     u_i_length, u_j_length,                    &
                                     v_i_length, v_j_length
 USE ancil_info,               ONLY: dim_cs1, dim_cslayer,                      &
-                                    land_pts, nsurft, nmasst
+                                    land_pts, nsurft
 USE jules_soil_mod,           ONLY: sm_levels_jules => sm_levels
 
 USE allocate_jules_arrays_mod, ONLY: allocate_jules_arrays
-USE jules_surface_types_mod,   ONLY: npft, nnpft, nnvg, ntype, soil
+USE jules_surface_types_mod,   ONLY: npft, nnvg, ntype, soil
 USE jules_surface_mod,         ONLY: l_aggregate
 
 USE jules_vegetation_mod, ONLY: l_triffid, l_phenol, can_rad_mod
@@ -74,8 +73,6 @@ USE trif, ONLY:                                                                &
   alloc_slow,      dpm_rpm_ratio,    retran_l,                                 &
   retran_r,        harvest_ht
 
-USE veg3_parm_mod, ONLY: check_jules_red_parms, veg3_parm_init
-
 USE jules_irrig_mod, ONLY:                                                     &
    irrtiles, irrigtiles, nirrtile, l_irrig_dmd
 
@@ -85,6 +82,7 @@ USE c_elevate, ONLY:                                                           &
 
 USE dust_parameters_mod, ONLY: z0_soil
 
+! This check must be run once we have access to sm_levels
 USE jules_soil_mod, ONLY: check_jules_soil
 
 ! Compatibility checks to be run once all allocation has been performed
@@ -116,8 +114,6 @@ USE deposition_species_mod, ONLY:                                              &
 
 USE jules_print_mgr,  ONLY: jules_print
 
-USE missing_data_mod, ONLY: imdi
-
 !Pointer association functions
 USE crop_vars_mod, ONLY: crop_vars_assoc
 USE p_s_parms, ONLY: psparms_assoc
@@ -137,9 +133,7 @@ USE jules_forcing_mod, ONLY: forcing_assoc
 USE lake_mod, ONLY: lake_assoc
 USE jules_chemvars_mod, ONLY: chemvars_assoc
 USE water_resources_vars_mod, ONLY: water_resources_assoc
-USE jules_rivers_mod, ONLY: rivers_assoc, np_rivers, l_rivers,                 &
-                            i_river_vn, rivers_rfm
-USE jules_wtrac_type_mod, ONLY: wtrac_jls_assoc
+USE jules_rivers_mod, ONLY: rivers_assoc
 
 !USE in instances of the JULES types
 USE atm_fields_mod, ONLY: crop_vars, crop_vars_data,                           &
@@ -161,10 +155,7 @@ USE atm_fields_mod, ONLY: crop_vars, crop_vars_data,                           &
                           lake_data, lake_vars,                                &
                           chemvars_data, chemvars,                             &
                           water_resources_data, water_resources,               &
-                          rivers_data, rivers,                                 &
-                          wtrac_jls_data, wtrac_jls
-
-USE atm_land_sea_mask, ONLY: atmos_number_of_landpts
+                          rivers_data, rivers
 
 USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
@@ -223,13 +214,6 @@ land_pts        = land_field
 nsurft          = ntiles
 sm_levels_jules = sm_levels
 
-np_rivers = 1
-IF (l_rivers) THEN
-  IF (i_river_vn == rivers_rfm .AND. is_master_task()) THEN
-    np_rivers = atmos_number_of_landpts
-  END IF
-END IF
-
 ! Allocate JULES arrays
 CALL allocate_jules_arrays(crop_vars_data,psparms_data,top_pdm_data,           &
                            fire_vars_data,ainfo_data,trif_vars_data,           &
@@ -237,18 +221,7 @@ CALL allocate_jules_arrays(crop_vars_data,psparms_data,top_pdm_data,           &
                            progs_data,trifctl_data, coastal_data,              &
                            jules_vars_data, fluxes_data, lake_data,            &
                            forcing_data, rivers_data, chemvars_data,           &
-                           water_resources_data, wtrac_jls_data)
-
-! Allocate global_land_index here until jules:#1558 consolidates the allocation
-! of arrays between the UM & JULES. In standalone, this is allocated in
-! SUBROUTINE allocate_river_vars_grid contained in:
-! src/initialisation/standalone/ancillaries/init_rivers_props_mod.F90
-IF ( l_rivers ) THEN
-  ALLOCATE(rivers_data%global_land_index(atmos_number_of_landpts))
-ELSE
-  ALLOCATE(rivers_data%global_land_index(1))
-END IF
-rivers_data%global_land_index(:) = imdi
+                           water_resources_data)
 
 !Associate the JULES pointer types to the data types.
 !Doing this here reflects when the same is done in standalone JULES
@@ -272,7 +245,6 @@ CALL lake_assoc(lake_vars, lake_data)
 CALL chemvars_assoc(chemvars, chemvars_data)
 CALL water_resources_assoc(water_resources, water_resources_data)
 CALL rivers_assoc(rivers, rivers_data)
-CALL wtrac_jls_assoc(wtrac_jls, wtrac_jls_data)
 
 ! Begin initialising arrays from:
 
@@ -303,9 +275,6 @@ IF ( l_triffid .OR. l_phenol ) THEN
   retran_r(:)      = retran_r_io(1:npft)
   harvest_ht(:)    = harvest_ht_io(1:npft)
 END IF
-
-!jules_red
-CALL veg3_parm_init(land_pts,nsurft,nnpft,npft,nmasst)
 
 ! jules_irrig
 IF ( l_irrig_dmd ) THEN
@@ -374,8 +343,9 @@ IF ( l_deposition ) THEN
 
 END IF  ! l_deposition
 
-! Check the jules_soil namelist for consistency
-CALL check_jules_soil()
+! Now we have access to sm_levels from the dump, we can check the JULES_SOIL
+! namelist for consistency
+CALL check_jules_soil(sm_levels)
 
 
 ! jules_surf_param
@@ -405,7 +375,6 @@ z0_soil = z0_nvg(soil - npft)
 
 ! Now that the arrays have been allocated and filled we can check them
 CALL check_jules_nvegparm(nnvg,npft)
-CALL check_jules_red_parms()
 CALL check_compatible_options()
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)

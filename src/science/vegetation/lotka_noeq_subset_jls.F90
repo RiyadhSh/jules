@@ -324,11 +324,6 @@ DO t = 1,trif_pts
       END IF
     END IF
 
-    IF (frac(l,o) < frac_min) THEN
-      dfrac(l,o) = dfrac(l,o) + (frac_min - frac(l,o))
-      frac(l,o)  = frac_min
-    END IF
-
     spacemax(l) = spacemax(l) - frac(l,o) + frac_min
 
   END DO

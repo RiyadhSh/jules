@@ -93,8 +93,7 @@ ELSE
     CALL log_fatal("init_land_frac", "No file name provided")
 
   CALL fill_variables_from_file(FILE, [ 'land_fraction' ],                     &
-                                      [  land_frac_name ],                     &
-                                      is_climatology = [ .FALSE. ])
+                                      [  land_frac_name   ])
 END IF
 
 ! For now, make sure that land fraction is either 1.0 or 0.0 - until JULES

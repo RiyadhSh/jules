@@ -306,10 +306,8 @@ REAL(KIND=real_jlslsm) ::                                                      &
     ! Volumetric soil moisture content at field capacity.
   smvc_one_bar(land_pts,sm_levels),                                            &
     ! Volumetric soil moisture content at one bar pressure.
-  vmc_sm_levs(land_pts,sm_levels),                                             &
+  vmc_sm_levs(land_pts,sm_levels)
     ! Volumetric soil moisture content.
-  f_root_pft_tmp(sm_levels)
-    ! Temporary array for fraction of roots in each soil layer.
 
 ! Dr Hook variables
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
@@ -363,8 +361,7 @@ IF ( .NOT. l_soil_N ) l_extract_n = .FALSE.
 ! normalisation. This is not currently an issue, just beware in future!
 !-----------------------------------------------------------------------------
 DO n = 1,npft
-  CALL root_frac( n, nz_soilc, dz_soilc(:), rootd_ft(n), f_root_pft_tmp )
-  f_root_pft(n,:) = f_root_pft_tmp(:)
+  CALL root_frac( n, nz_soilc, dz_soilc(:), rootd_ft(n), f_root_pft(n,:) )
 END DO
 
 !-----------------------------------------------------------------------------

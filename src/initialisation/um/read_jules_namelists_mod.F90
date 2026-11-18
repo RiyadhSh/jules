@@ -285,36 +285,6 @@ END SUBROUTINE read_jules_pftparm
 
 ! *********************************************************************
 
-SUBROUTINE read_jules_red (unitnumber)
-
-! Description:
-!  Read the JULES_RED namelist
-
-USE red_io, ONLY:                                                              &
-  print_nlist_jules_red, read_nml_jules_red
-
-IMPLICIT NONE
-
-! Subroutine arguments
-INTEGER, INTENT(IN) :: unitnumber
-
-REAL(KIND=jprb) :: zhook_handle
-CHARACTER(LEN=*), PARAMETER :: RoutineName='READ_JULES_RED'
-
-IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
-
-CALL read_nml_jules_red(unitnumber)
-
-IF (PrintStatus >= PrStatus_Oper .AND. mype == 0) THEN
-  CALL print_nlist_jules_red()
-END IF
-
-IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
-RETURN
-END SUBROUTINE read_jules_red
-
-! *********************************************************************
-
 SUBROUTINE read_jules_radiation (unitnumber)
 
 ! Description:
@@ -738,8 +708,6 @@ USE jules_water_resources_mod,  ONLY:                                          &
     print_nlist_jules_water_resources, check_jules_water_resources,            &
     read_nml_jules_water_resources
 
-USE jules_hydrology_mod, ONLY: l_top
-
 IMPLICIT NONE
 
 ! Subroutine arguments
@@ -754,7 +722,7 @@ CALL read_nml_jules_water_resources(unitnumber)
 IF (PrintStatus >= PrStatus_Oper .AND. mype == 0) THEN
   CALL print_nlist_jules_water_resources()
 END IF
-CALL check_jules_water_resources( l_top )
+CALL check_jules_water_resources()
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

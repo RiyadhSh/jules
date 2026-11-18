@@ -4,14 +4,21 @@
 
 # Family for all Linux jobs
     [[LINUX]]
-        platform = localhost
+        [[[job]]]
+            batch system = background
 
 # Family for extract jobs
     [[EXTRACT]]
     script = "rose task-run --verbose --define='args=--ignore-lock'"
+        [[[remote]]]
+            {% if REMOTE_JASMIN %}
+                host = localhost
+            {% else %}
+                host = {{ ROSE_ORIG_HOST }}
+            {% endif %}
         [[[environment]]]
             HOST_SOURCE_JULES_BASE = {{ HOST_SOURCE_JULES_BASE }}
-{%- if SITE == 'vm' or SITE == 'cehwl1' or SITE == 'jasmin' %}
+{%- if SITE == 'vm' or SITE == 'cehwl1' or SITE == 'jasmin' or (TRUSTZONE is defined and TRUSTZONE == 'collaboration') %}
             HOST_SOURCE_JULES_BASE = {{ HOST_SOURCE_JULES_BASE|replace(ROSE_ORIG_HOST+":","",1) }}
 {% elif SITE in ('bom', 'nci') %}
             HOST_SOURCE_JULES_BASE = {{ SOURCE_JULES_BASE }}
@@ -23,7 +30,7 @@
             {% elif SITE in ('bom', 'nci', 'vm') %}
                 JULES_SOURCE = {{ SOURCE_JULES }}
             {% else %}
-                JULES_SOURCE = {{HOST_SOURCE_JULES}}
+                JULES_SOURCE = {{ HOST_SOURCE_JULES }}
             {% endif %}
             JULES_NETCDF = netcdf
             JULES_FFLAGS_EXTRA  =
@@ -33,6 +40,8 @@
 # Accepts the environment variable BUILD_HOST, which is used as an argument to rose host-select
     [[BUILD]]
         inherit = None, EXTRACT
+        [[[remote]]]
+            host = $(rose host-select ${BUILD_HOST})
 
     [[EXTRACT_AND_BUILD]]
         inherit = None, EXTRACT
@@ -50,6 +59,8 @@
 # Accepts the environment variable BUILD_HOST, which is used as an argument to rose host-select
     [[BUILD_RIVER]]
         inherit = None, EXTRACT_RIVER
+        [[[remote]]]
+            host = $(rose host-select ${BUILD_HOST})
 
     [[EXTRACT_AND_BUILD_RIVER]]
         inherit = None, EXTRACT_RIVER
@@ -91,7 +102,6 @@
     [[ERAINT]]
     [[IMOGEN]]
     [[KGO_CHECK]]
-    [[SURF]]
 
 
 ###############################################################################

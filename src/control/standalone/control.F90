@@ -15,7 +15,6 @@ SUBROUTINE control (                                                           &
     !veg3_field, &
     chemvars,                                                                  &
     rivers, water_resources,                                                   &
-    wtrac_jls,                                                                 &
     progs_cbl, work_cbl                                                        &
     )
 
@@ -46,7 +45,6 @@ USE jules_rivers_mod, ONLY: rivers_type
 ! USE veg3_field_mod, ONLY: in_dev
 USE jules_chemvars_mod, ONLY: chemvars_type
 USE water_resources_vars_mod, ONLY: water_resources_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_type
 
 ! In general CABLE utilizes a required subset of tbe JULES types, however;
 USE progs_cbl_vars_mod, ONLY: progs_cbl_vars_type ! CABLE requires extra progs
@@ -105,8 +103,6 @@ USE water_constants_mod,      ONLY: rho_water
 
 USE zenith_mod,               ONLY: zenith
 
-USE jules_water_tracers_mod,  ONLY: l_wtrac_jls
-
 ! Used for atmospheric deposition
 USE jules_deposition_mod,     ONLY: l_deposition
 USE conversions_mod,          ONLY: pi_over_180
@@ -152,7 +148,6 @@ TYPE(rivers_type), INTENT(IN OUT) :: rivers
 !TYPE(in_dev), INTENT(IN OUT) :: veg3_field
 TYPE(chemvars_type), INTENT(IN OUT) :: chemvars
 TYPE(water_resources_type), INTENT(IN OUT) :: water_resources
-TYPE(jls_wtrac_type), INTENT(IN OUT) :: wtrac_jls
 
 !CABLE TYPES containing field data (IN OUT)
 TYPE(progs_cbl_vars_type), INTENT(IN OUT) :: progs_cbl
@@ -259,17 +254,15 @@ REAL ::                                                                        &
     ! Exchange coefficients for momentum on P-grid
   epot_surft(land_pts,nsurft),                                                 &
     ! Local EPOT for land tiles.
-  fracaero_t(land_pts,nsurft),                                                 &
-    !Total fractions of surface moisture flux with only aerodynamic resistance
-  fracaero_s(land_pts,nsurft),                                                 &
-    !Fractions of surface moisture flux with only aerodynamic resistance
-    !from the frozen part of the tile only
+  fraca(land_pts,nsurft),                                                      &
+    !Fraction of surface moisture flux with only aerodynamic resistance for
+    !snow-free land tiles.
   resfs(land_pts,nsurft),                                                      &
     ! Combined soil, stomatal and aerodynamic resistance factor for fraction
-    !(1-fracaero_t) of snow-free land tiles.
+    !(1-FRACA) of snow-free land tiles.
   resft(land_pts,nsurft),                                                      &
-    !Total resistance factor, fracaero_t+(1-fracaero_t)*RESFS for snow-free
-    !land, 1 for snow.
+    !Total resistance factor. FRACA+(1-FRACA)*RESFS for snow-free land, 1
+    !for snow.
   rhokh(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end),                  &
     ! Grid-box surface exchange coefficients
   rhokh_surft(land_pts,nsurft),                                                &
@@ -579,7 +572,7 @@ END IF ! l_flake_model
 CALL surf_couple_explicit(                                                     &
   !Misc INTENT(IN)
   bq_1, bt_1, photosynth_act_rad,                                              &
-  curr_day_number, current_time%TIME,                                          &
+  curr_day_number,                                                             &
   !Diagnostics, INTENT(INOUT)
   sf_diag,                                                                     &
   !Fluxes INTENT(OUT)
@@ -590,8 +583,7 @@ CALL surf_couple_explicit(                                                     &
   cdr10m,                                                                      &
   alpha1, alpha1_sea, alpha1_sice, ashtf_prime, ashtf_prime_sea,               &
   ashtf_prime_surft, epot_surft,                                               &
-  fracaero_t, fracaero_s, resfs, resft,                                        &
-  rhokh, rhokh_surft, rhokh_sice, rhokh_sea_ij,                                &
+  fraca, resfs, resft, rhokh, rhokh_surft, rhokh_sice, rhokh_sea_ij,           &
   dtstar_ij_surft, dtstar_ij_sea, dtstar_ij_sice,                              &
   z0hssi, z0mssi, chr1p5m, chr1p5m_sice, canhc_surft,                          &
   wt_ext_surft, flake,                                                         &
@@ -632,15 +624,13 @@ CALL surf_couple_explicit(                                                     &
   !veg3_parm,  &
   !veg3_field, &
   chemvars,                                                                    &
-  wtrac_jls,                                                                   &
   progs_cbl, work_cbl                                                          &
   )
 
 !  Items that are only passed from explicit to implicit.
 !  Cross-check for exlusive use in the UM too
 !  rhokm_1, cdr10m, alpha1, alpha1_sice, ashtf_prime, ashtf_prime_surft,
-!  epot_surft, fracaero_t, fracaero_s,
-!  rhokh, rhokh_surft, rhokh_sice, dtstar_ij_surft,
+!  epot_surft, fraca, rhokh, rhokh_surft, rhokh_sice, dtstar_ij_surft,
 !  dtstar_ij_sea, dtstar_ij_sice, z0hssi,
 !  z0mssi, chr1p5m, chr1p5m_sice, canhc_surft, wt_ext_surft, flake
 
@@ -725,9 +715,9 @@ CALL surf_couple_implicit(                                                     &
   l_correct, u_1_ij, v_1_ij,                                                   &
   !Misc INTENT(IN) Many of these simply come out of explicit and into here.
   rhokm_1, rhokm_1, r_gamma1, r_gamma2, alpha1, alpha1_sea, alpha1_sice,       &
-  ashtf_prime, ashtf_prime_sea, ashtf_prime_surft, du, dv, fracaero_t,         &
-  fracaero_s, resfs, resft, rhokh, rhokh_surft, rhokh_sice, rhokh_sea_ij,      &
-  z0hssi, z0mssi, chr1p5m, chr1p5m_sice, canhc_surft, flake, tile_frac,        &
+  ashtf_prime, ashtf_prime_sea, ashtf_prime_surft, du, dv, fraca, resfs,       &
+  resft, rhokh, rhokh_surft, rhokh_sice, rhokh_sea_ij, z0hssi, z0mssi,         &
+  chr1p5m, chr1p5m_sice, canhc_surft, flake, tile_frac,                        &
   wt_ext_surft, cdr10m, cdr10m, r_gamma,                                       &
   !Diagnostics, INTENT(INOUT)
   sf_diag,                                                                     &
@@ -745,8 +735,6 @@ CALL surf_couple_implicit(                                                     &
   nsurft, land_pts, ssi_pts, sice_pts, sea_pts, ainfo%surft_pts,               &
   !JULES coastal module
   flandg, coast%tstar_land_ij, coast%tstar_sice_ij,                            &
-  ! Water tracer switch (IN)
-  l_wtrac_jls,                                                                 &
   !JULES switches module
   l_co2_interactive, l_mr_physics,                                             &
   aerotype%co2_3d_ij,                                                          &
@@ -763,7 +751,6 @@ CALL surf_couple_implicit(                                                     &
   !veg3_parm, &
   !veg3_field, &
   !chemvars, &
-  wtrac_jls,                                                                   &
   progs_cbl, work_cbl                                                          &
   )
 
@@ -791,9 +778,8 @@ CALL surf_couple_implicit(                                                     &
   l_correct,  u_1_ij, v_1_ij,                                                  &
   !Misc INTENT(IN) Many of these simply come out of explicit and into here.
   rhokm_1, rhokm_1, r_gamma1, r_gamma2, alpha1, alpha1_sea, alpha1_sice,       &
-  ashtf_prime, ashtf_prime_sea, ashtf_prime_surft, du, dv,                     &
-  fracaero_t, fracaero_s, resfs, resft,                                        &
-  rhokh, rhokh_surft, rhokh_sice, rhokh_sea_ij, z0hssi, z0mssi,                &
+  ashtf_prime, ashtf_prime_sea, ashtf_prime_surft, du, dv, fraca, resfs,       &
+  resft, rhokh, rhokh_surft, rhokh_sice, rhokh_sea_ij, z0hssi, z0mssi,         &
   chr1p5m, chr1p5m_sice, canhc_surft, flake, tile_frac,                        &
   wt_ext_surft, cdr10m, cdr10m, r_gamma,                                       &
   !Diagnostics, INTENT(INOUT)
@@ -813,8 +799,6 @@ CALL surf_couple_implicit(                                                     &
   !JULES prognostics module
   !JULES coastal module
   flandg, coast%tstar_land_ij, coast%tstar_sice_ij,                            &
-  ! Water tracer switch (IN)
-  l_wtrac_jls,                                                                 &
   !JULES switches module
   l_co2_interactive, l_mr_physics,                                             &
   aerotype%co2_3d_ij,                                                          &
@@ -831,7 +815,6 @@ CALL surf_couple_implicit(                                                     &
   !veg3_parm, &
   !veg3_field, &
   !chemvars, &
-  wtrac_jls,                                                                   &
   progs_cbl, work_cbl                                                          &
   )
 
@@ -907,7 +890,6 @@ CALL surf_couple_extra(                                                        &
   !veg3_parm, &
   !veg3_field, &
   chemvars, water_resources,                                                   &
-  wtrac_jls,                                                                   &
   work_cbl                                                                     &
   )
 

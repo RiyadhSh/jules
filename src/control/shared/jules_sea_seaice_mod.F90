@@ -120,10 +120,6 @@ INTEGER ::                                                                     &
       ! Option to impose a special treatment of drag at high wind speeds.
       ! Set to the null option by default.
 
-! The following setting is needed for setting up (UM-JULES) pseudo level IDs
-! for water tracer fields on multiple sea ice categories.  It is not used
-! anywhere else in the code.
-INTEGER, PARAMETER :: nice_max=25 ! maximum number of sea ice categories
 
 !-----------------------------------------------------------------------------
 ! Parameters

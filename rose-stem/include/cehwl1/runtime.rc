@@ -33,16 +33,13 @@
 ###############################################################################
     [[CEH_COMPUTE]]
         inherit = None, LINUX, COMPUTE
-        platform = localhost
+        [[[remote]]]
+            host = {{ ROSE_ORIG_HOST }}
         [[[environment]]]
             LOOBOS_INSTALL_DIR = /data/rosestem/loobos/
             GSWP2_INSTALL_DIR = /data/rosestem/gswp2
             ERAINT_INSTALL_DIR = /data/rosestem/eraint/
             IMOGEN_INSTALL_DIR = /data/rosestem/imogen/
-
-    [[remote_init_ceh]]
-        inherit = CEH_COMPUTE
-        script = true
 
     [[CEH_LOOBOS]]
         inherit = None, CEH_COMPUTE
@@ -177,13 +174,6 @@
             ROSE_TASK_APP = loobos_jules_es_1p0_deposition
             ROSE_APP_OPT_CONF_KEYS = deposition-dd2
 
-    [[loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = LOOBOS, CEH_LOOBOS
-        [[[environment]]]
-            DUMP_FILE = ../loobos_jules_es_1p0_deposition_spinup/output/loobos_jules_es_1p0_deposition_spinup.dump.19971231.82800.nc
-            ROSE_TASK_APP = loobos_jules_es_1p0_deposition
-            ROSE_APP_OPT_CONF_KEYS = deposition-dd2h2
-
     [[loobos_crops]]
         inherit = LOOBOS, CEH_LOOBOS
 
@@ -264,20 +254,17 @@
             DUMP_FILE = ../gswp2_trip_spinup/output/gswp2_trip_spinup.dump.19820701.10800.nc
 
     [[gswp2_rivers]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = GSWP2, CEH_GSWP2
 
     [[gswp2_rivers_spinup]]
         inherit = GSWP2, CEH_GSWP2
 
     [[gswp2_rivers_restart]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = GSWP2, CEH_GSWP2
         [[[environment]]]
             DUMP_FILE = ../gswp2_rivers_spinup/output/gswp2_rivers_spinup.dump.19820701.10800.nc
 
     [[gswp2_rivers_rivers-only]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = GSWP2, CEH_GSWP2_RIVERS_ONLY
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers
@@ -293,20 +280,17 @@
             ROSE_APP_OPT_CONF_KEYS = overbank_hypso
 
     [[gswp2_trip]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = GSWP2, CEH_GSWP2
 
     [[gswp2_trip_spinup]]
         inherit = GSWP2, CEH_GSWP2
 
     [[gswp2_trip_restart]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = GSWP2, CEH_GSWP2
         [[[environment]]]
             DUMP_FILE = ../gswp2_trip_spinup/output/gswp2_trip_spinup.dump.19820701.10800.nc
 
     [[gswp2_trip_rivers-only]]
-	pre-script = gen_gswp2_rivers_props_trip_file
         inherit = GSWP2, CEH_GSWP2_RIVERS_ONLY
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip
@@ -373,28 +357,6 @@
     [[imogen_layeredc]]
         inherit = IMOGEN, CEH_IMOGEN
         [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_co2conc]]
-        inherit = IMOGEN, CEH_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = co2conc
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_dtempg]]
-        inherit = IMOGEN, CEH_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = dtempg
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_ch4]]
-        inherit = IMOGEN, CEH_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = ch4
             DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
 
 ###############################################################################
@@ -514,11 +476,6 @@
         inherit = KGO_CHECK, CEH_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../loobos_jules_es_1p0_deposition_dd2/output
-
-    [[nccmp_loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = KGO_CHECK, CEH_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../loobos_jules_es_1p0_deposition_dd2h2/output
 
     [[nccmp_loobos_fire]]
         inherit = KGO_CHECK, CEH_NETCDF_COMPARISON
@@ -690,21 +647,6 @@
         [[[environment]]]
             OUTPUT_DIR = ../imogen_layeredc/output
 
-    [[nccmp_imogen_layeredc_co2conc]]
-        inherit = KGO_CHECK, CEH_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_co2conc/output
-
-    [[nccmp_imogen_layeredc_dtempg]]
-        inherit = KGO_CHECK, CEH_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_dtempg/output
-
-    [[nccmp_imogen_layeredc_ch4]]
-        inherit = KGO_CHECK, CEH_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_ch4/output
-
 ###############################################################################
 ## Housekeeping jobs
 ###############################################################################
@@ -852,11 +794,6 @@
         inherit = HOUSEKEEPING, LINUX
         [[[environment]]]
             DIR1 = ../loobos_jules_es_1p0_deposition_dd2
-
-    [[housekeep_loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = HOUSEKEEPING, LINUX
-        [[[environment]]]
-            DIR1 = ../loobos_jules_es_1p0_deposition_dd2h2
 
     [[housekeep_loobos_crops]]
         inherit = HOUSEKEEPING, LINUX
@@ -1047,19 +984,3 @@
         inherit = HOUSEKEEPING, LINUX
         [[[environment]]]
             DIR1 = ../imogen_layeredc
-
-    [[housekeep_imogen_layeredc_co2conc]]
-        inherit = HOUSEKEEPING, LINUX
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_co2conc
-
-    [[housekeep_imogen_layeredc_dtempg]]
-        inherit = HOUSEKEEPING, LINUX
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_dtempg
-
-    [[housekeep_imogen_layeredc_ch4]]
-        inherit = HOUSEKEEPING, LINUX
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_ch4
-

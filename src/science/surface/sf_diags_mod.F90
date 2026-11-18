@@ -76,8 +76,7 @@ TYPE :: strnewsfdiag
   LOGICAL :: l_ch_ssi        = .FALSE. ! 541 ch sea and sea ice
   LOGICAL :: l_lh_land       = .FALSE. ! 543 latent heat land
   LOGICAL :: l_lh_ssi        = .FALSE. ! 544 latent heat sea and sea ice
-  LOGICAL :: l_snice         = .FALSE. ! 578-583 (section 8) snow diags
-  LOGICAL :: l_blendht       = .FALSE. ! 580 (section 3) blending height
+  LOGICAL :: l_snice         = .FALSE. ! 578-583 snow diags
   LOGICAL :: l_resp_p        = .FALSE. ! 663 plant respiration
   LOGICAL :: l_npp_pft       = .FALSE. ! 691 npp on pfts
   LOGICAL :: l_resp_p_pft    = .FALSE. ! 692 plant respiration
@@ -189,7 +188,7 @@ TYPE :: strnewsfdiag
   !                    540      Transpiration through stom (kg/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: resfs_stom(:,:)
   !                    Combined stomatal and aerodynamic
-  !                    resistance factor for fraction 1-fracaero.
+  !                    resistance factor for fraction 1-FRACA.
   REAL(KIND=real_jlslsm), ALLOCATABLE :: ch_ssi(:,:)
   !                    541       Sea and sea ice drag coefficient (heat)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: lh_land(:)
@@ -207,19 +206,17 @@ TYPE :: strnewsfdiag
   !                    579      Total internal melt rate of snowpack
   !                             (kg/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: snice_freez_surft(:,:)
-  !                    580 (section 8) Total internal refreezing rate in
+  !                    580      Total internal refreezing rate in
   !                             snowpack (kg/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: snice_runoff_surft(:,:)
-  !                    581 (section 8) Net rate of liquid leaving snowpack
+  !                    581      Net rate of liquid leaving snowpack
   !                             (kg/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: snice_sicerate_surft(:,:)
-  !                    582 (section 8) Rate of change of solid mass in
+  !                    582      Rate of change of solid mass in
   !                             snowpack (kg/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: snice_sliqrate_surft(:,:)
-  !                    583 (section 8) Rate of change of liquid mass
+  !                    583      Rate of change of liquid mass
   !                             snowpack (kg/m2/s)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: blendht(:,:)
-  !                    580 (section 3) blending height
   REAL(KIND=real_jlslsm), ALLOCATABLE :: resp_p(:)
   !                    663      Plant respiration (kg/m2/s)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: npp_pft(:,:)
@@ -249,7 +246,7 @@ SUBROUTINE alloc_sf_expl(sf_diag, l_apply_diag, land_points)
 USE atm_fields_bounds_mod, ONLY: udims, vdims, pdims, tdims, pdims_s
 USE jules_soil_mod, ONLY: sm_levels
 USE jules_surface_types_mod, ONLY: npft
-USE model_domain_mod, ONLY: model_type, mt_single_column, mt_lfric
+USE model_domain_mod, ONLY: model_type, mt_single_column
 USE nlsizes_namelist_mod, ONLY: ntiles
 USE stash_array_mod, ONLY: sf
 USE yomhook, ONLY: lhook, dr_hook
@@ -299,7 +296,6 @@ CASE DEFAULT
                            sf(570,3) .OR. sf(571,3) .OR. sf(572,3) .OR.        &
                            sf(573,3) .OR. sf(574,3) .OR. sf(575,3) .OR.        &
                            sf(576,3) .OR. sf(577,3)))
-  sf_diag%l_blendht     = (l_apply_diag .AND. sf(580,3))
   sf_diag%st1p5         = (l_apply_diag .AND. sf_diag%sq_t1p5)
   sf_diag%sq1p5         = (l_apply_diag .AND. sf_diag%sq_t1p5)
   sf_diag%l_rib_surft   = l_apply_diag .AND. (sf(294,3) .OR. sf(339,3))
@@ -346,10 +342,6 @@ CASE (mt_single_column)
   sf_diag%sq1p5   = .TRUE.
   sf_diag%l_resp_p = .TRUE.
 
-CASE (mt_lfric)
-
-  ! Requests are configured in LFRic
-
 END SELECT
 
 ! allocate space for the diagnostic if requested
@@ -364,13 +356,6 @@ IF (sf_diag%l_z0m_gb) THEN
        pdims%i_start:pdims%i_end,pdims%j_start:pdims%j_end))
 ELSE
   ALLOCATE(sf_diag%z0m_gb(1,1))
-END IF
-IF (sf_diag%l_blendht) THEN
-  ALLOCATE(sf_diag%blendht(                                                    &
-       pdims%i_start:pdims%i_end,pdims%j_start:pdims%j_end))
-  sf_diag%blendht(:,:) = 0.0
-ELSE
-  ALLOCATE(sf_diag%blendht(1,1))
 END IF
 IF (sf_diag%l_ra) THEN
   ALLOCATE(sf_diag%ra(land_points))
@@ -607,7 +592,6 @@ DEALLOCATE(sf_diag%gpp)
 DEALLOCATE(sf_diag%fme)
 DEALLOCATE(sf_diag%wt_ext)
 DEALLOCATE(sf_diag%ra)
-DEALLOCATE(sf_diag%blendht)
 DEALLOCATE(sf_diag%z0m_gb)
 DEALLOCATE(sf_diag%z0h_eff_gb)
 
@@ -622,7 +606,7 @@ SUBROUTINE alloc_sf_imp(sf_diag, l_apply_diag, land_points)
 USE atm_fields_bounds_mod, ONLY: udims, vdims, pdims, tdims
 USE jules_sea_seaice_mod, ONLY: nice, nice_use
 USE jules_surface_mod, ONLY: IScrnTDiag, IP_ScrnDecpl2, IP_ScrnDecpl3
-USE model_domain_mod, ONLY: model_type, mt_single_column, mt_lfric
+USE model_domain_mod, ONLY: model_type, mt_single_column
 USE nlsizes_namelist_mod, ONLY: ntiles
 USE stash_array_mod, ONLY: sf
 USE yomhook, ONLY: lhook, dr_hook
@@ -698,10 +682,6 @@ CASE (mt_single_column)
   sf_diag%smlt    = .TRUE.        !    "      snomlt_surf_htf
   sf_diag%l_lw_surft = .TRUE.     !    "      lw_up_surft & lw_down_surft
   sf_diag%l_lw_up_sice_weighted_cat = .TRUE.  ! " lw_up_sice_weighted_cat
-
-CASE (mt_lfric)
-
-  ! Requests are configured in LFRic
 
 END SELECT
 

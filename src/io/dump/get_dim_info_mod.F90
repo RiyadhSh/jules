@@ -1,3 +1,4 @@
+#if !defined(UM_JULES)
 ! *****************************COPYRIGHT**************************************
 ! (C) Crown copyright Met Office. All rights reserved.
 ! For further details please refer to the file COPYRIGHT.txt
@@ -13,7 +14,6 @@ CONTAINS
 SUBROUTINE get_dim_info( l_reading, identifier, ndims, dim_sizes, dim_names,   &
                          l_read_from_dump )
 
-#if !defined(RIVERS_ONLY)
 !-----------------------------------------------------------------------------
 ! Description:
 !   Given a variable's identifier, return the number, sizes and names of its
@@ -30,6 +30,9 @@ USE ancil_info, ONLY:                                                          &
 
 USE imogen_constants, ONLY:                                                    &
   n_olevs, nfarray
+
+USE jules_rivers_mod, ONLY:                                                    &
+  np_rivers
 
 USE jules_soil_mod, ONLY:                                                      &
   sm_levels, ns_deep
@@ -58,6 +61,7 @@ USE model_interface_mod, ONLY: bedrock_dim_name => bedrock_dim_name_out,       &
                                nfarray_dim_name => nfarray_dim_name_out,       &
                                nolevs_dim_name => nolevs_dim_name_out,         &
                                type_dim_name => type_dim_name_out,             &
+                               p_rivers_dim_name => p_rivers_dim_name_out,     &
                                tile_dim_name => tile_dim_name_out,             &
                                seed_dim_name => seed_dim_name_out,             &
                                snow_dim_name => snow_dim_name_out,             &
@@ -262,6 +266,14 @@ CASE ( 'seed_rain' )
   dim_names(1) = seed_dim_name
   dim_sizes(1) = SIZE(progs_data%seed_rain)
 
+  ! River routing variables.
+CASE ( 'rivers_lat_rp', 'rivers_lon_rp', 'rivers_x_coord_rp',                  &
+       'rivers_y_coord_rp', 'rivers_sto_rp', 'rfm_surfstore_rp',               &
+       'rfm_substore_rp', 'rfm_flowin_rp', 'rfm_bflowin_rp' )
+  ndims = 1
+  dim_names(1) = p_rivers_dim_name
+  dim_sizes(1) = np_rivers
+
   !---------------------------------------------------------------------------
   ! Ancillary variables.
   ! If this is a call from write_dump (l_reading=F) or a call from
@@ -442,7 +454,7 @@ CASE ( 'irrtiles' )
   END IF
 
   ! Water resource properties ancil namelist
-CASE ( 'conv_loss_frac', 'sfc_water_frac' )
+CASE ( 'conveyance_loss', 'irrig_eff', 'sfc_water_frac' )
   IF ( need_dims( l_reading, ancil_dump_read%water_resources_props ) ) THEN
     ndims = 1
     dim_names(1) = land_dim_name
@@ -469,108 +481,6 @@ CASE ( 'lake_depth_gb' )
   dim_sizes(1) = global_land_pts
 
 CASE DEFAULT
-  ! River routing variables and calls log_fatal if identifier not found
-  CALL get_dim_info_rivers( l_reading, identifier, ndims, dim_sizes,           &
-     dim_names, l_read_from_dump )
-
-END SELECT
-
-RETURN
-
-END SUBROUTINE get_dim_info
-
-!##############################################################################
-
-SUBROUTINE get_dim_info_rivers( l_reading, identifier, ndims, dim_sizes,       &
-   dim_names, l_read_from_dump )
-#endif
-!-----------------------------------------------------------------------------
-! Description:
-!   Given a River routing variable's identifier, return the number, sizes and
-!   names of its dimensions. Used when reading or writing a dump file.
-!
-! Code Owner: Please refer to ModuleLeaders.txt
-! This file belongs in TECHNICAL
-!-----------------------------------------------------------------------------
-
-USE jules_rivers_mod, ONLY:                                                    &
-  np_rivers
-
-USE string_utils_mod, ONLY:                                                    &
-  to_string
-
-USE logging_mod, ONLY: log_fatal
-
-USE model_interface_mod, ONLY: p_rivers_dim_name => p_rivers_dim_name_out
-
-IMPLICIT NONE
-
-!-----------------------------------------------------------------------------
-! Arguments with INTENT(IN).
-!-----------------------------------------------------------------------------
-LOGICAL, INTENT(IN) ::                                                         &
-  l_reading
-    ! Flag indicating where this routine has been called from.
-    ! T means the call is from read_dump.
-    ! F means the call is from write_dump.
-
-CHARACTER(LEN=*), INTENT(IN) ::                                                &
-  identifier  ! The identifier.
-
-!-----------------------------------------------------------------------------
-! Arguments with INTENT(OUT).
-!-----------------------------------------------------------------------------
-INTEGER, INTENT(OUT) ::                                                        &
-  ndims,                                                                       &
-    ! Number of dimensions for the variable.
-  dim_sizes(:)
-    ! Size of each dimension.
-
-CHARACTER(LEN=*), INTENT(OUT) ::                                               &
-  dim_names(:)
-    ! Name of each dimension.
-
-!-----------------------------------------------------------------------------
-! Optional arguments.
-!-----------------------------------------------------------------------------
-LOGICAL, INTENT(OUT), OPTIONAL ::                                              &
-  l_read_from_dump
-    ! Flag passed to read_dump to indicate that a variable should be read from
-    ! the dump file. This is TRUE for most variables, FALSE only for ancillary
-    ! variables that were read from ancillary files (not the dump).
-
-!-----------------------------------------------------------------------------
-! If this is call from read_dump, check we have the optional argument.
-! If it is present, set the default to TRUE.
-!-----------------------------------------------------------------------------
-IF ( l_reading ) THEN
-  IF ( .NOT. PRESENT(l_read_from_dump) ) THEN
-    CALL log_fatal("get_dim_info",                                             &
-                   "l_read_from_dump must be present when called from " //     &
-                   "read_dump.")
-  ELSE
-    l_read_from_dump = .TRUE.
-  END IF
-END IF
-
-!-----------------------------------------------------------------------------
-
-SELECT CASE ( identifier )
-
-  ! River routing variables.
-CASE ( 'rivers_lat_rp', 'rivers_lon_rp', 'rivers_x_coord_rp',                  &
-       'rivers_y_coord_rp', 'rivers_sto_rp', 'rfm_surfstore_rp',               &
-       'rfm_substore_rp', 'rfm_flowin_rp', 'rfm_bflowin_rp',                   &
-       'rivers_outflow_rp', 'outflow_per_river',                               &
-       'flood_flow', 'flood_flow_prev', 'flood_storage', 'flood_storage_prev', &
-       'river_channel_flow', 'river_channel_storage', 'river_depth_prev',      &
-       'river_flow_prev'                                                       &
-      )
-  ndims = 1
-  dim_names(1) = p_rivers_dim_name
-  dim_sizes(1) = np_rivers
-
-CASE DEFAULT
   CALL log_fatal("get_dim_info",                                               &
                  "Unrecognised variable: " // TRIM( identifier ) //            &
                  " l_reading=" // to_string(l_reading) )
@@ -579,11 +489,7 @@ END SELECT
 
 RETURN
 
-#if !defined(RIVERS_ONLY)
-END SUBROUTINE get_dim_info_rivers
-#else
 END SUBROUTINE get_dim_info
-#endif
 
 !#############################################################################
 !#############################################################################
@@ -634,3 +540,4 @@ END IF
 
 END FUNCTION need_dims
 END MODULE get_dim_info_mod
+#endif

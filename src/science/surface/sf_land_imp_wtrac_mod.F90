@@ -454,6 +454,9 @@ END DO !sm_levels
 
 ! Now that all the individual surface fluxes are finalised,
 ! calculate GBM water tracer surface flux and the increment
+! (Note, in sf_evap, sublimation is removed from the field fqw_surft, so
+!  not adding water tracer sublimation into the updated version of
+!  fqw_surft_wtrac.)
 
 DO n = 1,nsurft
 !$OMP DO SCHEDULE(STATIC)
@@ -464,13 +467,14 @@ DO n = 1,nsurft
 
     fqw_surft_wtrac_old  = fqw_surft_wtrac(l,n)
     fqw_surft_wtrac(l,n) = ecan_surft_wtrac(l,n) + esoil_surft_wtrac(l,n)      &
-                         + elake_surft_wtrac(l,n) + ei_surft_wtrac(l,n)
+                             + elake_surft_wtrac(l,n)
 
     fqw_1_wtrac(i,j) = fqw_1_wtrac(i,j) + flandg(i,j) * tile_frac(l,n)         &
-                              * fqw_surft_wtrac(l,n)
+                              * (fqw_surft_wtrac(l,n)+ ei_surft_wtrac(l,n))
 
     dfqw_wtrac(i,j)  = dfqw_wtrac(i,j) + flandg(i,j) * tile_frac(l,n) *        &
-                           ( fqw_surft_wtrac(l,n) - fqw_surft_wtrac_old )
+                           ( fqw_surft_wtrac(l,n) + ei_surft_wtrac(l,n)        &
+                                 - fqw_surft_wtrac_old )
 
     ei_wtrac(i,j)   = ei_wtrac(i,j)   + tile_frac(l,n) * ei_surft_wtrac(l,n)
     ecan_wtrac(i,j) = ecan_wtrac(i,j) + tile_frac(l,n) * ecan_surft_wtrac(l,n)

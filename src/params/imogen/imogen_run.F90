@@ -46,6 +46,9 @@ REAL ::                                                                        &
 
 
 CHARACTER(LEN=max_file_name_len) ::                                            &
+  file_points_order = '',                                                      &
+              ! File containing the mapping of points in the
+              ! IMOGEN grid to the JULES grid
   file_scen_emits = '',                                                        &
               ! If used, file containing CO2 emissions in Gt C
   file_non_co2_radf = '',                                                      &
@@ -58,10 +61,10 @@ CHARACTER(LEN=max_file_name_len) ::                                            &
 
 
 LOGICAL ::                                                                     &
-  l_change_metdata = .TRUE.,                                                   &
-              ! If true, then allow the driving data to change over time
-  l_daily_metdata_climatol = .FALSE.,                                          &
-              ! Flag showng whether met climatological is daily or monthly
+  anlg = .TRUE.,                                                               &
+              ! If true, then use the GCM analogue model
+  anom = .TRUE.,                                                               &
+              ! If true, then incorporate anomalies
   c_emissions = .TRUE.,                                                        &
               ! If true, means CO2 concentration is calculated from emissions
   include_co2 = .TRUE.,                                                        &
@@ -72,25 +75,21 @@ LOGICAL ::                                                                     &
               ! Are land CO2 feedbacks allowed on atmospheric CO2 conc.
   land_feed_ch4 = .FALSE.,                                                     &
               ! Are land CH4 feedbacks allowed on atmospheric CH4 conc.
-  ocean_feed = .FALSE.
+  ocean_feed = .FALSE.,                                                        &
               ! Are ocean feedbacks allowed on atmospheric CO2 concentration
-
-INTEGER ::                                                                     &
-  change_metdata_method = imdi,                                                &
-      ! Switch for the calculation method of l_change_metdata
-      !   change_metdata_method=1: analogue model
-      !   change_metdata_method=2: anomalies
-      !   change_metdata_method=3: drive with global mean temperatures
+  l_drive_with_global_temps = .FALSE.
               ! Drive with annual mean global temperatures
               ! This takes the patterns and makes the driving data by
               ! combining the global temperatures and the patterns
               ! also need CO2 concentrations as an input to JULES
-              ! (c_emissions=.FALSE.) There are no feedbacks.
-              ! (land_feed_co2=.FALSE.,land_feed_ch4=.FALSE.,ocean_feed=.FALSE.)
+              ! (c_emissions=.FALSE.)
+              ! land_feed_co2=.FALSE.,land_feed_ch4=.FALSE.,ocean_feed=.FALSE.
               ! include_non_co2_radf=.FALSE., include_co2=.FALSE.,
-              ! l_change_metdata=.TRUE.,change_metdata_method=3
+              ! anom=.TRUE.,anlg=.FALSE.
               ! need a filename for the time series of global mean temperatures
               ! and for the co2 concentrations.
+
+INTEGER ::                                                                     &
   nyr_non_co2 = imdi,                                                          &
             ! Number of years for which NON_CO2 forcing is prescribed.
   nyr_emiss = imdi,                                                            &
@@ -112,15 +111,14 @@ CHARACTER(LEN=max_file_name_len) :: dump_file
 
 NAMELIST  / imogen_run_list / co2_init_ppmv, ch4_init_ppbv, file_scen_emits,   &
                            file_scen_co2_ppmv,nyr_emiss,                       &
-                           c_emissions, include_co2,                           &
+                           c_emissions,include_co2,                            &
                            include_non_co2_radf, land_feed_co2, land_feed_ch4, &
-                           ocean_feed, nyr_non_co2,                            &
-                           l_change_metdata, change_metdata_method,            &
-                           l_daily_metdata_climatol,                           &
+                           ocean_feed, anom, anlg, nyr_non_co2,                &
                            file_non_co2_radf, file_ch4_n2o,                    &
+                           file_points_order,                                  &
                            initialise_from_dump, dump_file,                    &
                            initial_co2_ch4_year, yr_fch4_ref, nyr_ch4_n2o,     &
-                           fch4_ref, tau_ch4_ref, ch4_ppbv_ref
+                           l_drive_with_global_temps
 
 
 

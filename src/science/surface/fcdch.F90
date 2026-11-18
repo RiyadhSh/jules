@@ -287,19 +287,15 @@ REAL(KIND=real_jlslsm) ::                                                      &
 ,epdt(points)                                                                  &
                      ! "Potential" Evaporation * Timestep.
 !                          !    Dummy variable for first call to routine
-,fracaero_t(points)                                                            &
-                     ! Total fraction of surface moisture flux with
-!                          !     only aerodynamic resistance
-,fracaero_s(points)                                                            &
+,fraca(points)                                                                 &
                      ! Fraction of surface moisture flux with
-!                          !     only aerodynamic resistance
-!                          !     over the frozen part of the surface
+!                          !     only aerodynamic resistance.
 ,resfs(points)                                                                 &
                      ! Combined soil, stomatal and aerodynamic
-!                          !     resistance factor for fraction 1-fracaero_t.
+!                          !     resistance factor for fraction 1-FRACA.
 ,resft(points)                                                                 &
                      ! Total resistance factor
-!                          !     fracaero_t+(1-fracaero_t)*resfs.
+!                          !     FRACA+(1-FRACA)*RESFS.
 ,qstemp(points)                                                                &
                      ! Surface qsat at (tstar+dtstar)
 ,rhokh(points)                                                                 &
@@ -341,9 +337,6 @@ INTEGER :: i,j,k,l ! Loop counter; horizontal field index.
 INTEGER :: it    ! Iteration loop counter.
 INTEGER :: n_its ! Number of iterations for Monin-Obukhov length
 !                   ! and stability functions.
-
-INTEGER :: indexi(surft_pts), indexj(surft_pts)
-              ! Arrays to store horizontal field indices i and j
 
 REAL(KIND=real_jlslsm) ::                                                      &
  b_flux                                                                        &
@@ -393,13 +386,6 @@ DO l = 1, points
   gc_stom_surft(l) = gc(l)
 END DO
 !$OMP END PARALLEL DO
-
-DO k = 1,surft_pts
-  l = surft_index(k)
-  indexj(k) = (pts_index(l) - 1) / t_i_length + 1
-  indexi(k) = pts_index(l) - (indexj(k) - 1) * t_i_length
-END DO
-
 n_its         = 8     ! Found typically 0.2% from converged value
 tolerance     = 0.25  ! Set tolerance value for convergence of db to 25%
 !-----------------------------------------------------------------------
@@ -409,14 +395,15 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 
 !$OMP PARALLEL DEFAULT(NONE) PRIVATE(k,l,j,i,wgst_tmp,cnst_cndd_1a,cnst_cndd_2a) &
 !$OMP  SHARED(surft_pts,surft_index,pts_index,t_i_length,ddmfx,wstrcnvgust,    &
-!$OMP  beta_cnv_bl,db,vshr,recip_l_mo,zh,srf_ex_cnv_gust,g,indexi,indexj) IF(surft_pts>1)
+!$OMP  beta_cnv_bl,db,vshr,recip_l_mo,zh,srf_ex_cnv_gust,g) IF(surft_pts>1)
   IF (srf_ex_cnv_gust == ip_srfexwithcnv) THEN
     cnst_cndd_1a = cnst_cndd_1 / g
     cnst_cndd_2a = cnst_cndd_2 / g**2
 !$OMP DO SCHEDULE(STATIC)
     DO k = 1,surft_pts
-      j = indexj(k)
-      i = indexi(k)
+      l = surft_index(k)
+      j =(pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
 
       ! Compute convective gustiness, which is unchanged during the iteration.
       ! Redelsperger's adjustment is to U_10; here it is scaled to apply to
@@ -432,8 +419,8 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 !$OMP DO SCHEDULE(STATIC)
   DO k = 1,surft_pts
     l = surft_index(k)
-    j = indexj(k)
-    i = indexi(k)
+    j =(pts_index(l) - 1) / t_i_length + 1
+    i = pts_index(l) - (j-1) * t_i_length
     IF (db(l)  <   0.0 .AND. vshr(i,j)  <   2.0) THEN
       !-----------------------------------------------------------------------
       !         Start the iteration from the convective limit.
@@ -481,11 +468,11 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 !$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(STATIC) PRIVATE(k,l,j,i)              &
 !$OMP  SHARED(surft_pts,surft_index,pts_index,t_i_length,db,vshr,              &
 !$OMP  v_s_std,phi_h,zh,v_s,wind_profile_factor,chv,beta_cnv_bl,               &
-!$OMP  cdv,cdv_std,phi_m,indexi,indexj) IF(surft_pts>1)
+!$OMP  cdv,cdv_std,phi_m) IF(surft_pts>1)
     DO k = 1,surft_pts
       l = surft_index(k)
-      j = indexj(k)
-      i = indexi(k)
+      j=(pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
       IF (db(l)  <   0.0 .AND. vshr(i,j)  <   2.0) THEN
         !---------------------------------------------------------------------
         !         Start the iteration from the convective limit
@@ -514,11 +501,11 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 !$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(STATIC) PRIVATE(k,l,j,i)              &
 !$OMP  SHARED(surft_pts,surft_index,pts_index,t_i_length,db,vshr,              &
 !$OMP  v_s_std,phi_h,zh,v_s,wind_profile_factor,chv,beta_cnv_bl,               &
-!$OMP  cdv,cdv_std,phi_m,indexi,indexj) IF(surft_pts>1)
+!$OMP  cdv,cdv_std,phi_m) IF(surft_pts>1)
     DO k = 1,surft_pts
       l = surft_index(k)
-      j = indexj(k)
-      i = indexi(k)
+      j=(pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
       IF (db(l)  <   0.0 .AND. vshr(i,j)  <   2.0) THEN
         !---------------------------------------------------------------------
         !         Start the iteration from the convective limit.
@@ -554,12 +541,12 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 !$OMP PARALLEL IF(surft_pts > 1) DEFAULT(NONE) PRIVATE(i, j, k, l)             &
 !$OMP SHARED(surft_pts, surft_index, pts_index, t_i_length, db_old, db,        &
 !$OMP        db_older, chv_dim, chv, vshr, rhostar, epdt, dq, timestep,        &
-!$OMP        rhokh_can, cp, cdv, l_aggregate, can_model,indexi,indexj)
+!$OMP        rhokh_can, cp, cdv, l_aggregate, can_model)
 !$OMP DO SCHEDULE(STATIC)
     DO k = 1,surft_pts
       l = surft_index(k)
-      j = indexj(k)
-      i = indexi(k)
+      j = (pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
 
       ! Save initial values ready for iterations and calculate the
       ! rate of change of potential evaporation with time
@@ -574,8 +561,8 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 !$OMP DO SCHEDULE(STATIC)
       DO k = 1,surft_pts
         l = surft_index(k)
-        j = indexj(k)
-        i = indexi(k)
+        j = (pts_index(l) - 1) / t_i_length + 1
+        i = pts_index(l) - (j-1) * t_i_length
 
         ! Set aerodynamic resistance between canopy and soil surface
         rhokh_can(l) = rhostar(i,j) * cp / (43.0 / SQRT(cdv(l)))
@@ -588,7 +575,7 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
     CALL sf_resist (                                                           &
      points,surft_pts,pts_index,surft_index,cansnowtile,                       &
      canopy,catch,chv_dim,dq,epdt,flake,gc,gc_stom_surft,                      &
-     snowdep,snow,vshr,tstar,fracaero_t,fracaero_s,                            &
+     snowdep,snow,vshr,fraca,                                                  &
      resfs,resft,resfs_stom,.FALSE.,.FALSE.)
 
   END IF  ! l_mo_buoyancy_calc
@@ -603,11 +590,11 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 
 !$OMP PARALLEL DO IF(surft_pts > 1) DEFAULT(NONE) PRIVATE(i, j, k, l)          &
 !$OMP SHARED(surft_pts, surft_index, pts_index, t_i_length,                    &
-!$OMP        rhokh, rhostar, chv, indexi, indexj) SCHEDULE(STATIC)
+!$OMP        rhokh, rhostar, chv) SCHEDULE(STATIC)
       DO k = 1,surft_pts
         l = surft_index(k)
-        j = indexj(k)
-        i = indexi(k)
+        j = (pts_index(l) - 1) / t_i_length + 1
+        i = pts_index(l) - (j-1) * t_i_length
 
         ! Calculate aerodynamic resistance term
         rhokh(l) = rhostar(i,j) * chv(l)
@@ -621,7 +608,7 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
        pts_index,surft_index,                                                  &
        nsnow,n,canhc,dzsurf,hcons,ashtf,                                       &
        qstemp,q_elev,                                                          &
-       radnet,resft,fracaero_s(:),rhokh,l_soil_point,                          &
+       radnet,resft,rhokh,l_soil_point,                                        &
        snowdepth,timestep,t_elev,tsurf,                                        &
        tstar,vfrac,rhokh_can,z0h,                                              &
        z0m,zdt,z1_tq,lc,emis,emis_soil,                                        &
@@ -637,11 +624,11 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 !$OMP        chv, chv_old, cdv, cdv_old, cdv_std, cdv_std_old,                 &
 !$OMP        v_s, v_s_old, v_s_std, v_s_std_old,                               &
 !$OMP        u_s_std, u_s_std_old, recip_l_mo, recip_l_mo_old,                 &
-!$OMP        db_diff_old, db_diff, db_old, db_older, indexi, indexj) SCHEDULE(STATIC)
+!$OMP        db_diff_old, db_diff, db_old, db_older) SCHEDULE(STATIC)
       DO k = 1,surft_pts
         l = surft_index(k)
-        j = indexj(k)
-        i = indexi(k)
+        j = (pts_index(l) - 1) / t_i_length + 1
+        i = pts_index(l) - (j-1) * t_i_length
 
         ! Calculate temperature gradient
         IF (l_vegdrag) THEN
@@ -675,7 +662,7 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
         IF (db_diff(l) * db_diff_old(l)  <   0.0)                              &
             db(l) = 0.5*(db_old(l) + db(l))
 
-        ! Store the current values of the variables in case of non-convergence
+        ! Store the current values of the  variables in case of non-convergence
         ! within maximum number of iterations
         db_older(l)       = db_old(l)
         db_old(l)         = db(l)
@@ -717,11 +704,11 @@ IF (cor_mo_iter == Improve_Initial_Guess) THEN
 !$OMP  PRIVATE(k,l,j,i,b_flux,u_s2,w_s,u_s_std2)                               &
 !$OMP  SHARED(surft_pts,surft_index,pts_index,t_i_length,chv,db,cdv,           &
 !$OMP  vshr,cdv_std,u_s_std,zh,v_s,v_s_std,recip_l_mo,srf_ex_cnv_gust,         &
-!$OMP  beta_cnv_bl,wstrcnvgust,z1_tq,z1_uv,indexi,indexj) IF(surft_pts>1)
+!$OMP  beta_cnv_bl,wstrcnvgust,z1_tq,z1_uv) IF(surft_pts>1)
     DO k = 1,surft_pts
       l = surft_index(k)
-      j = indexj(k)
-      i = indexi(k)
+      j=(pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
       b_flux = -chv(l) * db(l)
 
       IF ( vshr(i,j) > min_wind) THEN
@@ -833,14 +820,15 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 !$OMP PARALLEL DEFAULT(NONE)                                                   &
 !$OMP  PRIVATE(k,l,j,i,wgst_tmp,cnst_cndd_1a,cnst_cndd_2a)                     &
 !$OMP  SHARED(surft_pts,surft_index,pts_index,t_i_length,ddmfx,wstrcnvgust,    &
-!$OMP  db,vshr,recip_l_mo,zh,srf_ex_cnv_gust,g,indexi,indexj) IF(surft_pts>1)
+!$OMP  db,vshr,recip_l_mo,zh,srf_ex_cnv_gust,g) IF(surft_pts>1)
   IF (srf_ex_cnv_gust == ip_srfexwithcnv) THEN
     cnst_cndd_1a = cnst_cndd_1 / g
     cnst_cndd_2a = cnst_cndd_2 / g**2
 !$OMP DO SCHEDULE(STATIC)
     DO k = 1,surft_pts
-      j = indexj(k)
-      i = indexi(k)
+      l = surft_index(k)
+      j =(pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
 
       !         Compute convective gustiness, which is unchanged during
       !         the iteration. Redelsperger's adjustment is to U_10; here it
@@ -856,8 +844,8 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 !$OMP DO SCHEDULE(STATIC)
   DO k = 1,surft_pts
     l = surft_index(k)
-    j = indexj(k)
-    i = indexi(k)
+    j=(pts_index(l) - 1) / t_i_length + 1
+    i = pts_index(l) - (j-1) * t_i_length
     IF (db(l)  <   0.0 .AND. vshr(i,j)  <   2.0) THEN
       !-----------------------------------------------------------------------
       !         Start the iteration from the convective limit.
@@ -904,11 +892,11 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 !$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(STATIC) PRIVATE(k,l,j,i)              &
 !$OMP  SHARED(surft_pts,surft_index,pts_index,t_i_length,db,vshr,              &
 !$OMP  v_s_std,phi_h,zh,v_s,wind_profile_factor,chv,                           &
-!$OMP  cdv,cdv_std,phi_m,indexi,indexj) IF(surft_pts>1)
+!$OMP  cdv,cdv_std,phi_m) IF(surft_pts>1)
     DO k = 1,surft_pts
       l = surft_index(k)
-      j = indexj(k)
-      i = indexi(k)
+      j=(pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
       IF (db(l)  <   0.0 .AND. vshr(i,j)  <   2.0) THEN
         !---------------------------------------------------------------------
         !         Start the iteration from the convective limit
@@ -936,11 +924,11 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 !$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(STATIC) PRIVATE(k,l,j,i)              &
 !$OMP  SHARED(surft_pts,surft_index,pts_index,t_i_length,db,vshr,              &
 !$OMP  v_s_std,phi_h,zh,v_s,wind_profile_factor,chv,                           &
-!$OMP  cdv,cdv_std,phi_m,indexi,indexj) IF(surft_pts>1)
+!$OMP  cdv,cdv_std,phi_m) IF(surft_pts>1)
     DO k = 1,surft_pts
       l = surft_index(k)
-      j = indexj(k)
-      i = indexi(k)
+      j=(pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
       IF (db(l)  <   0.0 .AND. vshr(i,j)  <   2.0) THEN
         !---------------------------------------------------------------------
         !         Start the iteration from the convective limit.
@@ -975,12 +963,12 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 !$OMP PARALLEL IF(surft_pts > 1) DEFAULT(NONE) PRIVATE(i, j, k, l)             &
 !$OMP SHARED(surft_pts, surft_index, pts_index, t_i_length, db_old, db,        &
 !$OMP        db_older, chv_dim, chv, vshr, rhostar, epdt, dq, timestep,        &
-!$OMP        rhokh_can, cp, cdv, l_aggregate, can_model, indexi, indexj)
+!$OMP        rhokh_can, cp, cdv, l_aggregate, can_model)
 !$OMP DO SCHEDULE(STATIC)
     DO k = 1,surft_pts
       l = surft_index(k)
-      j = indexj(k)
-      i = indexi(k)
+      j = (pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
 
       ! Save initial values ready for iterations and calculate the
       ! rate of change of potential evaporation with time
@@ -995,8 +983,8 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 !$OMP DO SCHEDULE(STATIC)
       DO k = 1,surft_pts
         l = surft_index(k)
-        j = indexj(k)
-        i = indexi(k)
+        j = (pts_index(l) - 1) / t_i_length + 1
+        i = pts_index(l) - (j-1) * t_i_length
 
         ! Set aerodynamic resistance between canopy and soil surface
         rhokh_can(l) = rhostar(i,j) * cp / (43.0 / SQRT(cdv(l)))
@@ -1009,7 +997,7 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
     CALL sf_resist (                                                           &
      points,surft_pts,pts_index,surft_index,cansnowtile,                       &
      canopy,catch,chv_dim,dq,epdt,flake,gc,gc_stom_surft,                      &
-     snowdep,snow,vshr,tstar,fracaero_t,fracaero_s,                            &
+     snowdep,snow,vshr,fraca,                                                  &
      resfs,resft,resfs_stom,.FALSE.,.FALSE.)
 
   END IF  ! l_mo_buoyancy_calc
@@ -1024,11 +1012,11 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 
 !$OMP PARALLEL DO IF(surft_pts > 1) DEFAULT(NONE) PRIVATE(i, j, k, l)          &
 !$OMP SHARED(surft_pts, surft_index, pts_index, t_i_length,                    &
-!$OMP        rhokh, rhostar, chv, indexi, indexj) SCHEDULE(STATIC)
+!$OMP        rhokh, rhostar, chv) SCHEDULE(STATIC)
       DO k = 1,surft_pts
         l = surft_index(k)
-        j = indexj(k)
-        i = indexi(k)
+        j = (pts_index(l) - 1) / t_i_length + 1
+        i = pts_index(l) - (j-1) * t_i_length
 
         ! Calculate aerodynamic resistance term
         rhokh(l) = rhostar(i,j) * chv(l)
@@ -1042,7 +1030,7 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
        pts_index,surft_index,                                                  &
        nsnow,n,canhc,dzsurf,hcons,ashtf,                                       &
        qstemp,q_elev,                                                          &
-       radnet,resft,fracaero_s(:),rhokh,l_soil_point,                          &
+       radnet,resft,rhokh,l_soil_point,                                        &
        snowdepth,timestep,t_elev,tsurf,                                        &
        tstar,vfrac,rhokh_can,z0h,                                              &
        z0m,zdt,z1_tq,lc,emis,emis_soil,                                        &
@@ -1058,11 +1046,11 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 !$OMP        chv, chv_old, cdv, cdv_old, cdv_std, cdv_std_old,                 &
 !$OMP        v_s, v_s_old, v_s_std, v_s_std_old,                               &
 !$OMP        u_s_std, u_s_std_old, recip_l_mo, recip_l_mo_old,                 &
-!$OMP        db_diff_old, db_diff, db_old, db_older, indexi, indexj) SCHEDULE(STATIC)
+!$OMP        db_diff_old, db_diff, db_old, db_older) SCHEDULE(STATIC)
       DO k = 1,surft_pts
         l = surft_index(k)
-        j = indexj(k)
-        i = indexi(k)
+        j = (pts_index(l) - 1) / t_i_length + 1
+        i = pts_index(l) - (j-1) * t_i_length
 
         ! Calculate temperature gradient
         IF (l_vegdrag) THEN
@@ -1139,11 +1127,11 @@ ELSE     ! cor_mo_iter earlier option than Improve_Initial_Guess
 !$OMP  PRIVATE(k, l, j, i, b_flux, u_s2, w_s, u_s_std2)                        &
 !$OMP  SHARED(surft_pts, surft_index, pts_index, t_i_length, chv, db, cdv,     &
 !$OMP  vshr, cdv_std, u_s_std, zh, v_s, v_s_std, recip_l_mo, srf_ex_cnv_gust,  &
-!$OMP  wstrcnvgust, cor_mo_iter, z1_uv, z1_tq, indexi, indexj) IF(surft_pts>1)
+!$OMP  wstrcnvgust, cor_mo_iter, z1_uv, z1_tq) IF(surft_pts>1)
     DO k = 1,surft_pts
       l = surft_index(k)
-      j = indexj(k)
-      i = indexi(k)
+      j=(pts_index(l) - 1) / t_i_length + 1
+      i = pts_index(l) - (j-1) * t_i_length
       b_flux = -chv(l) * db(l)
 
       IF ( vshr(i,j) > min_wind) THEN
@@ -1297,11 +1285,11 @@ END IF
 !-----------------------------------------------------------------------
 !$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(STATIC) PRIVATE(k,l,j,i)              &
 !$OMP  SHARED(surft_pts,surft_index,pts_index,t_i_length,cdv,                  &
-!$OMP  vshr,cdv_std,chv, indexi, indexj) IF(surft_pts>1)
+!$OMP  vshr,cdv_std,chv) IF(surft_pts>1)
 DO k = 1,surft_pts
   l = surft_index(k)
-  j = indexj(k)
-  i = indexi(k)
+  j=(pts_index(l) - 1) / t_i_length + 1
+  i = pts_index(l) - (j-1) * t_i_length
   cdv(l) = cdv(l) / vshr(i,j)
   cdv_std(l) = cdv_std(l) / vshr(i,j)
   chv(l) = chv(l) / vshr(i,j)

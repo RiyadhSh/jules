@@ -1,11 +1,7 @@
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
+import rose.upgrade
 
 
-class vn49_vn50(MacroUpgrade):
+class vn49_vn50(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Author"""
 
@@ -22,8 +18,8 @@ class vn49_vn50(MacroUpgrade):
 '''
 Do not edit any lines below this point - this is the template.
 '''
-
-class vn49_txxx(MacroUpgrade):
+        
+class vn49_txxx(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Author"""
 

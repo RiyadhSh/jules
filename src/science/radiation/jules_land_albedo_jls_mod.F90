@@ -1198,7 +1198,7 @@ IF (l_spec_albedo) THEN
         END DO
       END DO   !  ntype
 
-    ELSE ! l_snow_albedo
+    ELSE
       !----------------------------------------------------------------------
       ! spectral albedo scheme with diagnosed snow albedo
       !----------------------------------------------------------------------
@@ -1266,11 +1266,11 @@ IF (l_spec_albedo) THEN
         END DO
       END DO
 
-    END IF ! l_snow_albedo ends test on snow scheme for spectral albedo
+    END IF ! ends test on snow scheme for spectral albedo
     !
-  END IF ! .NOT. l_embedded_snow ends test on embedded snow.
+  END IF ! ends test on embedded snow.
 
-ELSE ! l_spec_albedo
+ELSE
   !----------------------------------------------------------------------
   ! Non-spectral albedo scheme with diagnosed snow albedo
   !----------------------------------------------------------------------
@@ -1537,7 +1537,7 @@ ELSE ! l_spec_albedo
     END DO
   END DO
 
-END IF ! l_spec_albedo Spectral or non-spectral albedo schemes
+END IF       ! Spectral or non-spectral albedo schemes
 
 !----------------------------------------------------------------------
 ! Calculate GBM surface albedo

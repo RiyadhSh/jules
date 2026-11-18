@@ -190,6 +190,8 @@ TYPE :: progs_data_type
   ! photosynthetic capacity (K).
   REAL(KIND=real_jlslsm), ALLOCATABLE :: f_nsc_pft(:,:)
     ! Non-structural carbohydrate mass fraction (kgC/kgC)
+  REAL(KIND=real_jlslsm), ALLOCATABLE :: psi_soil_pd(:,:)
+    ! MGDK, empirical g1_stress implementation, 28 Apr, 2026 (MPa)
 
 END TYPE
 
@@ -254,6 +256,7 @@ TYPE :: progs_type
   REAL(KIND=real_jlslsm), POINTER :: t_home_gb(:)
   REAL(KIND=real_jlslsm), POINTER :: t_growth_gb(:)
   REAL(KIND=real_jlslsm), POINTER :: f_nsc_pft(:,:)
+  REAL(KIND=real_jlslsm), POINTER :: psi_soil_pd(:,:)
 END TYPE
 
 LOGICAL :: l_broadcast_soilt = .FALSE.
@@ -273,7 +276,7 @@ SUBROUTINE prognostics_alloc(land_pts, t_i_length, t_j_length,                 &
                        nsurft, npft, nsoilt, sm_levels, ns_deep, nsmax,        &
                        dim_cslayer, dim_cs1, dim_ch4layer,                     &
                        nice, nice_use, soil_bgc_model, soil_model_ecosse,      &
-                       l_layeredc, l_triffid, l_phenol, l_bedrock, l_red,      &
+                       l_layeredc, l_triffid, l_phenol, l_bedrock, l_veg3,     &
                        nmasst, nnpft, l_acclim, l_sugar, progs_data)
 
 !No USE statements other than Dr Hook
@@ -288,7 +291,7 @@ INTEGER, INTENT(IN) :: land_pts, t_i_length, t_j_length,                       &
                        nice, nice_use, soil_bgc_model, soil_model_ecosse,      &
                        nmasst, nnpft
 
-LOGICAL, INTENT(IN) :: l_layeredc, l_triffid, l_phenol, l_bedrock, l_red,      &
+LOGICAL, INTENT(IN) :: l_layeredc, l_triffid, l_phenol, l_bedrock, l_veg3,     &
                        l_acclim, l_sugar
 
 TYPE(progs_data_type), INTENT(IN OUT) :: progs_data
@@ -425,7 +428,7 @@ progs_data%mic_act_ch4(:,:) = 0.0
 progs_data%acclim_ch4(:,:) = 0.0
 
 ! Prognostics for RED scheme
-IF ( l_red ) THEN
+IF ( l_veg3 ) THEN
   ALLOCATE(progs_data%plantNumDensity(land_pts,nnpft,nmasst))
   progs_data%plantNumDensity(:,:,:) = 0.0
 ELSE
@@ -448,6 +451,9 @@ END IF
 ALLOCATE(progs_data%f_nsc_pft(land_pts,npft))
 progs_data%f_nsc_pft(:,:) = 0.0
 
+! MGDK, empirical g1_stress implementation, 28 Apr, 2026
+ALLOCATE(progs_data%psi_soil_pd(land_pts,npft))
+progs_data%psi_soil_pd(:,:) = 0.0
 
 !  ====prognostics module JULES-standalone only====
 ALLOCATE(progs_data%lai_pft(land_pts,npft))
@@ -576,6 +582,10 @@ IF ( ALLOCATED(progs_data%f_nsc_pft) ) THEN
   DEALLOCATE(progs_data%f_nsc_pft)
 END IF
 
+IF ( ALLOCATED(progs_data%psi_soil_pd) ) THEN
+  DEALLOCATE(progs_data%psi_soil_pd)
+END IF
+
 !  ====prognostics module JULES-standalone only====
 DEALLOCATE(progs_data%lai_pft)
 DEALLOCATE(progs_data%canht_pft)
@@ -690,6 +700,7 @@ progs%years_since_harvest => progs_data%years_since_harvest
 progs%t_home_gb => progs_data%t_home_gb
 progs%t_growth_gb => progs_data%t_growth_gb
 progs%f_nsc_pft => progs_data%f_nsc_pft
+progs%psi_soil_pd => progs_data%psi_soil_pd
 
 IF (ALLOCATED(progs_data%seed_rain)) THEN
   progs%seed_rain => progs_data%seed_rain
@@ -781,6 +792,7 @@ NULLIFY(progs%years_since_harvest)
 NULLIFY(progs%t_home_gb)
 NULLIFY(progs%t_growth_gb)
 NULLIFY(progs%f_nsc_pft)
+NULLIFY(progs%psi_soil_pd)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

@@ -1,8 +1,13 @@
-!-----------------------------------------------------------------------------
-! (C) Crown copyright Met Office. All rights reserved.
-! The file LICENCE, distributed with this code, contains details of the terms
-! under which the code may be used.
-!-----------------------------------------------------------------------------
+!******************************COPYRIGHT********************************************
+! (c) CSIRO 2022.
+! All rights reserved.
+!
+! This routine has been licensed to the other JULES partners for use and
+! distribution under the JULES collaboration agreement, subject to the terms and
+! conditions set out therein.
+!
+! [Met Office Ref SC0237]
+!******************************COPYRIGHT********************************************
 
 MODULE cable_surface_types_mod
 

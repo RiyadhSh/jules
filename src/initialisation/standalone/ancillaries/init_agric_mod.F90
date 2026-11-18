@@ -205,8 +205,7 @@ ELSE !we read from the ancil file
     IF ( LEN_TRIM(FILE) == 0 )                                                 &
       CALL log_fatal("init_agric", "No file name provided")
 
-    CALL fill_variables_from_file(FILE, [ 'frac_agr' ], [ agric_name ],        &
-                                  is_climatology = [ .FALSE. ] )
+    CALL fill_variables_from_file(FILE, [ 'frac_agr' ], [ agric_name ])
   END IF
 
   !---------------------------------------------------------------------------
@@ -264,8 +263,7 @@ IF ( .NOT. ancil_dump_read%agric) THEN !we read from the ancil file
     IF ( LEN_TRIM(file_past) == 0 )                                            &
       CALL log_fatal("init_agric", "No file name provided")
 
-    CALL fill_variables_from_file(file_past, [ 'frac_past' ], [ past_name ],   &
-                                  is_climatology = [ .FALSE. ] )
+    CALL fill_variables_from_file(file_past, [ 'frac_past' ], [ past_name ])
   END IF
 
   !---------------------------------------------------------------------------
@@ -328,8 +326,7 @@ IF ( .NOT. ancil_dump_read%agric) THEN !we read from the ancil file
       CALL log_fatal("init_agric", "No file name provided")
 
     CALL fill_variables_from_file(file_biocrop, [ 'frac_biocrop' ],            &
-                                 [ biocrop_name ],                             &
-                                 is_climatology = [ .FALSE. ] )
+                                 [ biocrop_name ])
   END IF
 
   !---------------------------------------------------------------------------
@@ -367,8 +364,7 @@ IF (.NOT. read_harvest_doy_from_dump) THEN
   CALL log_info("init_agric",                                                  &
                 "Reading harvest_doy from file " // TRIM(file_harvest_doy))
   CALL fill_variables_from_file(file_harvest_doy, [ 'harvest_doy' ],           &
-                                [ harvest_doy_name ],                          &
-                                is_climatology = [ .FALSE. ] )
+                                [ harvest_doy_name ] )
 
 
   !---------------------------------------------------------------------------

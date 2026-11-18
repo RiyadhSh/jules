@@ -451,15 +451,10 @@ SUBROUTINE calc_emission(                                                      &
   land_pts, emitted_carbon_i,                                                  &
   fef_co2_i, fef_co_i, fef_ch4_i, fef_nox_i, fef_so2_i,                        &
   fef_oc_i, fef_bc_i,                                                          &
-  fef_c2h4_i, fef_c2h6_i, fef_c3h8_i, fef_hcho_i,                              &
-  fef_mecho_i, fef_nh3_i, fef_dms_i,                                           &
   ! Array INTENT(OUT)
   emission_CO2, emission_CO, emission_CH4,                                     &
   emission_NOx, emission_SO2,                                                  &
-  emission_OC, emission_BC,                                                    &
-  emission_C2H4, emission_C2H6, emission_C3H8,                                 &
-  emission_HCHO, emission_MeCHO,                                               &
-  emission_NH3, emission_DMS) ! Add more as you see fit...
+  emission_OC, emission_BC) ! Add more as you see fit...
 
 !
 ! Description:
@@ -494,22 +489,8 @@ REAL(KIND=real_jlslsm) ,   INTENT(IN)       ::                                 &
     ! PFT SO2 emission factor
   fef_oc_i,                                                                    &
     ! PFT OC emission factor
-  fef_bc_i,                                                                    &
+  fef_bc_i
     ! PFT BC emission factor
-  fef_c2h4_i,                                                                  &
-    ! PFT C2H4 emission factor
-  fef_c2h6_i,                                                                  &
-    ! PFT C2H6 emission factor
-  fef_c3h8_i,                                                                  &
-    ! PFT C3H8 emission factor
-  fef_hcho_i,                                                                  &
-    ! PFT HCHO emission factor
-  fef_mecho_i,                                                                 &
-    ! PFT MeCHO emission factor
-  fef_nh3_i,                                                                   &
-    ! PFT NH3 emission factor
-  fef_dms_i
-    ! PFT DMS emission factor
 
 REAL(KIND=real_jlslsm) ,   INTENT(OUT)    ::                                   &
   emission_CO2(land_pts),                                                      &
@@ -524,22 +505,8 @@ REAL(KIND=real_jlslsm) ,   INTENT(OUT)    ::                                   &
     ! The emission of SO2 (in kg.m-2.s-1)
   emission_OC(land_pts),                                                       &
     ! The emission of OC  (in kg.m-2.s-1) - Organic Carbon
-  emission_BC(land_pts),                                                       &
+  emission_BC(land_pts)
     ! The emission of BC  (in kg.m-2.s-1) - Black Carbon
-  emission_C2H4(land_pts),                                                     &
-    ! The emission of C2H4  (in kg.m-2.s-1)
-  emission_C2H6(land_pts),                                                     &
-    ! The emission of C2H6  (in kg.m-2.s-1)
-  emission_C3H8(land_pts),                                                     &
-    ! The emission of C3H8  (in kg.m-2.s-1)
-  emission_HCHO(land_pts),                                                     &
-    ! The emission of HCHO  (in kg.m-2.s-1)
-  emission_MeCHO(land_pts),                                                    &
-    ! The emission of MeCHO  (in kg.m-2.s-1)
-  emission_NH3(land_pts),                                                      &
-    ! The emission of NH3  (in kg.m-2.s-1)
-  emission_DMS(land_pts)
-    ! The emission of DMS  (in kg.m-2.s-1)
 
 REAL(KIND=real_jlslsm) ,   PARAMETER        ::                                 &
   ctob = 2.0,                                                                  &
@@ -553,36 +520,22 @@ CHARACTER(LEN=*),  PARAMETER :: RoutineName = "CALC_EMISSION"
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
 ! Initialise the output fields
-emission_CO2(:)  = 0.0
-emission_CO(:)   = 0.0
-emission_CH4(:)  = 0.0
-emission_NOx(:)  = 0.0
-emission_SO2(:)  = 0.0
-emission_OC(:)   = 0.0
-emission_BC(:)   = 0.0
-emission_C2H4(:) = 0.0
-emission_C2H6(:) = 0.0
-emission_C3H8(:) = 0.0
-emission_HCHO(:) = 0.0
-emission_MeCHO(:)= 0.0
-emission_NH3(:)  = 0.0
-emission_DMS(:)  = 0.0
+emission_CO2(:) = 0.0
+emission_CO(:)  = 0.0
+emission_CH4(:) = 0.0
+emission_NOx(:) = 0.0
+emission_SO2(:) = 0.0
+emission_OC(:)  = 0.0
+emission_BC(:)  = 0.0
 
 ! Resistant Plant Material
-emission_CO2(:)  = ctob * emitted_carbon_i(:) * fef_co2_i   * gtokg
-emission_CH4(:)  = ctob * emitted_carbon_i(:) * fef_ch4_i   * gtokg
-emission_CO(:)   = ctob * emitted_carbon_i(:) * fef_co_i    * gtokg
-emission_NOx(:)  = ctob * emitted_carbon_i(:) * fef_nox_i   * gtokg
-emission_SO2(:)  = ctob * emitted_carbon_i(:) * fef_so2_i   * gtokg
-emission_OC(:)   = ctob * emitted_carbon_i(:) * fef_oc_i    * gtokg
-emission_BC(:)   = ctob * emitted_carbon_i(:) * fef_bc_i    * gtokg
-emission_C2H4(:) = ctob * emitted_carbon_i(:) * fef_c2h4_i  * gtokg
-emission_C2H6(:) = ctob * emitted_carbon_i(:) * fef_c2h6_i  * gtokg
-emission_C3H8(:) = ctob * emitted_carbon_i(:) * fef_c3h8_i  * gtokg
-emission_HCHO(:) = ctob * emitted_carbon_i(:) * fef_hcho_i  * gtokg
-emission_MeCHO(:)= ctob * emitted_carbon_i(:) * fef_mecho_i * gtokg
-emission_NH3(:)  = ctob * emitted_carbon_i(:) * fef_nh3_i   * gtokg
-emission_DMS(:)  = ctob * emitted_carbon_i(:) * fef_dms_i   * gtokg
+emission_CO2(:) = ctob * emitted_carbon_i(:) * fef_co2_i * gtokg
+emission_CH4(:) = ctob * emitted_carbon_i(:) * fef_ch4_i  * gtokg
+emission_CO(:)  = ctob * emitted_carbon_i(:) * fef_co_i * gtokg
+emission_NOx(:) = ctob * emitted_carbon_i(:) * fef_nox_i * gtokg
+emission_SO2(:) = ctob * emitted_carbon_i(:) * fef_so2_i * gtokg
+emission_OC(:)  = ctob * emitted_carbon_i(:) * fef_oc_i  * gtokg
+emission_BC(:)  = ctob * emitted_carbon_i(:) * fef_bc_i  * gtokg
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
@@ -597,8 +550,7 @@ SUBROUTINE calc_soil_carbon_pools(land_pts, soil_pts, soil_index, dim_cs1,     &
 ! these are used as a proxy for litter
 
 USE jules_soil_biogeochem_mod, ONLY: soil_bgc_model, soil_model_4pool,         &
-                                     soil_model_1pool, z_burn_max, l_layeredc
-USE jules_soil_mod, ONLY: dzsoil
+                                     soil_model_1pool
 
 USE ancil_info, ONLY: nsoilt, dim_cslayer
 
@@ -620,14 +572,6 @@ REAL(KIND=real_jlslsm), INTENT(OUT) :: c_soil_dpm_gb(land_pts),                &
                      c_soil_rpm_gb(land_pts)
 
 !Local variables
-REAL(KIND=real_jlslsm) ::                                                      &
-  z2,                                                                          &
-   ! depth of bottom of soil layer for soil C burnt calculation
-  z1,                                                                          &
-   ! depth of top of soil layer for soil C burnt calculation
-  prop_cs_burnt
-   ! proportion of soil carbon burnt
-
 INTEGER :: i,j,m,n !Counters
 
 !End of header
@@ -641,32 +585,17 @@ c_soil_rpm_gb(:) = 0.0
 
 ! Calculate gridbox total soil C in DPM and RPM pools.
 ! Note we assume that DPM and RPM are pools 1 and 2 respectively.
+! In future a layered soil model could pass the near-surface soil C only.
 IF ( soil_bgc_model == soil_model_4pool ) THEN
-
-  c_soil_dpm_gb(:) = 0.0
-  c_soil_rpm_gb(:) = 0.0
 
   DO j = 1,soil_pts
     i = soil_index(j)
-    z2 = 0.0
-    DO n=1,dim_cslayer
-      IF ( l_layeredc ) THEN
-        z1 = z2
-        z2 = z2 + dzsoil(n)
-        prop_cs_burnt = 0.0
-        IF ( z2 <  z_burn_max ) THEN
-          prop_cs_burnt = 1.0
-        ELSE IF ( z2 >= z_burn_max .AND. z1 <  z_burn_max ) THEN
-          prop_cs_burnt = (z_burn_max - z1) / (z2 - z1)
-        END IF
-      ELSE
-        prop_cs_burnt = 1.0
-      END IF
+    c_soil_dpm_gb(i) = 0.0
+    c_soil_rpm_gb(i) = 0.0
 
-      c_soil_dpm_gb(i) = c_soil_dpm_gb(i) + cs_pool_soilt(i,m,n,1) *           &
-                                                                  prop_cs_burnt
-      c_soil_rpm_gb(i) = c_soil_rpm_gb(i) + cs_pool_soilt(i,m,n,2) *           &
-                                                                  prop_cs_burnt
+    DO n = 1,dim_cslayer
+      c_soil_dpm_gb(i) = c_soil_dpm_gb(i) + cs_pool_soilt(i,m,n,1)
+      c_soil_rpm_gb(i) = c_soil_rpm_gb(i) + cs_pool_soilt(i,m,n,2)
     END DO
   END DO
 

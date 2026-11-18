@@ -838,6 +838,7 @@ day   = dt%day
 ! These calculations use the fact that fractional part is truncated by
 ! integer division.
 hour   = dt%TIME / secs_in_hour
+
 minute = MOD(dt%TIME, secs_in_hour) / secs_in_min
 sec = MOD(dt%TIME, secs_in_min)
 

@@ -100,6 +100,10 @@ USE jules_model_environment_mod,         ONLY:                                 &
 USE progs_cbl_vars_mod, ONLY: progs_cbl_vars_type ! CABLE requires extra progs
 USE cable_fields_mod,   ONLY: pars_io_cbl         ! and veg/soil parameters
 !data: constants
+USE cable_other_constants_mod,  ONLY: z0surf_min, lai_thresh, coszen_tols,     &
+                                      gauss_w
+USE cable_math_constants_mod,   ONLY: pi, pi180
+USE grid_constants_mod_cbl,     ONLY: nsl, nsnl, mp, ICE_SoilType, nrb, nrs
 USE cable_surface_types_mod,    ONLY: ICE_cable, lakes_cable
 
 USE jules_surface_types_mod,    ONLY: npft
@@ -278,8 +282,12 @@ CASE ( cable )
     psparms%albsoil_soilt(:,1),                                                &
     !IN: JULES  timestep varying fields
     psparms%cosz_ij, snow_surft,                                               &
+    !IN:CABLE dimensions from grid_constants_cbl (mp NOT constant)
+    nrb, nrs, mp,                                                              &
     !IN: CABLE specific surface_type indexes
-    ICE_cable, lakes_cable,                                                    &
+    ICE_cable, lakes_cable, ICE_SoilType,                                      &
+    !IN: CABLE constants
+    z0surf_min, lai_thresh, coszen_tols, gauss_w, pi, pi180,                   &
     !IN: CABLE Veg parameters. ICE surface_type index
     pars_io_cbl%vegin_xfang, pars_io_cbl%vegin_taul, pars_io_cbl%vegin_refl,   &
     !IN: CABLE prognostics. decl in progs_cbl_vars_mod.F90 [(:,:,1)= top layer]

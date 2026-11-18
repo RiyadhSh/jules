@@ -21,7 +21,11 @@
 ! This file belongs in section: River Routing
 MODULE riv_intctl_mod_1A
 
-USE riv_rout_1a_wrapper_mod, ONLY: riv_rout_1a_wrapper
+USE riv_rout_mod_1A, ONLY: riv_rout_1A
+
+USE umPrintMgr, ONLY:                                                          &
+    umPrint,                                                                   &
+    umMessage
 
 USE errormessagelength_mod, ONLY: errormessagelength
 
@@ -36,30 +40,26 @@ CONTAINS
 
 SUBROUTINE riv_intctl_1a(                                                      &
 xpa, xua, xva, ypa, yua, yva,                                                  &
-g_p_field, g_r_field,                                                          &
-land_points, n_wtrac_jls, land_index,                                          &
+g_p_field, g_r_field, n_proc,                                                  &
+gather_pe_trip,land_points,land_index,                                         &
 invert_atmos, row_length, rows,                                                &
 global_row_length, global_rows,                                                &
 river_row_length, river_rows,                                                  &
 global_river_row_length, global_river_rows,                                    &
-flandg, riv_step,                                                              &
+flandg, riv_step, riv_vel, riv_mcoef,                                          &
 trivdir, trivseq, twatstor, riverout_rgrid, a_boxareas,                        &
-twatstor_wtrac,                                                                &
-! Used for UM-RFM implementation
-delta_phi,                                                                     &
+delta_phi, first_entry,                                                        &
 r_area, slope, flowobs1, r_inext, r_jnext,                                     &
 r_land,  substore, surfstore, flowin, bflowin,                                 &
-! IN accumulated runoff
+! IN/OUT accumulated runoff
 tot_surf_runoff_gb, tot_sub_runoff_gb,                                         &
-tot_surf_runoff_gb_wtrac, tot_sub_runoff_gb_wtrac,                             &
 ! OUT
 box_outflow, box_inflow, riverout_atmos,                                       &
 ! Add new arguments for inland basin outflow
 ! OUT INLAND BASINS
-inlandout_atmos,inlandout_riv, inlandout_atmos_wtrac,                          &
+inlandout_atmos,inlandout_riv,                                                 &
 ! Required for soil moisture correction for water conservation
-dsm_levels, acc_lake_evap, smvcst, smvcwt, smcl, sthu,                         &
-acc_lake_evap_wtrac, smcl_wtrac, sthu_wtrac)
+dsm_levels,acc_lake_evap,smvcst,smvcwt,smcl,sthu)
 
 ! Purpose:
 ! New Control routine for River routing for Global Model.
@@ -71,83 +71,83 @@ acc_lake_evap_wtrac, smcl_wtrac, sthu_wtrac)
 !   This code is written to UMDP3 v6 programming standards.
 !-----------------------------------------------------------------
 
+USE water_constants_mod, ONLY: rho_water
 USE yomhook, ONLY: lhook, dr_hook
 USE parkind1, ONLY: jprb, jpim
+USE global_2d_sums_mod, ONLY: global_2d_sums
 USE ereport_mod, ONLY: ereport
 USE UM_ParVars,   ONLY: lasize, glsize, gc_all_proc_group
 USE UM_ParParams, ONLY: halo_type_no_halo
 USE Field_Types,  ONLY: fld_type_p
 USE all_gather_field_mod, ONLY: all_gather_field
-USE water_constants_mod, ONLY: rho_water
-USE jules_soil_mod,      ONLY: dzsoil
-
-USE jules_water_tracers_mod,  ONLY: l_wtrac_jls
-USE lake_evap_global_avg_mod, ONLY: lake_evap_global_avg
-USE lake_evap_apply_soil_mod, ONLY: lake_evap_apply_soil
-
+USE jules_soil_mod, ONLY: dzsoil
 IMPLICIT NONE
 
-INTEGER, INTENT(IN) ::                                                         &
-  row_length                                                                   &
-                            ! No. of columns in atmosphere
-, rows                                                                         &
-                            ! No. of rows in atmosphere
-, global_row_length                                                            &
-                            ! No. of points on a global row
-, global_rows                                                                  &
-                            ! No. of global rows
-, land_points                                                                  &
-                            ! No. of landpoints
-, river_row_length                                                             &
-                            ! No. of columns in river grid
-, river_rows                                                                   &
-                            ! No. of rows in river grid
-, global_river_row_length                                                      &
-                            ! No. of global river row length
-, global_river_rows                                                            &
-                            ! No. of global river rows
-, dsm_levels                                                                   &
-                            ! No. of deep soil moisture levels
-, n_wtrac_jls
-                            ! No. of water tracers used in JULES
+
 
 INTEGER, INTENT(IN) ::                                                         &
-  g_p_field                                                                    &
-                            ! IN Size of global ATMOS field
+ row_length                                                                    &
+                           ! NO. OF COLUMNS IN ATMOSPHERE
+, rows                                                                         &
+                           ! NO. OF ROWS IN ATMOSPHERE
+, global_row_length                                                            &
+                           ! number of points on a row
+, global_rows                                                                  &
+                           ! NUMBER OF global rows
+, land_points                                                                  &
+                           ! number of landpoints
+, river_row_length                                                             &
+                           ! no. of columns in river grid
+, river_rows                                                                   &
+                           ! no. of rows in river grid
+, global_river_row_length                                                      &
+                           ! global river row length
+, global_river_rows                                                            &
+                           ! GLOBAL river rows
+, gather_pe_trip                                                               &
+                           ! pe River routing to be run on
+, n_proc                                                                       &
+                           ! Total number of processors
+, dsm_levels               ! no. of deep soil moisture levels
+
+INTEGER, INTENT(IN) ::                                                         &
+ g_p_field                                                                     &
+                            ! IN size of global ATMOS field
 , g_r_field                                                                    &
                             ! IN Size of global river field
-, land_index (land_points)
-                            ! IN Index of land to global points
+, land_index (land_points)  ! IN index of land to global points
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
  tot_surf_runoff_gb(land_points)                                               &
-                            ! IN Surf RUNOFF on land pts(KG/M2/S)
+                             !IN Surf RUNOFF on land pts(KG/M2/S)
 ,tot_sub_runoff_gb(land_points)                                                &
-                            ! IN Subsurf.RUNOFF (KG/M2/S)
-,smvcwt(land_points)                                                           &
-                            ! IN Volumetric wilting point (used to remove
-                            ! global lake evap from soil moisture store)
-,smvcst(land_points)                                                           &
-                            ! IN Volumetric saturation point(used to remove
-                            ! global lake evap from soil moisture store)
-,xua(0:global_row_length)                                                      &
-                            ! IN Atmosphere UV longitude coords
-,yua(global_rows)                                                              &
-                            ! IN Atmosphere latitude coords
-,xpa(global_row_length+1)                                                      &
-                            ! IN Atmosphere longitude coords
-,ypa(global_rows)                                                              &
-                            ! IN Atmosphere latitude coords
-,xva(global_row_length+1)                                                      &
-                            ! IN Atmosphere longitude coords
-,yva(0:global_rows)                                                            &
-                            ! IN Atmosphere latitude coords
-,a_boxareas(row_length, rows)                                                  &
-                            ! IN ATMOS gridbox areas
-,flandg(row_length, rows)
-                            ! IN Land fraction on global field.
+                             ! IN Subsurf.RUNOFF (KG/M2/S)
 
-! *** The following are used for the UM-RFM Implmentation ***
+! Water conservation
+! Remove global lake evaporation from soil moisture store
+     , smvcwt(land_points)                                                     &
+!                            ! IN Volumetric wilting point
+
+     , smvcst(land_points)                                                     &
+!                            ! IN Volumetric saturation point
+     ,xua(0:global_row_length)                                                 &
+                                  ! IN Atmosphere UV longitude coords
+     ,yua(global_rows)                                                         &
+                                  ! IN Atmosphere latitude coords
+     ,xpa(global_row_length+1)                                                 &
+                                  ! IN Atmosphere longitude coords
+     ,ypa(global_rows)                                                         &
+                                  ! IN Atmosphere latitude coords
+     ,xva(global_row_length+1)                                                 &
+                                  ! IN Atmosphere longitude coords
+     ,yva(0:global_rows)                                                       &
+                                  ! IN Atmosphere latitude coords
+     ,a_boxareas(row_length, rows)                                             &
+                                  !IN ATMOS gridbox areas
+     ,flandg(row_length, rows)
+                                  ! IN Land fraction on global field.
+
+     ! ********* NOT USED *********!
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 r_area(row_length, rows)                                                       &
                             ! IN accumalated areas file
@@ -171,243 +171,170 @@ r_area(row_length, rows)                                                       &
                          ! IN subsurface lateral inflow
 ,delta_phi
                          ! IN RCM gridsize (radians)
-! *** End of fields only used for the UM-RFM implementation
+
+! ********* NOT USED *********!
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
- trivdir(river_row_length, river_rows)                                         &
-                            ! IN river direction
+trivdir(river_row_length, river_rows)                                          &
+                                         ! IN river direction
 ,trivseq(river_row_length, river_rows)                                         &
-                            ! IN river sequence
+                                         ! IN river sequence
+,riv_vel                                                                       &
+                            ! IN river velocity
+,riv_mcoef                                                                     &
+                            ! IN meandering coefficient
 ,riv_step
                             ! IN river timestep (secs)
 
-REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
- tot_surf_runoff_gb_wtrac(land_points,n_wtrac_jls)                             &
-                            ! IN Surf water tracer runoff on land pts (kg/m2/s)
-,tot_sub_runoff_gb_wtrac(land_points,n_wtrac_jls)
-                            ! IN Subsurf. water tracer runoff (kg/m2/s)
-
-
 REAL(KIND=real_jlslsm), INTENT(IN OUT) :: twatstor(river_row_length, river_rows)
-                            ! IN OUT water store(Kg)
-
-REAL(KIND=real_jlslsm), INTENT(IN OUT) :: twatstor_wtrac(river_row_length,     &
-                                                      river_rows, n_wtrac_jls)
-                            ! IN OUT water tracer store(Kg)
+! water store(Kg)
 
 LOGICAL, INTENT(IN) ::                                                         &
  invert_atmos               ! IN True if ATMOS fields are S->N
-                            !    for regridding runoff from ATMOS.
+!                                 ! for regridding runoff from ATMOS.
 
 REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
- riverout_atmos(row_length,rows)                                               &
-                            ! river flow out from each  gridbox(KG/m2/S)
+riverout_atmos(row_length,rows)                                                &
+     ! river flow out from each  gridbox(KG/m2/S)
 ,riverout_rgrid(river_row_length, river_rows)                                  &
-                            ! river flow out from TRIP grid to ocean (Kg/s)
+           ! river flow out from TRIP grid to ocean (Kg/s)
+
 ,box_outflow(river_row_length, river_rows)                                     &
-                            ! gridbox outflow river grid (Kg/s)
+     ! gridbox outflow river grid (Kg/s)
+
 ,box_inflow(river_row_length, river_rows)                                      &
-                            ! gridbox runoff river grid(Kg/s)
+     ! gridbox runoff river grid(Kg/s)
 
 ! Declare new variables for inland basin outflow
 
-,inlandout_riv(river_row_length,river_rows)                                    &
-                            ! Outflow from inland basins on TRIP grid Kg/s
+     ,inlandout_riv(river_row_length,river_rows)                               &
+           !TRIP OUTFLOW FROM INLAND BASINS ON TRIP GRID Kg/s
 
-,inlandout_atmos(row_length,rows)
-                            ! Outflow from inland basins on ATMOS grid Kg/m2/s
+     ,inlandout_atmos(row_length,rows)
+           ! TRIP OUTFLOW FROM  INLAND BASINS ON atmos GRID Kg/m2/s
 
 
-REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
- inlandout_atmos_wtrac(row_length,rows,n_wtrac_jls)
-                            ! Water tracer outflow from inland basins on
-                            !  ATMOS grid (kg/m2/s)
+! Logical to detect first entry to routing code
 
-REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
- acc_lake_evap(row_length,rows)
-                            ! Accumulated lake evap over
-                            ! river routing timestep (Kg/m2)
-
-REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
- acc_lake_evap_wtrac(row_length,rows,n_wtrac_jls)
-                            ! Accumulated water tracer lake evap over
-                            ! river routing timestep (Kg/m2)
-
-REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
-  sthu(land_points)                                                            &
-                            ! Unfrozen soil moisture content of
-                            !    bottom layer as a frac of saturation
- ,smcl(land_points)
-                            ! Total soil moisture contents
-                            !      of bottom layer (kg/m2).
-
-REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
-  sthu_wtrac(land_points,1,dsm_levels,n_wtrac_jls)                             &
-                            ! Unfrozen soil moisture content as a frac of
-                            ! saturation. (Note, unlike the water equivalent,
-                            ! this is the full field for all soil levels)
-, smcl_wtrac(land_points,1,dsm_levels,n_wtrac_jls)
-                            ! Water tracer total soil moisture contents
-                            ! (kg/m2). (Note, unlike the water equivalent,
-                            ! this is the full field for all soil levels)
+LOGICAL, INTENT(IN) ::  first_entry
 
 ! local variables
 
-INTEGER :: i,j,l,i_wt
-
-INTEGER :: n_wt             ! No. of water fields passed into
-                            !  lake_evap_global_avg
+INTEGER ::                                                                     &
+ i,j,l
 
 INTEGER ::                                                                     &
  info                                                                          &
-                            ! Return code from MPP
-, icode                     ! Return code :0 Normal Exit :>0 Error
+                          ! Return code from MPP
+, icode                   ! Return code :0 Normal Exit :>0 Error
 
-INTEGER :: mask_for_lake_evap_corr(row_length,rows)
-                            ! Mask used to apply the lake evaporation to soil
-                            ! = 1 apply to point, = 0 do not apply
+CHARACTER(LEN=errormessagelength) ::                                           &
+ CMessage         ! Error message if return code >0
+CHARACTER(LEN=*) :: RoutineName
+PARAMETER ( RoutineName='RIV_INTCTL_1A')
 
-REAL(KIND=real_jlslsm) :: total_soil_area
-                            ! Global sum of soil area over which to apply
-                            !  the lake evaporation correction
+LOGICAL ::                                                                     &
+ invert_trip                                                                   &
+                         ! TRUE WHEN ROW INVERSION IS REQ
+, regrid                                                                       &
+                         ! TRUE if TRIP grid different to ATMOS
+, cyclic_trip                                                                  &
+                         ! TRUE WHEN THE TRIP MODEL HAS CYCLIC
+, global_trip            ! TRUE WHEN TRIP GRID SURFACE IS SPHER
+PARAMETER(invert_trip = .FALSE.,cyclic_trip = .TRUE.,                          &
+global_trip = .TRUE.,regrid = .TRUE.)
 
-REAL(KIND=real_jlslsm) ::  acc_lake_evap_avg(1)
-                            ! Globally accumulated total lake evaporation
-                            !  averaged over total_soil_area
-                            ! (Array size 1 needed so that both water and water
-                            !  tracers can use routine lake_evap_global_avg)
+REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
+  sthu(land_points)                                                            &
+                        ! Frozen soil moisture content of
+!                            !    bottom layer as a frac of saturation
+     , smcl(land_points)
+                             ! Total soil moisture contents
+!                            !      of bottom layer (kg/m2).
 
-REAL(KIND=real_jlslsm) ::  acc_lake_evap_avg_wtrac(n_wtrac_jls)
-                            ! Global accumulated total lake evaporation
-                            ! for water tracers averaged over total_soil_area
+REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
+ acc_lake_evap(row_length,rows)
+!                                    ! Accumulated lake evap over
+!                                    ! river routing timestep (Kg/m2)
 
 REAL(KIND=real_jlslsm) ::                                                      &
- smvcst_ij(row_length,rows)                                                    &
-                            ! SMVCST on local ij grid
-,smvcwt_ij(row_length,rows)                                                    &
-                            ! SMVCWT on local ij grid
-,smcl_dsm_ij(row_length,rows)                                                  &
-                            ! SMCL on dsm_levels layer on local ij grid
-,sthu_dsm_ij(row_length,rows)                                                  &
-                            ! STHU on dsm_levels layer on local ij grid
-,soil_sat_ij(row_length,rows)
-                            ! Soil saturation point (in kg/m2) on local ij grid
+ smvcst_g(row_length,rows)                                                     &
+!                                    ! SMVCST on global grid
+     ,smvcwt_g(row_length,rows)                                                &
+!                                    ! SMVCWT on global grid
+     ,smcl_dsm_g(row_length,rows)                                              &
+!                                    ! SMCL on DSM_LEVELS LAYER
+!                                    ! on global grid
+     ,sthu_dsm_g(row_length,rows)                                              &
+!                                    ! STHU on DSM_LEVELS LAYER
+!                                    ! on global grid
+     ,surf_runoffin(row_length,rows)                                           &
+                                     ! TOTAL RATE OF RUNOFF (KG/M2/S)
+     ,sub_runoffin(row_length,rows)
+!                                    ! TOTAL RATE OF RUNOFF (KG/M2/S)
 
-
-REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
- smcl_dsm_ij_wtrac(:,:)                                                        &
-                            ! Water tracer SMCL on dsm_levels layer on
-                            !  local ij grid
-,sthu_dsm_ij_wtrac(:,:)
-                            ! Water tracer STHU on dsm_levels layer on
-                            ! local ij grid
-
-
-! Water tracer diagnostics:
-! These are not currently output from this routine so are dummy fields.
-! If they are required in the future, they will require an additional
-! n_wtrac_jls dimension and initialising to zero.
-REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
- riverout_atmos_wtrac_dum(:,:)                                                 &
-                            ! Water tracer river flow out from each atmos
-                            !  gridbox (kg/m2/s). Equivalent to (26,004)
-,riverout_rgrid_wtrac_dum(:,:)                                                 &
-                            ! Water tracer river flow out from TRIP grid
-                            !  to ocean (kg/s). Equivalent to (26,005)
-,box_outflow_wtrac_dum(:,:)                                                    &
-                            ! Water tracer gridbox outflow on river grid (kg/s)
-                            ! Equivalent to (26,002)
-,box_inflow_wtrac_dum(:,:)                                                     &
-                            ! Water tracer gridbox runoff on river grid(kg/s)
-                            ! Equivalent to (26,003)
-,inlandout_riv_wtrac_dum(:,:)
-                            ! Water tracer outflow from inland basins on
-                            ! TRIP grid (kg/s). Equivalent to (26,006)
+REAL(KIND=real_jlslsm) ::                                                      &
+ acc_lake_evap_avg
+ ! Global daily accumulated total lake evaporation
 
 REAL(KIND=real_jlslsm), DIMENSION(:,:), SAVE, ALLOCATABLE :: land_frac
-                            ! land mask for global regridding weights
-                            ! calculation
+! land mask for global regridding weights calculation
+
+REAL(KIND=real_jlslsm) :: acc_lake_evap_avg_g = 0, tot_landarea_g = 0
+REAL(KIND=real_jlslsm) :: sum_r(row_length, rows, 2), sum_all(2)
 
 LOGICAL, SAVE :: first = .TRUE.
-                            ! TRUE if this is the first entry to river routing
-
-CHARACTER(LEN=errormessagelength) :: CMessage
-                            ! Error message if return code >0
-
-CHARACTER(LEN=*),PARAMETER :: RoutineName = 'RIV_INTCTL_1A'
+! use this rather than first entry because of continuation runs
+! and the need to recalculate concerns and gather land fractions
+! on first fun
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 REAL(KIND=jprb)               :: zhook_handle
 
+! gather the TRIP variables to PE0 and call the TRIP river routing
+! 1. Gather coupling fields from distributed processors onto a single
+!    processor for input to river routing routines.
+
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,                 &
                         zhook_handle)
 info = 0
 
-!-------------------------------------------------------------------------
-!  1. Remove amount of lake evaporation from deep soil layer to conserve
-!     moisture
-!-------------------------------------------------------------------------
+sum_r = 0.0
+sum_all = 0.0
 
-! Copy soil fields to full fields array
+! *******************************************************************
 DO j = 1,rows
   DO i = 1,row_length
-    smvcst_ij(i,j) = 0.0
-    smvcwt_ij(i,j) = 0.0
-    smcl_dsm_ij(i,j) = 0.0
-    sthu_dsm_ij(i,j) = 0.0
-    mask_for_lake_evap_corr(i,j) = 0
-    soil_sat_ij(i,j) = 0.0
+    surf_runoffin(i,j) = 0.0
+    sub_runoffin(i,j) = 0.0
+  END DO
+END DO
+DO j = 1,rows
+  DO i = 1,row_length
+    smvcst_g(i,j) = 0.0
+    smvcwt_g(i,j) = 0.0
+    smcl_dsm_g(i,j) = 0.0
+    sthu_dsm_g(i,j) = 0.0
   END DO
 END DO
 
+! Copy land points output back to full fields array.
 DO l = 1, land_points
   j=(land_index(l) - 1) / row_length + 1
   i = land_index(l) - (j-1) * row_length
+  surf_runoffin(i,j) = tot_surf_runoff_gb(l)
+  sub_runoffin(i,j)  = tot_sub_runoff_gb(l)
 
   !Note for soil tiling- these varaibles cannot be arithmetically
   !averaged, making conversion to be compatible with nsoilt > 1
   !rather difficult
-  smvcst_ij(i,j)      = smvcst(l)
-  smvcwt_ij(i,j)      = smvcwt(l)
-  smcl_dsm_ij(i,j)    = smcl(l)
-  sthu_dsm_ij(i,j)    = sthu(l)
-
-  ! Calculate soil saturation point in kg/m2
-  soil_sat_ij(i,j)    = smvcst_ij(i,j) * rho_water * dzsoil(dsm_levels)
+  smvcst_g(i,j)      = smvcst(l)
+  smvcwt_g(i,j)      = smvcwt(l)
+  smcl_dsm_g(i,j)    = smcl(l)
+  sthu_dsm_g(i,j)    = sthu(l)
 END DO
 
-! Set mask of gridboxes of where to apply the lake evaporation correction.
-! This applies to both normal water & water tracers.
-WHERE ( sthu_dsm_ij(:,:) * smvcst_ij(:,:) >  smvcwt_ij(:,:) )                  &
-                         mask_for_lake_evap_corr(:,:) = 1
-
-
-! Calculate the global average lake evaporation accumulated over river routing
-! timestep
-
-total_soil_area = 0.0
-
-n_wt = 1  ! No. of water fields
-CALL lake_evap_global_avg(row_length, rows, global_row_length, global_rows,    &
-                          n_wt, mask_for_lake_evap_corr,                       &
-                          a_boxareas, flandg, acc_lake_evap, 'water',          &
-                          total_soil_area, acc_lake_evap_avg)
-
-! Remove global average lake evaporation from deepest soil layer
-
-CALL lake_evap_apply_soil                                                      &
-               (row_length, rows, land_points, land_index,                     &
-                mask_for_lake_evap_corr, soil_sat_ij,                          &
-                acc_lake_evap_avg(1), 'water',                                 &
-                sthu_dsm_ij, smcl_dsm_ij, sthu, smcl)
-
-
-!-------------------------------------------------------------------------
-! 2. Now do river routing
-!-------------------------------------------------------------------------
-
-! If first call to this routine, then gather land fraction to a global field
 IF (first) THEN
   ALLOCATE(land_frac(global_row_length, global_rows))
 
@@ -426,100 +353,85 @@ IF (first) THEN
 
 END IF
 
-! River routing
+! first get number of river grid points on this proc
 
-CALL riv_rout_1a_wrapper(global_row_length, global_rows, land_points,          &
-      land_index, tot_surf_runoff_gb, tot_sub_runoff_gb,                       &
-      row_length, rows, invert_atmos, xua, yva,                                &
-      river_row_length, river_rows, flandg, riv_step, a_boxareas,              &
-      twatstor, riverout_rgrid, trivdir, trivseq,                              &
+! Calculate the water required to be removed from the soil to
+! take account of lake evaporation
+
+! Calculate the global total lake evaporation accumulated over a day:
+
+acc_lake_evap_avg = 0.0
+
+DO j = 1, rows
+  DO i = 1, row_length
+
+    IF (sthu_dsm_g(i,j) * smvcst_g(i,j) >  smvcwt_g(i,j))                      &
+          sum_r(i,j,1) =  a_boxareas(i,j) * flandg(i,j)
+
+    sum_r(i,j,2)= acc_lake_evap(i,j) * a_boxareas(i,j) * flandg(i,j)
+
+  END DO
+END DO
+
+! calculate global landarea and acc_lake_evap_avg sums
+CALL global_2d_sums(sum_r, row_length, rows, 0, 0, 2, sum_all)
+
+tot_landarea_g = sum_all(1)
+acc_lake_evap_avg_g = sum_all(2)
+
+acc_lake_evap_avg = acc_lake_evap_avg_g / tot_landarea_g
+
+! Apply water correction:
+
+DO j = 1, rows
+  DO i = 1, row_length
+    IF (sthu_dsm_g(i,j) * smvcst_g(i,j) >  smvcwt_g(i,j)) THEN
+
+      smcl_dsm_g(i,j) = smcl_dsm_g(i,j) - acc_lake_evap_avg
+      sthu_dsm_g(i,j) = sthu_dsm_g(i,j) - acc_lake_evap_avg                    &
+            / (smvcst_g(i,j) * rho_water * dzsoil(dsm_levels))
+
+      IF (sthu_dsm_g(i,j) <  0.0) THEN
+        CALL umPrint('*warning layer 4 unfr soil moisture frac<0' ,            &
+            src='riv_intctl-riv_ic1a')
+        WRITE(umMessage,'(2(F8.2))')STHU_DSM_g(i,j),STHU_DSM_g(i,j)            &
+             +acc_lake_evap_avg
+        CALL umPrint(umMessage,src='riv_intctl-riv_ic1a')
+      END IF
+
+      IF (smcl_dsm_g(i,j) <  0.0) THEN
+        CALL umPrint('*warning layer 4 unfrozen soil moisture frac<0' ,        &
+            src='riv_intctl-riv_ic1a')
+        WRITE(umMessage,'(2(F8.2))') smcl_DSM_g(i,j), smcl_DSM_g(i,j)          &
+             +acc_lake_evap_avg
+        CALL umPrint(umMessage,src='riv_intctl-riv_ic1a')
+      END IF
+    END IF
+  END DO
+END DO
+
+
+
+CALL riv_rout_1a(global_row_length, global_rows, surf_runoffin,                &
+      sub_runoffin, row_length, rows, invert_atmos, xua, yva,                  &
+      river_row_length, river_rows, flandg, regrid, riv_vel,                   &
+      riv_mcoef, riv_step, cyclic_trip, a_boxareas, global_trip,               &
+      invert_trip, twatstor, riverout_rgrid, trivdir, trivseq,                 &
       box_outflow, box_inflow, riverout_atmos, inlandout_riv,                  &
       inlandout_atmos, global_river_row_length, global_river_rows,             &
       land_frac, first, cmessage)
 
+WHERE (flandg == 1.0) riverout_atmos = 0.0
+
+! Copy full fields array back to land points:
+DO l = 1, land_points
+  j=(land_index(l) - 1) / row_length + 1
+  i = land_index(l) - (j-1) * row_length
+  smcl(l) = smcl_dsm_g(i,j)
+  sthu(l) = sthu_dsm_g(i,j)
+END DO
+
 first = .FALSE.
-
-!------------------------------------------------------------------------
-! Repeat steps 1 and 2 for water tracers if present
-!------------------------------------------------------------------------
-
-IF (l_wtrac_jls) THEN
-
-  ! Set up required water tracer fields
-
-  ! Currently, there are no water tracer diagnostics output from this
-  ! routine.  So set fields to dummy fields.
-  ALLOCATE(riverout_atmos_wtrac_dum(row_length,rows))
-  ALLOCATE(riverout_rgrid_wtrac_dum(river_row_length,river_rows))
-  ALLOCATE(box_outflow_wtrac_dum(river_row_length,river_rows))
-  ALLOCATE(box_inflow_wtrac_dum(river_row_length,river_rows))
-  ALLOCATE(inlandout_riv_wtrac_dum(river_row_length,river_rows))
-
-  ALLOCATE(smcl_dsm_ij_wtrac(row_length,rows))
-  ALLOCATE(sthu_dsm_ij_wtrac(row_length,rows))
-
-  DO j = 1, rows
-    DO i = 1, row_length
-      smcl_dsm_ij_wtrac(i,j) = 0.0
-      sthu_dsm_ij_wtrac(i,j) = 0.0
-    END DO
-  END DO
-
-  ! Calculate the global average lake evaporation accumulated over river routing
-  ! timestep
-  ! (Pass all water tracers into this routine so global_2d_sums only needs to
-  !  be called once)
-  n_wt = n_wtrac_jls  ! No. of water fields
-  CALL lake_evap_global_avg(row_length, rows, global_row_length, global_rows,  &
-                            n_wt, mask_for_lake_evap_corr,                     &
-                            a_boxareas, flandg, acc_lake_evap_wtrac, 'wtrac',  &
-                            total_soil_area, acc_lake_evap_avg_wtrac)
-
-  DO i_wt = 1, n_wtrac_jls
-
-    ! Set up water tracer soil fields on ij grid
-    DO l = 1, land_points
-      j=(land_index(l) - 1) / row_length + 1
-      i = land_index(l) - (j-1) * row_length
-
-      smcl_dsm_ij_wtrac(i,j)    = smcl_wtrac(l,1,dsm_levels,i_wt)
-      sthu_dsm_ij_wtrac(i,j)    = sthu_wtrac(l,1,dsm_levels,i_wt)
-    END DO
-
-    ! Remove water tracer lake evaporation from water tracer in deep soil layer
-    CALL lake_evap_apply_soil                                                  &
-               (row_length, rows, land_points, land_index,                     &
-                mask_for_lake_evap_corr, soil_sat_ij,                          &
-                acc_lake_evap_avg_wtrac(i_wt), 'wtrac',                        &
-                sthu_dsm_ij_wtrac, smcl_dsm_ij_wtrac,                          &
-                sthu_wtrac(:,1,dsm_levels,i_wt),                               &
-                smcl_wtrac(:,1,dsm_levels,i_wt))
-
-    ! Call river routing routine with water tracer inflows and outflows
-    CALL riv_rout_1a_wrapper(global_row_length, global_rows, land_points,      &
-      land_index,                                                              &
-      tot_surf_runoff_gb_wtrac(:,i_wt), tot_sub_runoff_gb_wtrac(:,i_wt),       &
-      row_length, rows, invert_atmos, xua, yva,                                &
-      river_row_length, river_rows, flandg, riv_step, a_boxareas,              &
-      twatstor_wtrac(:,:,i_wt), riverout_rgrid_wtrac_dum(:,:),                 &
-      trivdir, trivseq,                                                        &
-      box_outflow_wtrac_dum(:,:), box_inflow_wtrac_dum(:,:),                   &
-      riverout_atmos_wtrac_dum(:,:),                                           &
-      inlandout_riv_wtrac_dum(:,:), inlandout_atmos_wtrac(:,:,i_wt),           &
-      global_river_row_length, global_river_rows, land_frac, first, cmessage)
-
-  END DO   ! i_wt
-
-  DEALLOCATE(sthu_dsm_ij_wtrac)
-  DEALLOCATE(smcl_dsm_ij_wtrac)
-
-  DEALLOCATE(inlandout_riv_wtrac_dum)
-  DEALLOCATE(box_inflow_wtrac_dum)
-  DEALLOCATE(box_outflow_wtrac_dum)
-  DEALLOCATE(riverout_rgrid_wtrac_dum)
-  DEALLOCATE(riverout_atmos_wtrac_dum)
-
-END IF     ! l_wtrac_jls
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,                &
                         zhook_handle)

@@ -18,11 +18,11 @@ CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='RELAYERSNOW_MOD'
 
 CONTAINS
 
-SUBROUTINE relayersnow( land_pts, surft_pts, n_wtrac_jls, surft_index,         &
+SUBROUTINE relayersnow( land_pts, surft_pts, surft_index,                      &
                         rgrain0, rho0, sice0, snowfall, snowmass,              &
-                        tsnow0, sice0_wtrac, nsnow, ds, rgrain, rgrainl, sice, &
-                        rho_snow_grnd, sliq, tsnow, sice_wtrac, sliq_wtrac,    &
-                        rho_snow, snowdepth )
+                        tsnow0, nsnow, ds, rgrain, rgrainl, sice,              &
+                        rho_snow_grnd, sliq, tsnow, rho_snow,                  &
+                        snowdepth )
 
 USE layersnow_mod, ONLY: layersnow
 
@@ -52,8 +52,6 @@ USE jules_snow_mod, ONLY:                                                      &
 
 USE jules_radiation_mod, ONLY: l_snow_albedo, l_embedded_snow
 
-USE jules_water_tracers_mod, ONLY: l_wtrac_jls
-
 USE parkind1, ONLY: jprb, jpim
 USE yomhook, ONLY: lhook, dr_hook
 
@@ -67,10 +65,8 @@ IMPLICIT NONE
 INTEGER, INTENT(IN) ::                                                         &
   land_pts,                                                                    &
     ! Total number of land points.
-  surft_pts,                                                                   &
+  surft_pts
     ! Number of tile points.
-  n_wtrac_jls
-    ! Number of water tracers
 
 !-----------------------------------------------------------------------------
 ! Array arguments with intent(in)
@@ -91,11 +87,8 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
      ! Total frozen precip reaching the ground (kg/m2).
   snowmass(land_pts),                                                          &
      ! Snow mass on the ground (kg/m2).
-  tsnow0(land_pts),                                                            &
+  tsnow0(land_pts)
      ! Temperature of fresh snow (K).
-  sice0_wtrac(land_pts,n_wtrac_jls)
-     ! Water tracer ice content of fresh snow (kg/m2).
-     ! Where nsnow=0, sice0 is the mass of the snowpack.
 
 !-----------------------------------------------------------------------------
 ! Array arguments with intent(inout)
@@ -116,12 +109,8 @@ REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
     ! Ice content of snow layers (kg/m2).
   sliq(land_pts,nsmax),                                                        &
     ! Liquid content of snow layers (kg/m2).
-  tsnow(land_pts,nsmax),                                                       &
+  tsnow(land_pts,nsmax)
     ! Snow layer temperatures (K).
-  sice_wtrac(land_pts,nsmax,n_wtrac_jls),                                      &
-    ! Water tracer ice content of snow layers (kg/m2).
-  sliq_wtrac(land_pts,nsmax,n_wtrac_jls)
-    ! Water tracer liquid content of snow layers (kg/m2).
 
 !-----------------------------------------------------------------------------
 ! Array arguments with intent(out)
@@ -155,10 +144,8 @@ INTEGER ::                                                                     &
     ! Snow layer index.
   new,                                                                         &
     ! Layer index.
-  old,                                                                         &
+  old
     ! Layer index.
-  i_wt
-    ! Water tracer index.
 
 REAL(KIND=real_jlslsm) ::                                                      &
   csnow,                                                                       &
@@ -191,13 +178,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
   u(nsmax)
     ! Layer energy contents.
 
-REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
-  s_wtrac(:,:),                                                                &
-    ! Water tracer ice content before adjustment (kg/m2).
-  w_wtrac(:,:)
-    ! Water tracer liquid content before adjustment (kg/m2).
-
-
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 REAL(KIND=jprb)               :: zhook_handle
@@ -210,15 +190,6 @@ CHARACTER(LEN=80) :: ERRMSG             ! Error message
 !-----------------------------------------------------------------------------
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
-
-! Allocate water tracer working arrays
-IF (l_wtrac_jls) THEN
-  ALLOCATE(s_wtrac(0:nsmax,n_wtrac_jls))
-  ALLOCATE(w_wtrac(0:nsmax,n_wtrac_jls))
-ELSE
-  ALLOCATE(s_wtrac(1,1))
-  ALLOCATE(w_wtrac(1,1))
-END IF
 
 !$OMP PARALLEL                                                                 &
 !$OMP DEFAULT(NONE)                                                            &
@@ -311,7 +282,7 @@ CALL layersnow( land_pts, surft_pts, surft_index, snowdepth, nsnow, ds )
 !$OMP SCHEDULE(STATIC)                                                         &
 !$OMP DEFAULT(SHARED)                                                          &
 !$OMP PRIVATE(i,iznew,izz,k,n,new,old,csnow,oldremains,wt,e,newremains,        &
-!$OMP         r,s,w,u,errcode,errmsg,i_wt,s_wtrac,w_wtrac)
+!$OMP         r,s,w,u,errcode,errmsg)
 DO k = 1,surft_pts
   i = surft_index(k)
 
@@ -349,19 +320,6 @@ DO k = 1,surft_pts
       w(n)  = sliq(i,n)
     END DO
 
-    IF (l_wtrac_jls) THEN
-      ! Repeat for water tracers
-      DO i_wt = 1, n_wtrac_jls
-        s_wtrac(0,i_wt) = sice0_wtrac(i,i_wt)
-        w_wtrac(0,i_wt) = 0.0
-
-        DO n = 1,nold(i)
-          s_wtrac(n,i_wt) = sice_wtrac(i,n,i_wt)
-          w_wtrac(n,i_wt) = sliq_wtrac(i,n,i_wt)
-        END DO
-      END DO
-    END IF ! l_wtrac_jls
-
     !-------------------------------------------------------------------------
     ! Initialise accumulations for new layer values.
     !-------------------------------------------------------------------------
@@ -371,16 +329,6 @@ DO k = 1,surft_pts
       sliq(i,n)    = 0.0
       rgrainl(i,n) = 0.0
     END DO
-
-    IF (l_wtrac_jls) THEN
-      ! Repeat for water tracers
-      DO i_wt = 1,n_wtrac_jls
-        DO n = 1, nsmax
-          sice_wtrac(i,n,i_wt) = 0.0
-          sliq_wtrac(i,n,i_wt) = 0.0
-        END DO
-      END DO
-    END IF     ! l_wtrac_jls
 
     !-------------------------------------------------------------------------
     ! Set the state of the new layers.
@@ -422,17 +370,6 @@ DO k = 1,surft_pts
             u(new)      = u(new) + e(old) * wt
             sice(i,new) = sice(i,new) + s(old) * wt
             sliq(i,new) = sliq(i,new) + w(old) * wt
-
-            IF (l_wtrac_jls) THEN
-              ! Repeat for water tracers
-              DO i_wt = 1,n_wtrac_jls
-                sice_wtrac(i,new,i_wt) = sice_wtrac(i,new,i_wt)                &
-                                         + s_wtrac(old,i_wt) * wt
-                sliq_wtrac(i,new,i_wt) = sliq_wtrac(i,new,i_wt)                &
-                                         + w_wtrac(old,i_wt) * wt
-              END DO
-            END IF     ! l_wtrac_jls
-
             SELECT CASE (i_relayer_opt)
             CASE (ip_relayer_linear)
               rgrainl(i,new) = rgrainl(i,new) +                                &
@@ -463,17 +400,6 @@ DO k = 1,surft_pts
             u(new)      = u(new) + e(old) * wt
             sice(i,new) = sice(i,new) + s(old) * wt
             sliq(i,new) = sliq(i,new) + w(old) * wt
-
-            IF (l_wtrac_jls) THEN
-              ! Repeat for water tracers
-              DO i_wt = 1,n_wtrac_jls
-                sice_wtrac(i,new,i_wt) = sice_wtrac(i,new,i_wt)                &
-                                         + s_wtrac(old,i_wt) * wt
-                sliq_wtrac(i,new,i_wt) = sliq_wtrac(i,new,i_wt)                &
-                                         + w_wtrac(old,i_wt) * wt
-              END DO
-            END IF     ! l_wtrac_jls
-
             SELECT CASE (i_relayer_opt)
             CASE (ip_relayer_linear)
               rgrainl(i,new) = rgrainl(i,new) + r(old) * oldremains
@@ -558,24 +484,10 @@ DO k = 1,surft_pts
       sliq(i,n)      = 0.0
       tsnow(i,n)     = tm
     END DO
-
-    IF (l_wtrac_jls) THEN
-      ! Repeat for water tracers
-      DO i_wt = 1,n_wtrac_jls
-        DO n = nsnow(i) + 1, nsmax
-          sice_wtrac(i,n,i_wt)      = 0.0
-          sliq_wtrac(i,n,i_wt)      = 0.0
-        END DO
-      END DO
-    END IF     ! l_wtrac_jls
   END IF
 
 END DO  !  K (points)
 !$OMP END PARALLEL DO
-
-! Deallocate water tracer working arrays
-DEALLOCATE(w_wtrac)
-DEALLOCATE(s_wtrac)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

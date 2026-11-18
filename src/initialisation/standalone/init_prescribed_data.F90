@@ -27,13 +27,11 @@ USE templating_mod, ONLY: tpl_detect_period, tpl_has_var_name,                 &
 USE time_varying_input_mod, ONLY: register_input_file
 
 USE update_mod, ONLY: have_prescribed_veg, have_prescribed_sthuf,              &
-                       prescribed_sthuf_levels, l_imogen
+                       prescribed_sthuf_levels
 
 USE jules_deposition_mod, ONLY: l_deposition, l_deposition_flux
 
 USE jules_radiation_mod, ONLY: l_albedo_obs, l_spec_albedo
-
-USE jules_rivers_mod, ONLY: l_vary_sea_level, rivers_regrid
 
 USE jules_vegetation_mod, ONLY: l_triffid, l_phenol, l_o3_damage, l_crop,      &
                                 l_croprotate
@@ -43,15 +41,13 @@ USE jules_irrig_mod, ONLY: l_irrig_dmd
 USE jules_water_resources_mod, ONLY: l_water_domestic, l_water_industry,       &
     l_water_livestock, l_water_resources, l_water_transfers
 
-USE logging_mod, ONLY: log_info, log_error, log_fatal, log_warn
+USE logging_mod, ONLY: log_info, log_error, log_fatal
 
 USE errormessagelength_mod, ONLY: errormessagelength
 
 USE jules_hydrology_mod, ONLY: l_top
 
 USE jules_soil_mod, ONLY: sm_levels
-
-USE imogen_run, ONLY: l_change_metdata, change_metdata_method
 
 IMPLICIT NONE
 
@@ -506,6 +502,7 @@ DO i = 1,n_datasets
 
 END DO  ! datasets
 
+
 CLOSE(namelist_unit, IOSTAT = ERROR, IOMSG = iomessage)
 IF ( ERROR /= 0 )                                                              &
   CALL log_fatal("init_prescribed_data",                                       &
@@ -513,25 +510,12 @@ IF ( ERROR /= 0 )                                                              &
                  "(IOSTAT=" // TRIM(to_string(ERROR)) // " IOMSG=" //          &
                  TRIM(iomessage) // ")")
 
-!-----------------------------------------------------------------------------
-! Constraints on imogen to make sure all variables are read in
-!-----------------------------------------------------------------------------
-IF ( l_imogen ) THEN
-  IF ( l_change_metdata ) THEN
 
-    !---------------------------------------------------------------------------
-    ! GLOBAL MEAN TEMPERATURE DRIVEN RUN - no feedbacks here yet
-    ! need dtemp_g
-    IF ( change_metdata_method == 3 ) THEN
-      IF ( .NOT. ANY(all_vars == 'dtemp_g') ) THEN
-        CALL log_fatal("init_prescribed_data",                                 &
-                      "When using IMOGEN driven by global temp change " //     &
-                      "need to prescribe dtemp_g")
-      END IF
-    END IF
-
-  END IF
-END IF
+!-----------------------------------------------------------------------------
+! Check if any of the specified variables require special treatment, either
+! here or in update_derived_variables (once the prescribed variables
+! themselves have been updated from file)
+!-----------------------------------------------------------------------------
 
 !-----------------------------------------------------------------------------
 ! Can't have ozone damage without prescribing ozone
@@ -623,15 +607,6 @@ IF ( l_croprotate .AND. .NOT. ANY(all_vars == 'cropfrac') )                    &
                   "When l_croprotate=T, cropfrac needs to be prescribed.")
 
 !-----------------------------------------------------------------------------
-! Check for CaMa-Flood with a time-varying sea level.
-!-----------------------------------------------------------------------------
-IF ( l_vary_sea_level .AND. .NOT. ANY(all_vars == 'sea_level_lp') ) THEN
-  CALL log_fatal("init_prescribed_data",                                       &
-                 "When sea level at river mouths is required  " //             &
-                 "(l_vary_sea_level=T), sea_level_lp must be prescribed.")
-END IF
-
-!-----------------------------------------------------------------------------
 ! Water resource variables.
 !-----------------------------------------------------------------------------
 ! We must prescribe a demand if a particular water sector is active, and we
@@ -639,7 +614,7 @@ END IF
 ! are not being modelled (as in both cases space has not been allocated).
 ! Note that the sector-specific flags (e.g. l_water_domestic) have been set
 ! to F if l_water_resources=F.
-! Irrigation and environmental demands cannot be prescribed.
+! Irrigation and environmental demand cannot be prescribed.
 
 ! Domestic
 IF ( l_water_domestic ) THEN
@@ -694,10 +669,6 @@ ELSE IF ( ANY( all_vars == 'demand_rate_transfers' ) ) THEN
 END IF
 
 !-----------------------------------------------------------------------------
-! Check if any of the specified variables require special treatment, either
-! here or in update_derived_variables (once the prescribed variables
-! themselves have been updated from file).
-!-----------------------------------------------------------------------------
 ! update_mod needs to know if we have a veg variable or sthuf prescribed
 !-----------------------------------------------------------------------------
 have_prescribed_veg = ANY(all_vars == 'lai') .OR. ANY(all_vars == 'canht')
@@ -714,17 +685,6 @@ IF ( have_prescribed_sthuf .AND. l_irrig_dmd )                                 &
 
 DEALLOCATE(all_vars)
 
-!------------------------------------------------------------------------------
-! Warn if a time-varying sea level is used with rivers_regrid.
-! This assumes that init_rivers_props has been called earlier.
-!------------------------------------------------------------------------------
-IF ( l_vary_sea_level .AND. rivers_regrid ) THEN
-  CALL log_warn("init_prescribed_data",                                        &
-                "When speciying sea level at river mouths "                 // &
-                "(l_vary_sea_level=T) and regridding river fields "         // &
-                "(rivers_regrid=T) care must be taken to ensure that "      // &
-                "correct values result at all river mounths.")
-END IF
 
 RETURN
 

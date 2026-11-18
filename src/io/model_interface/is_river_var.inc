@@ -35,6 +35,7 @@ LOGICAL :: l_river_var
   ! TRUE if variable is of type var_type_rp, otherwise FALSE
 
 ! Work variables
+INTEGER :: i        ! Loop index
 INTEGER :: var_id   ! The integer id for the variable.
 INTEGER :: var_type ! Code giving the type of the variable.
 

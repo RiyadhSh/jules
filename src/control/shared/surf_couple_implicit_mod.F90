@@ -36,8 +36,8 @@ SUBROUTINE surf_couple_implicit(                                               &
   u_1, v_1,                                                                    &
   !Misc INTENT(IN) Many of these simply come out of explicit and into here.
   rhokm_u, rhokm_v, gamma1, gamma2, alpha1, alpha1_sea, alpha1_sice,           &
-  ashtf, ashtf_sea, ashtf_surft, du, dv, fracaero_t, fracaero_s, resfs, resft, &
-  rhokh, rhokh_surft, rhokh_sice, rhokh_sea,                                   &
+  ashtf, ashtf_sea, ashtf_surft, du, dv, fraca, resfs, resft, rhokh,           &
+  rhokh_surft, rhokh_sice, rhokh_sea,                                          &
   z0hssi, z0mssi, chr1p5m,                                                     &
   chr1p5m_sice, canhc_surft, flake, tile_frac, wt_ext_surft,                   &
   cdr10m_u, cdr10m_v, r_gamma,                                                 &
@@ -58,8 +58,6 @@ SUBROUTINE surf_couple_implicit(                                               &
   flandg,                                                                      &
   ! Coastal OUT - do this here as needs to be OUT
   tstar_land_ij, tstar_sice_ij,                                                &
-  ! Water tracer switch (IN)
-  l_wtrac_bl,                                                                  &
   !JULES switches module
   l_co2_interactive, l_mr_physics,                                             &
   co2_3d_ij,                                                                   &
@@ -76,7 +74,6 @@ SUBROUTINE surf_couple_implicit(                                               &
   !veg3_parm, &
   !veg3_field, &
   !chemvars, &
-  wtrac_jls,                                                                   &
   progs_cbl,                                                                   &
   work_cbl                                                                     &
   )
@@ -97,9 +94,6 @@ USE jules_forcing_mod, ONLY: forcing_type
 ! USE veg3_parm_mod, ONLY: in_dev
 ! USE veg3_field_mod, ONLY: in_dev
 ! USE jules_chemvars_mod, ONLY: chemvars_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_type
-
-
 
 ! In general CABLE utilizes a required subset of tbe JULES types, however;
 USE progs_cbl_vars_mod, ONLY: progs_cbl_vars_type ! CABLE requires extra progs
@@ -112,7 +106,7 @@ USE jules_soil_mod,        ONLY: sm_levels
 USE jules_sea_seaice_mod,  ONLY: nice_use, nice
 USE sf_diags_mod,          ONLY: strnewsfdiag
 USE jules_surface_types_mod,  ONLY: ntype
-USE jules_water_tracers_mod,  ONLY: l_wtrac_imp_jls, l_wtrac_jls,              &
+USE jules_water_tracers_mod,  ONLY: l_wtrac_imp_jls,                           &
                                     n_wtrac_jls, n_evap_srce
 
 !Potential troublemakers
@@ -159,10 +153,6 @@ INTEGER, INTENT(IN) ::                                                         &
   nsurft, land_pts, ssi_pts, sice_pts, sea_pts,                                &
   ! ainfo%surft_index(nsurft),                                                        &
   surft_pts(ntype)
-!JULES water_tracer module
-LOGICAL, INTENT(IN) ::                                                         &
-  l_wtrac_bl      ! Logical to control the water tracer calculations in
-                  ! the implicit code
 !JULES coastal module
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   flandg(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)
@@ -254,17 +244,15 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     !Level 1 increment to u wind field
   dv(vdims_s%i_start:vdims_s%i_end,vdims_s%j_start:vdims_s%j_end),             &
     !Level 1 increment to v wind field
-  fracaero_t(land_pts,nsurft),                                                 &
-    !Total fraction of surface moisture flux with only aerodynamic resistance
-  fracaero_s(land_pts,nsurft),                                                 &
-    !Fraction of surface moisture flux with only aerodynamic resistance
-    !from the frozen portion of the tile
+  fraca(land_pts,nsurft),                                                      &
+    !Fraction of surface moisture flux with only aerodynamic resistance for
+    !snow-free land tiles.
   resfs(land_pts,nsurft),                                                      &
     !Combined soil, stomatal and aerodynamic resistance factor for fraction
-    !(1-fracaero_t) of snow-free land tiles.
+    !(1-FRACA) of snow-free land tiles.
   resft(land_pts,nsurft),                                                      &
-    !Total resistance factor. fracaero_t+(1-fracaero_t)*resfs
-    !for snow-free land, 1 for snow.
+    !Total resistance factor. FRACA+(1-FRACA)*RESFS for snow-free land, 1 for
+    !snow.
   rhokh(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end),                  &
     !Grid-box surface exchange coefficients (not used for JULES)
   rhokh_surft(land_pts,nsurft),                                                &
@@ -338,7 +326,6 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
 INTEGER, INTENT(OUT) ::                                                        &
   ERROR          !0 - AOK; 1 to 7  - bad grid definition detected
 
-TYPE(jls_wtrac_type), INTENT(IN OUT) :: wtrac_jls
 !TYPES containing field data (IN OUT)
 TYPE(crop_vars_type), INTENT(IN OUT) :: crop_vars
 TYPE(ainfo_type), INTENT(IN OUT) :: ainfo
@@ -385,6 +372,7 @@ REAL(KIND=real_jlslsm) ::                                                      &
                              ! Tile surface temperatures at
                              ! beginning of timestep.
 
+
 !-----------------------------------------------------------------------------
 ! Local variables
 !-----------------------------------------------------------------------------
@@ -400,10 +388,6 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='SURF_COUPLE_IMPLICIT'
 !End of header
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
-
-! Set JULES logical to control water tracer calculations in the implicit
-! scheme (they only need to be done on the final dynamics loop in UMJULES)
-l_wtrac_imp_jls = (l_wtrac_bl .AND. l_wtrac_jls)
 
 SELECT CASE( lsm_id )
 CASE ( jules )
@@ -444,8 +428,7 @@ CASE ( jules )
     ! IN everything not covered so far :
             forcing%lw_down_ij,fluxes%sw_surft,sky,progs%t_soil_soilt,r_gamma, &
             alpha1,ashtf_surft,                                                &
-            jules_vars%dtrdz_charney_grid_1_ij,fracaero_t,fracaero_s,          &
-            resfs,resft, rhokh_surft,                                          &
+            jules_vars%dtrdz_charney_grid_1_ij,fraca,resfs,resft,rhokh_surft,  &
             fluxes%emis_surft,progs%snow_surft,dtstar_surft,                   &
     ! INOUT data :
             progs%tstar_surft,fluxes%fqw_surft,fqw_1,ftl_1,fluxes%ftl_surft,   &
@@ -457,7 +440,7 @@ CASE ( jules )
     ! OUT data required elsewhere in UM system :
             tstar_land_ij,fluxes%le_surft,fluxes%radnet_surft,                 &
             fluxes%ecan_surft,fluxes%esoil_ij_soilt,                           &
-            fluxes%ext_soilt,fluxes%melt_surft,fluxes%snowinc_surft,           &
+            fluxes%ext_soilt,fluxes%melt_surft,                                &
             tstar_surft_old,ERROR,                                             &
             !New arguments replacing USE statements
             ! lake_mod (IN)
@@ -476,19 +459,7 @@ CASE ( jules )
             ! jules_vars_mod (IN)
             jules_vars%snowdep_surft,                                          &
             !TYPES containing field data (IN OUT)
-            crop_vars,                                                         &
-            !Water tracers (IN)
-            wtrac_jls%snow_surft, wtrac_jls%smc_soilt,                         &
-            wtrac_jls%canopy_surft, wtrac_jls%fqw_evapsrce,                    &
-            !Water tracers (INOUT)
-            wtrac_jls%fqw_surft,                                               &
-            !Water tracers (OUT)
-            wtrac_jls%ei_surft, wtrac_jls%ei_ij,                               &
-            wtrac_jls%esoil_surft, wtrac_jls%esoil_ij_soilt,                   &
-            wtrac_jls%ext_soilt, wtrac_jls%ecan_surft,                         &
-            wtrac_jls%ecan_ij, wtrac_jls%lake_evap,                            &
-            wtrac_jls%fqw_1, wtrac_jls%dfqw_imp)
-
+            crop_vars)
   END IF ! IF .NOT. L_correct
 
   CALL jules_ssi_sf_implicit (                                                 &
@@ -521,13 +492,7 @@ CASE ( jules )
           ainfo%ocn_cpl_point, ainfo%sice_pts_ncat, ainfo%sea_index,           &
           ssi_pts, sice_pts, sea_pts,                                          &
   ! fluxes (IN)
-          fluxes%sw_sicat,                                                     &
-  ! water tracers (IN)
-          wtrac_jls%fqw_sea, wtrac_jls%fqw_sicat,                              &
-  ! water tracers (INOUT)
-          wtrac_jls%fqw_1, wtrac_jls%dfqw_imp,                                 &
-  ! water tracers (OUT)
-          wtrac_jls%e_sea_ij, wtrac_jls%ei_sice_ij)
+          fluxes%sw_sicat)
 
   CALL jules_griddiag_sf_implicit (                                            &
   ! IN values defining field dimensions and subset to be processed :
@@ -580,7 +545,6 @@ CASE ( cable )
   fluxes%esoil_ij_soilt(:,:,:) = 0.0
   fluxes%ext_soilt(:,:,:) = 0.0
   fluxes%melt_surft(:,:) = 0.0
-  fluxes%snowinc_surft(:,:) = 0.0
   fluxes%ecan_ij(:,:) = 0.0
   fluxes%ei_surft(:,:) = 0.0
   fluxes%esoil_surft(:,:) = 0.0

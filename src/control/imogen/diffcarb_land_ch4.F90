@@ -2,7 +2,9 @@
 ! *********************************************************************
 ! Calculates the global change in atmospheric CH4
 ! *********************************************************************
-SUBROUTINE diffcarb_land_ch4(land_pts, d_land_atmos_ch4, darea, dctot_ch4)
+SUBROUTINE diffcarb_land_ch4(land_pts, d_land_atmos_ch4, lat, dctot_ch4)
+
+USE cellarea_calc_mod, ONLY: cellarea_calc
 
 USE imogen_run, ONLY: fch4_ref, yr_fch4_ref
 
@@ -31,8 +33,8 @@ INTEGER, INTENT(IN) ::                                                         &
   land_pts         ! Number of land points
 
 REAL, INTENT(IN) ::                                                            &
-  darea(land_pts),                                                             &
-                   ! Gridbox area (m2)
+  lat(land_pts),                                                               &
+                   ! Latitute (degrees)
   dctot_ch4(land_pts)
                    ! Total surface CH4 emissions for the period of
                    ! accumulation, this should be 1 year. (kg C yr-1)
@@ -43,6 +45,8 @@ REAL, INTENT(OUT) ::                                                           &
                    ! flux is from land to atmosphere (kg C / year)
 
 REAL ::                                                                        &
+  darea(land_pts),                                                             &
+                   ! Gridbox area (m2)
   global_total_ch4_emis,                                                       &
                    ! Global total CH4 flux from land to atmosphere
                    ! (kg C / year)
@@ -54,6 +58,7 @@ INTEGER ::                                                                     &
 
 global_total_ch4_emis = 0.0
 kgC_to_TgCH4 = 1e-9 * (16.04 / 12.01)
+CALL cellarea_calc(land_pts, lat, darea)
 
 DO l = 1,land_pts
   ! Sum the gridcell methane emission to the global total methane emission

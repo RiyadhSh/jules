@@ -1,8 +1,6 @@
+import rose.upgrade
+import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 
 class UpgradeError(Exception):
@@ -18,7 +16,7 @@ class UpgradeError(Exception):
 
     __str__ = __repr__
 
-class vn58_t1020(MacroUpgrade):
+class vn58_t1020(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by J. M. Edwards"""
 
@@ -37,7 +35,7 @@ class vn58_t1020(MacroUpgrade):
 
         return config, self.reports
 
-class vn58_t1018(MacroUpgrade):
+class vn58_t1018(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -74,13 +72,13 @@ class vn58_t1018(MacroUpgrade):
         self.add_setting(config, ["namelist:jules_water_resources_props"])
         source = self.get_setting_value(config, ["file:ancillaries.nml","source"])
         if source:
-            self.change_setting_value(config, ["file:ancillaries.nml","source"],
-                                              source.replace("(namelist:jules_overbank_props)",
+            self.change_setting_value(config, ["file:ancillaries.nml","source"], 
+                                              source.replace("(namelist:jules_overbank_props)", 
                                                              "(namelist:jules_overbank_props) (namelist:jules_water_resources_props)"))
 
         return config, self.reports
 
-class vn58_t499(MacroUpgrade):
+class vn58_t499(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #499 by Helen Johnson"""
 
@@ -113,7 +111,7 @@ class vn58_t499(MacroUpgrade):
         return config, self.reports
 
 
-class vn58_t838(MacroUpgrade):
+class vn58_t838(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Heather Rumbold"""
 
@@ -159,7 +157,7 @@ class vn58_t838(MacroUpgrade):
 
         return config, self.reports
 
-class vn58_t1066(MacroUpgrade):
+class vn58_t1066(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -172,12 +170,12 @@ class vn58_t1066(MacroUpgrade):
         # Blank macro to update triggering.
         return config, self.reports
 
-class vn58_vn59(MacroUpgrade):
+class vn58_vn59(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn5.8_t1066"
     AFTER_TAG = "vn5.9"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

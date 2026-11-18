@@ -22,7 +22,6 @@ SUBROUTINE calc_zw(npnts, nshyd, soil_pts, soil_index,                         &
 
 USE water_constants_mod,  ONLY: rho_water
 USE jules_hydrology_mod,  ONLY: zw_max
-USE jules_soil_mod,       ONLY: dzsoil
 
 USE parkind1,             ONLY: jprb, jpim
 USE yomhook,              ONLY: lhook, dr_hook
@@ -51,20 +50,20 @@ INTEGER, INTENT(IN) ::                                                         &
     ! Array of soil points.
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
-  bexp(npnts,nshyd),                                                           &
-    ! Clapp-Hornberger exponent.
-  sathh(npnts,nshyd),                                                          &
+  bexp(npnts),                                                                 &
+    ! Brooks & Corey exponent.
+  sathh(npnts),                                                                &
     ! Saturated soil water pressure (m).
   smcl(npnts,nshyd),                                                           &
     ! Total soil moisture contents of each layer (kg/m2).
   smclsat(npnts,nshyd),                                                        &
     ! Soil moisture contents of each layer at saturation (kg/m2).
   smclzw(npnts),                                                               &
-    ! Moisture content in deep layer (kg/m2).
+    ! Moisture content in deep layer.
   smclsatzw(npnts),                                                            &
-    ! Moisture content in deep layer at saturation (kg/m2).
-  v_sat(npnts,nshyd)
-    ! Volumetric soil moisture concentration at saturation (m3 H2O/m3 soil).
+    ! Moisture content in deep layer at saturation.
+  v_sat(npnts)
+    ! Volumetric soil moisture.
 
 !-----------------------------------------------------------------------------
 ! Array arguments with intent(IN OUT):
@@ -83,7 +82,7 @@ INTEGER, PARAMETER :: niter = 3
 ! Local scalar variables:
 !-----------------------------------------------------------------------------
 INTEGER ::                                                                     &
-  i, j, n, it, nn, nzw
+  i, j, n, it
     !Loop counters
 
 REAL(KIND=real_jlslsm) ::                                                      &
@@ -96,9 +95,7 @@ REAL(KIND=real_jlslsm) ::                                                      &
   zwest,                                                                       &
   smd,                                                                         &
     !soil moisture deficit
-  zdepth(0:nshyd+1),                                                           &
-    ! Lower soil layer boundary depth (m).
-  psisat(nshyd)
+  psisat
     !Saturated soil water pressure (m) (negative).
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
@@ -109,19 +106,13 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='CALC_ZW'
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
-zdepth(:) = 0.0
-DO n=1,nshyd
-  zdepth(n) = zdepth(n-1) + dzsoil(n)
-END DO
-zdepth(nshyd+1) = zw_max
-
 !-----------------------------------------------------------------------------
 !$OMP PARALLEL DO                                                              &
 !$OMP SCHEDULE(STATIC)                                                         &
 !$OMP DEFAULT(NONE)                                                            &
-!$OMP PRIVATE(j,i,zw_old,smd,psisat,zwest,it,fn,dfn,n,nn,nzw)                  &
+!$OMP PRIVATE(j,i,zw_old,smd,psisat,zwest,it,fn,dfn)                           &
 !$OMP SHARED(soil_pts,soil_index,zw,smclsat,smcl,smclsatzw,smclzw,sathh,bexp,  &
-!$OMP        v_sat,nshyd,zw_max,zdepth)
+!$OMP        v_sat,nshyd,zw_max)
 DO j = 1,soil_pts
   i = soil_index(j)
   zw_old = zw(i)
@@ -140,7 +131,7 @@ DO j = 1,soil_pts
   ! Estimate water table depth assuming an equilibrium profile
   ! above water table (i.e. pressure head gradient and gravity balance):
   !---------------------------------------------------------------------------
-  psisat(:) = -sathh(i,:)
+  psisat = -sathh(i)
   zwest  = zw_old
 
   DO it = 1,niter
@@ -155,23 +146,12 @@ DO j = 1,soil_pts
     zw_old = zwest
     zwest  = zw_old
 
-    nzw = nshyd+1
-    DO nn = nshyd+1,1,-1
-      IF (zwest <= zdepth(nn) .AND. nn < nzw) THEN
-        nzw = nn
-      END IF
-    END DO
-
-    ! soil properties have values defined in layers 1-nshyd
-    !    nzw = MAX(1,nzw)
-    nzw = MIN(nshyd,nzw)
     ! Newton-Raphson. zw(next)=zw-f(zw)/f'(zw).
-    fn = zwest * v_sat(i,nzw) - smd                                            &
-         - v_sat(i,nzw) * bexp(i,nzw) / (bexp(i,nzw) - 1.0) * psisat(nzw)      &
-         * ( 1.0 - ( 1.0 - zwest / psisat(nzw) )**                             &
-           ( 1.0 - 1.0 / bexp(i,nzw) ) )       !   f(zw)
-    dfn =  v_sat(i,nzw) + v_sat(i,nzw) * ( 1.0 - zwest / psisat(nzw) )**       &
-           (-1.0 / bexp(i,nzw))
+    fn = zwest * v_sat(i) - smd                                                &
+         - v_sat(i) * bexp(i) / (bexp(i) - 1.0) * psisat                       &
+         * ( 1.0 - ( 1.0 - zwest / psisat )**                                  &
+           ( 1.0 - 1.0 / bexp(i) ) )       !   f(zw)
+    dfn =  v_sat(i) + v_sat(i) * ( 1.0 - zwest / psisat )** (-1.0 / bexp(i))
 
     IF (ABS(dfn) >  1.0e-10) THEN
       zwest = zwest - fn / dfn

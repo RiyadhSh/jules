@@ -93,8 +93,7 @@ IF ( .NOT. ancil_dump_read%frac) THEN !we read from the ancil file
 
   CALL log_info("init_frac",                                                   &
                 "Reading tile fractions from file " // TRIM(FILE))
-  CALL fill_variables_from_file(FILE, [ 'frac' ], [ frac_name ],               &
-                                is_climatology = [ .FALSE. ] )
+  CALL fill_variables_from_file(FILE, [ 'frac' ], [ frac_name ])
 
 ELSE !We read from the dump file
   CALL log_info("init_frac",                                                   &

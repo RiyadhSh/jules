@@ -1,15 +1,11 @@
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
+import rose.upgrade
 
-from . import version34_40
-from . import version40_41
-from . import version41_42
+from version34_40 import *
+from version40_41 import *
+from version41_42 import *
 
 
-class vn42_t103(MacroUpgrade):
+class vn42_t103(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #103 by Matt Pryor"""
 
@@ -18,14 +14,14 @@ class vn42_t103(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
+        
         # Just remove the setting for NPROC
         self.remove_setting(config, ["env", "NPROC"])
-
+        
         return config, self.reports
 
 
-class vn42_t75(MacroUpgrade):
+class vn42_t75(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #75 by Nic Gedney"""
 
@@ -34,14 +30,14 @@ class vn42_t75(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
+        
         # Just add the new compulsory namelist item with its default value
         self.add_setting(config, ["namelist:jules_hydrology", "l_wetland_unfrozen"], ".false.")
-
+                
         return config, self.reports
+        
 
-
-class vn42_t50(MacroUpgrade):
+class vn42_t50(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for ticket #50 by johnmedwards."""
 
@@ -77,7 +73,7 @@ class vn42_t50(MacroUpgrade):
         return config, self.reports
 
 
-class vn42_t116(MacroUpgrade):
+class vn42_t116(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #116 by Huw Lewis"""
 
@@ -86,14 +82,14 @@ class vn42_t116(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
+        
         # Just add the new compulsory namelist item with its default value
         self.add_setting(config, ["namelist:jules_rivers_props", "rivers_dx"], "0.0")
-
+                
         return config, self.reports
 
 
-class vn42_t78(MacroUpgrade):
+class vn42_t78(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #78 by Richard Gilham"""
 
@@ -115,7 +111,7 @@ class vn42_t78(MacroUpgrade):
         return config, self.reports
 
 
-class vn42_vn43(MacroUpgrade):
+class vn42_vn43(rose.upgrade.MacroUpgrade):
 
     """Version bump macro"""
 

@@ -317,8 +317,7 @@ END FUNCTION decompose_domain
 !   master task and scatters it onto the land points for each task, in
 !   accordance with the decomposition performed by decompose_domain
 !-----------------------------------------------------------------------------
-SUBROUTINE scatter_land_field(field_global_land, field_local_land,             &
-                              global_land_index)
+SUBROUTINE scatter_land_field(field_global_land, field_local_land)
 
 USE jules_vars_mod, ONLY: mpi_local_comm
 
@@ -367,13 +366,9 @@ REAL, INTENT(IN) :: field_global_land(:)
                                      ! This only has to be properly defined
                                      ! for the master task
 REAL, INTENT(OUT) :: field_local_land(land_pts)
-                                     ! The field on the land points for the
-                                     ! current task
-                                     ! This must be defined for all tasks
-INTEGER, INTENT(IN), OPTIONAL :: global_land_index(:)
-                                     ! Included to allow consistency between
-                                     ! calls from UM & standalone. However,
-                                     ! it is not required by standalone.
+                                       ! The field on the land points for the
+                                       ! current task
+                                       ! This must be defined for all tasks
 
 ! Work variables
 REAL, ALLOCATABLE :: field_global_2d(:,:)
@@ -442,8 +437,7 @@ RETURN
 END SUBROUTINE scatter_land_field
 
 
-SUBROUTINE gather_land_field(field_local_land, field_global_land,              &
-                             global_land_index)
+SUBROUTINE gather_land_field(field_local_land, field_global_land)
 
 USE jules_vars_mod, ONLY: mpi_local_comm
 
@@ -494,17 +488,13 @@ END INTERFACE
 !-----------------------------------------------------------------------------
 ! Argument types
 REAL, INTENT(IN) :: field_local_land(land_pts)
-                                     ! The field on the land points for the
-                                     ! current task
-                                     ! This must be defined for all tasks
+                                       ! The field on the land points for the
+                                       ! current task
+                                       ! This must be defined for all tasks
 REAL, INTENT(OUT) :: field_global_land(:)
                                      ! The field on the global land points
                                      ! This only has to be properly defined
                                      ! for the master task
-INTEGER, INTENT(IN), OPTIONAL :: global_land_index(:)
-                                     ! Included to allow consistency between
-                                     ! calls from UM & standalone. However,
-                                     ! it is not required by standalone.
 
 ! Work variables
 REAL, ALLOCATABLE :: field_global_2d(:,:)

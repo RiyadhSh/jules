@@ -12,8 +12,6 @@ USE logging_mod, ONLY: log_info, log_warn, log_error, log_fatal
 
 USE init_deposition_species_mod, ONLY: init_deposition_species
 
-USE init_red_mod, ONLY: init_red
-
 IMPLICIT NONE
 
 PRIVATE

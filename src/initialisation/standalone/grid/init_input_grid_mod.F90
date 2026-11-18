@@ -22,8 +22,7 @@ USE string_utils_mod, ONLY: to_string
 USE input_mod, ONLY: input_grid => grid
 
 USE model_interface_mod, ONLY: bl_level_dim_name, pft_dim_name,                &
-                               quantile_dim_name, cpft_dim_name,               &
-                               nvg_dim_name, type_dim_name,                    &
+                               cpft_dim_name, nvg_dim_name, type_dim_name,     &
                                tile_dim_name, snow_dim_name, soil_dim_name,    &
                                scpool_dim_name, bedrock_dim_name,              &
                                sclayer_dim_name, dep_species_dim_name,         &
@@ -75,8 +74,7 @@ NAMELIST  / jules_input_grid/ grid_is_1d,                                      &
                               x_dim_name, y_dim_name, nx, ny,                  &
 ! Levels dimension names
                               bl_level_dim_name, pft_dim_name,                 &
-                              quantile_dim_name, cpft_dim_name,                &
-                              nvg_dim_name, type_dim_name,                     &
+                              cpft_dim_name, nvg_dim_name, type_dim_name,      &
                               tile_dim_name, snow_dim_name, soil_dim_name,     &
                               scpool_dim_name, bedrock_dim_name,               &
                               sclayer_dim_name, dep_species_dim_name,          &

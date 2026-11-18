@@ -9,7 +9,6 @@
 ! DATA statements for variable metadata
 !-----------------------------------------------------------------------------
 
-
 !-----------------------------------------------------------------------------
 ! Metadata for latitude
 !-----------------------------------------------------------------------------
@@ -270,8 +269,7 @@ DATA metadata(22) / var_metadata(                                              &
 ! Variable type
     var_type_soil,                                                             &
 ! Long name
-    "Gridbox  volumetric moisture content at wilting point for each " //       &
-    "soil layer",                                                              &
+    "Gridbox  volumetric moisture content at wilting point for each soil layer", &
 ! Units
     "1"                                                                        &
   ) /
@@ -4161,7 +4159,7 @@ DATA metadata(325) / var_metadata(                                             &
 ! Variable type
     var_type_rp,                                                               &
 ! Long name
-    "River routing gridbox river storage on river points",                     &
+    "River routing gridbox river storage",                                     &
 ! Units
     "kg"                                                                       &
   ) /
@@ -7408,7 +7406,7 @@ DATA metadata(573) / var_metadata(                                             &
 ! Long name
     "Demand for water for domestic use",                                       &
 ! Units
-    "kg s-1"                                                                   &
+    "kg"                                                                       &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for demand_environment
@@ -7421,7 +7419,7 @@ DATA metadata(574) / var_metadata(                                             &
 ! Long name
     "Demand for water for environmental use",                                  &
 ! Units
-    "kg s-1"                                                                   &
+    "kg"                                                                       &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for demand_industry
@@ -7434,7 +7432,7 @@ DATA metadata(575) / var_metadata(                                             &
 ! Long name
     "Demand for water for industrial use",                                     &
 ! Units
-    "kg s-1"                                                                   &
+    "kg"                                                                       &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for demand_irrigation
@@ -7447,7 +7445,7 @@ DATA metadata(576) / var_metadata(                                             &
 ! Long name
     "Demand for water for irrigation use",                                     &
 ! Units
-    "kg s-1"                                                                   &
+    "kg"                                                                       &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for demand_livestock
@@ -7460,7 +7458,7 @@ DATA metadata(577) / var_metadata(                                             &
 ! Long name
     "Demand for water for livestock use",                                      &
 ! Units
-    "kg s-1"                                                                   &
+    "kg"                                                                       &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for demand_transfers
@@ -7473,7 +7471,7 @@ DATA metadata(578) / var_metadata(                                             &
 ! Long name
     "Demand for water for transfers",                                          &
 ! Units
-    "kg s-1"                                                                   &
+    "kg"                                                                       &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for demand_rate_domestic
@@ -7484,8 +7482,7 @@ DATA metadata(579) / var_metadata(                                             &
 ! Variable type
     var_type_surface,                                                          &
 ! Long name
-    "Demand rate for water for domestic use (excluding any allowance "      // &
-    "for losses)",                                                             &
+    "Demand rate for water for domestic use",                                  &
 ! Units
     "kg s-1"                                                                   &
   ) /
@@ -7498,8 +7495,7 @@ DATA metadata(580) / var_metadata(                                             &
 ! Variable type
     var_type_surface,                                                          &
 ! Long name
-    "Demand rate for water for industrial use  (excluding any allowance "   // &
-    "for losses)",                                                             &
+    "Demand rate for water for industrial use",                                &
 ! Units
     "kg s-1"                                                                   &
   ) /
@@ -7512,8 +7508,7 @@ DATA metadata(581) / var_metadata(                                             &
 ! Variable type
     var_type_surface,                                                          &
 ! Long name
-    "Demand rate for water for livestock use (excluding any allowance "     // &
-    "for losses)",                                                             &
+    "Demand rate for water for livestock use",                                 &
 ! Units
     "kg s-1"                                                                   &
   ) /
@@ -7526,8 +7521,7 @@ DATA metadata(582) / var_metadata(                                             &
 ! Variable type
     var_type_surface,                                                          &
 ! Long name
-    "Demand rate for water for transfers (excluding any allowance "         // &
-    "for losses)",                                                             &
+    "Demand rate for water for transfers",                                     &
 ! Units
     "kg s-1"                                                                   &
   ) /
@@ -7542,34 +7536,34 @@ DATA metadata(583) / var_metadata(                                             &
 ! Long name
     "Demand for water across all sectors",                                     &
 ! Units
-    "kg s-1"                                                                   &
+    "kg"                                                                       &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for conv_loss_frac
+! Metadata for conveyance_loss
 !-----------------------------------------------------------------------------
 DATA metadata(584) / var_metadata(                                             &
 ! String identifier
-    'conv_loss_frac',                                                          &
+    'conveyance_loss',                                                         &
 ! Variable type
     var_type_surface,                                                          &
 ! Long name
-    "Conveyance loss: fraction of abstracted water lost between source " //    &
+    "Conveyancy loss: fraction of abstracted water lost between source " //    &
     "and user",                                                                &
 ! Units
     "1"                                                                        &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for unmet_domestic
+! Metadata for irrig_eff
 !-----------------------------------------------------------------------------
 DATA metadata(585) / var_metadata(                                             &
 ! String identifier
-    'unmet_domestic',                                                          &
+    'irrig_eff',                                                               &
 ! Variable type
     var_type_surface,                                                          &
 ! Long name
-    "The part of the demand for water for domestic use that is not satisfied", &
+    "Irrigation efficiency",                                                   &
 ! Units
-    "kg s-1"                                                                   &
+    "1"                                                                        &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for sfc_water_frac
@@ -7580,7 +7574,7 @@ DATA metadata(586) / var_metadata(                                             &
 ! Variable type
     var_type_surface,                                                          &
 ! Long name
-    "Target for the fraction of demand to be met from surface water",          &
+    "Fraction of demand to be met from surface water",                         &
 ! Units
     "1"                                                                        &
   ) /
@@ -7996,46 +7990,59 @@ DATA metadata(618) / var_metadata(                                             &
 ! String identifier
     'tl1_ij_clim_imgn',                                                        &
 ! Variable type
-    var_type_imogen_clim,                                                      &
+    var_type_imogen_drive,                                                     &
 ! Long name
     "imogen air temperature climatology",                                      &
 ! Units
     "K"                                                                        &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for ql1_ij_clim_imgn
+! Metadata for rh1p5m_ij_clim_imgn
 !-----------------------------------------------------------------------------
 DATA metadata(619) / var_metadata(                                             &
 ! String identifier
-    'ql1_ij_clim_imgn',                                                        &
+    'rh1p5m_ij_clim_imgn',                                                     &
 ! Variable type
-    var_type_imogen_clim,                                                      &
+    var_type_imogen_drive,                                                     &
 ! Long name
     "imogen relative humidity climatology",                                    &
 ! Units
     "%/K"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for wind_ij_clim_imgn
+! Metadata for uwind_ij_clim_imgn
 !-----------------------------------------------------------------------------
 DATA metadata(620) / var_metadata(                                             &
 ! String identifier
-    'wind_ij_clim_imgn',                                                       &
+    'uwind_ij_clim_imgn',                                                      &
 ! Variable type
-    var_type_imogen_clim,                                                      &
+    var_type_imogen_drive,                                                     &
 ! Long name
-    "imogen wind climatology",                                                 &
+    "imogen uwind climatology",                                                &
+! Units
+    "m/s"                                                                      &
+  ) /
+!-----------------------------------------------------------------------------
+! Metadata for vwind_ij_clim_imgn
+!-----------------------------------------------------------------------------
+DATA metadata(621) / var_metadata(                                             &
+! String identifier
+    'vwind_ij_clim_imgn',                                                      &
+! Variable type
+    var_type_imogen_drive,                                                     &
+! Long name
+    "imogen vwind climatology",                                                &
 ! Units
     "m/s"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for lwdown_ij_clim_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(621) / var_metadata(                                             &
+DATA metadata(622) / var_metadata(                                             &
 ! String identifier
     'lwdown_ij_clim_imgn',                                                     &
 ! Variable type
-    var_type_imogen_clim,                                                      &
+    var_type_imogen_drive,                                                     &
 ! Long name
     "imogen longwave down climatology",                                        &
 ! Units
@@ -8044,11 +8051,11 @@ DATA metadata(621) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for swdown_ij_clim_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(622) / var_metadata(                                             &
+DATA metadata(623) / var_metadata(                                             &
 ! String identifier
     'swdown_ij_clim_imgn',                                                     &
 ! Variable type
-    var_type_imogen_clim,                                                      &
+    var_type_imogen_drive,                                                     &
 ! Long name
     "imogen shortwave down climatology",                                       &
 ! Units
@@ -8057,11 +8064,11 @@ DATA metadata(622) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for diurnal_tl1_ij_clim_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(623) / var_metadata(                                             &
+DATA metadata(624) / var_metadata(                                             &
 ! String identifier
     'diurnal_tl1_ij_clim_imgn',                                                &
 ! Variable type
-    var_type_imogen_clim,                                                      &
+    var_type_imogen_drive,                                                     &
 ! Long name
     "imogen diurnal temeprature range climatology",                            &
 ! Units
@@ -8070,11 +8077,11 @@ DATA metadata(623) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for precip_ij_clim_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(624) / var_metadata(                                             &
+DATA metadata(625) / var_metadata(                                             &
 ! String identifier
     'precip_ij_clim_imgn',                                                     &
 ! Variable type
-    var_type_imogen_clim,                                                      &
+    var_type_imogen_drive,                                                     &
 ! Long name
     "imogen precipitation climatology",                                        &
 ! Units
@@ -8083,11 +8090,11 @@ DATA metadata(624) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for pstar_ij_clim_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(625) / var_metadata(                                             &
+DATA metadata(626) / var_metadata(                                             &
 ! String identifier
     'pstar_ij_clim_imgn',                                                      &
 ! Variable type
-    var_type_imogen_clim,                                                      &
+    var_type_imogen_drive,                                                     &
 ! Long name
     "imogen surface pressure climatology",                                     &
 ! Units
@@ -8096,7 +8103,7 @@ DATA metadata(625) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for tl1_ij_anom_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(626) / var_metadata(                                             &
+DATA metadata(627) / var_metadata(                                             &
 ! String identifier
     'tl1_ij_anom_imgn',                                                        &
 ! Variable type
@@ -8107,11 +8114,11 @@ DATA metadata(626) / var_metadata(                                             &
     "K"                                                                        &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for ql1_ij_anom_imgn
+! Metadata for rh1p5m_ij_anom_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(627) / var_metadata(                                             &
+DATA metadata(628) / var_metadata(                                             &
 ! String identifier
-    'ql1_ij_anom_imgn',                                                        &
+    'rh1p5m_ij_anom_imgn',                                                     &
 ! Variable type
     var_type_imogen_drive,                                                     &
 ! Long name
@@ -8120,22 +8127,35 @@ DATA metadata(627) / var_metadata(                                             &
     "%"                                                                        &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for wind_ij_anom_imgn
+! Metadata for uwind_ij_anom_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(628) / var_metadata(                                             &
+DATA metadata(629) / var_metadata(                                             &
 ! String identifier
-    'wind_ij_anom_imgn',                                                       &
+    'uwind_ij_anom_imgn',                                                      &
 ! Variable type
     var_type_imogen_drive,                                                     &
 ! Long name
-    "imogen wind anomaly",                                                     &
+    "imogen uwind anomaly",                                                    &
+! Units
+    "m/s"                                                                      &
+  ) /
+!-----------------------------------------------------------------------------
+! Metadata for vwind_ij_anom_imgn
+!-----------------------------------------------------------------------------
+DATA metadata(630) / var_metadata(                                             &
+! String identifier
+    'vwind_ij_anom_imgn',                                                      &
+! Variable type
+    var_type_imogen_drive,                                                     &
+! Long name
+    "imogen vwind anomaly",                                                    &
 ! Units
     "m/s"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for lwdown_ij_anom_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(629) / var_metadata(                                             &
+DATA metadata(631) / var_metadata(                                             &
 ! String identifier
     'lwdown_ij_anom_imgn',                                                     &
 ! Variable type
@@ -8148,7 +8168,7 @@ DATA metadata(629) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for swdown_ij_anom_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(630) / var_metadata(                                             &
+DATA metadata(632) / var_metadata(                                             &
 ! String identifier
     'swdown_ij_anom_imgn',                                                     &
 ! Variable type
@@ -8161,7 +8181,7 @@ DATA metadata(630) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for diurnal_tl1_ij_anom_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(631) / var_metadata(                                             &
+DATA metadata(633) / var_metadata(                                             &
 ! String identifier
     'diurnal_tl1_ij_anom_imgn',                                                &
 ! Variable type
@@ -8174,7 +8194,7 @@ DATA metadata(631) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for precip_ij_anom_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(632) / var_metadata(                                             &
+DATA metadata(634) / var_metadata(                                             &
 ! String identifier
     'precip_ij_anom_imgn',                                                     &
 ! Variable type
@@ -8187,7 +8207,7 @@ DATA metadata(632) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for pstar_ij_anom_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(633) / var_metadata(                                             &
+DATA metadata(635) / var_metadata(                                             &
 ! String identifier
     'pstar_ij_anom_imgn',                                                      &
 ! Variable type
@@ -8200,7 +8220,7 @@ DATA metadata(633) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for tl1_ij_patt_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(634) / var_metadata(                                             &
+DATA metadata(636) / var_metadata(                                             &
 ! String identifier
     'tl1_ij_patt_imgn',                                                        &
 ! Variable type
@@ -8211,11 +8231,11 @@ DATA metadata(634) / var_metadata(                                             &
     "K/K"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for ql1_ij_patt_imgn
+! Metadata for rh1p5m_ij_patt_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(635) / var_metadata(                                             &
+DATA metadata(637) / var_metadata(                                             &
 ! String identifier
-    'ql1_ij_patt_imgn',                                                        &
+    'rh1p5m_ij_patt_imgn',                                                     &
 ! Variable type
     var_type_imogen_drive,                                                     &
 ! Long name
@@ -8224,22 +8244,35 @@ DATA metadata(635) / var_metadata(                                             &
     "%/K"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for wind_ij_patt_imgn
+! Metadata for uwind_ij_patt_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(636) / var_metadata(                                             &
+DATA metadata(638) / var_metadata(                                             &
 ! String identifier
-    'wind_ij_patt_imgn',                                                       &
+    'uwind_ij_patt_imgn',                                                      &
 ! Variable type
     var_type_imogen_drive,                                                     &
 ! Long name
-    "imogen wind pattern",                                                     &
+    "imogen uwind pattern",                                                    &
+! Units
+    "m/s/K"                                                                    &
+  ) /
+!-----------------------------------------------------------------------------
+! Metadata for vwind_ij_patt_imgn
+!-----------------------------------------------------------------------------
+DATA metadata(639) / var_metadata(                                             &
+! String identifier
+    'vwind_ij_patt_imgn',                                                      &
+! Variable type
+    var_type_imogen_drive,                                                     &
+! Long name
+    "imogen vwind pattern",                                                    &
 ! Units
     "m/s/K"                                                                    &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for lwdown_ij_patt_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(637) / var_metadata(                                             &
+DATA metadata(640) / var_metadata(                                             &
 ! String identifier
     'lwdown_ij_patt_imgn',                                                     &
 ! Variable type
@@ -8252,7 +8285,7 @@ DATA metadata(637) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for swdown_ij_patt_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(638) / var_metadata(                                             &
+DATA metadata(641) / var_metadata(                                             &
 ! String identifier
     'swdown_ij_patt_imgn',                                                     &
 ! Variable type
@@ -8265,7 +8298,7 @@ DATA metadata(638) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for diurnal_tl1_ij_patt_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(639) / var_metadata(                                             &
+DATA metadata(642) / var_metadata(                                             &
 ! String identifier
     'diurnal_tl1_ij_patt_imgn',                                                &
 ! Variable type
@@ -8278,7 +8311,7 @@ DATA metadata(639) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for precip_ij_patt_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(640) / var_metadata(                                             &
+DATA metadata(643) / var_metadata(                                             &
 ! String identifier
     'precip_ij_patt_imgn',                                                     &
 ! Variable type
@@ -8291,7 +8324,7 @@ DATA metadata(640) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for pstar_ij_patt_imgn
 !-----------------------------------------------------------------------------
-DATA metadata(641) / var_metadata(                                             &
+DATA metadata(644) / var_metadata(                                             &
 ! String identifier
     'pstar_ij_patt_imgn',                                                      &
 ! Variable type
@@ -8304,7 +8337,7 @@ DATA metadata(641) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for wealth_index
 !-----------------------------------------------------------------------------
-DATA metadata(642) / var_metadata(                                             &
+DATA metadata(645) / var_metadata(                                             &
 ! String identifier
     'wealth_index',                                                            &
 ! Variable type
@@ -8317,7 +8350,7 @@ DATA metadata(642) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for frac_biocrop
 !-----------------------------------------------------------------------------
-DATA metadata(643) / var_metadata(                                             &
+DATA metadata(646) / var_metadata(                                             &
 ! String identifier
     'frac_biocrop',                                                            &
 ! Variable type
@@ -8330,7 +8363,7 @@ DATA metadata(643) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for frac_biocrop_prev
 !-----------------------------------------------------------------------------
-DATA metadata(644) / var_metadata(                                             &
+DATA metadata(647) / var_metadata(                                             &
 ! String identifier
     'frac_biocrop_prev',                                                       &
 ! Variable type
@@ -8343,7 +8376,7 @@ DATA metadata(644) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for harvest_biocrop
 !-----------------------------------------------------------------------------
-DATA metadata(645) / var_metadata(                                             &
+DATA metadata(648) / var_metadata(                                             &
 ! String identifier
     'harvest_biocrop',                                                         &
 ! Variable type
@@ -8356,7 +8389,7 @@ DATA metadata(645) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for harvest_biocrop_gb
 !-----------------------------------------------------------------------------
-DATA metadata(646) / var_metadata(                                             &
+DATA metadata(649) / var_metadata(                                             &
 ! String identifier
     'harvest_biocrop_gb',                                                      &
 ! Variable type
@@ -8369,7 +8402,7 @@ DATA metadata(646) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for harvest_biocrop_n
 !-----------------------------------------------------------------------------
-DATA metadata(647) / var_metadata(                                             &
+DATA metadata(650) / var_metadata(                                             &
 ! String identifier
     'harvest_biocrop_n',                                                       &
 ! Variable type
@@ -8382,7 +8415,7 @@ DATA metadata(647) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for harvest_biocrop_n_gb
 !-----------------------------------------------------------------------------
-DATA metadata(648) / var_metadata(                                             &
+DATA metadata(651) / var_metadata(                                             &
 ! String identifier
     'harvest_biocrop_n_gb',                                                    &
 ! Variable type
@@ -8395,7 +8428,7 @@ DATA metadata(648) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for years_since_harvest
 !-----------------------------------------------------------------------------
-DATA metadata(649) / var_metadata(                                             &
+DATA metadata(652) / var_metadata(                                             &
 ! String identifier
     'years_since_harvest',                                                     &
 ! Variable type
@@ -8408,7 +8441,7 @@ DATA metadata(649) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for harvest_doy
 !-----------------------------------------------------------------------------
-DATA metadata(650) / var_metadata(                                             &
+DATA metadata(653) / var_metadata(                                             &
 ! String identifier
     'harvest_doy',                                                             &
 ! Variable type
@@ -8421,7 +8454,7 @@ DATA metadata(650) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for plantNumDensity
 !-----------------------------------------------------------------------------
-DATA metadata(651) / var_metadata(                                             &
+DATA metadata(654) / var_metadata(                                             &
 ! String identifier
     'plantNumDensity',                                                         &
 ! Variable type
@@ -8429,12 +8462,12 @@ DATA metadata(651) / var_metadata(                                             &
 ! Long name
     "Number Density of plants",                                                &
 ! Units
-    "m-2"                                                                      &
+    "/m2"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for atmospheric deposition parameters: Aerodynamic resistance, Ra
 !-----------------------------------------------------------------------------
-DATA metadata(652)/var_metadata(                                               &
+DATA metadata(655)/var_metadata(                                               &
 ! String identifier
     'deposition_ra',                                                           &
 ! Variable type
@@ -8447,7 +8480,7 @@ DATA metadata(652)/var_metadata(                                               &
 !-----------------------------------------------------------------------------
 ! Metadata for atmospheric deposition parameters: Quasi-laminar resistance, Rb
 !-----------------------------------------------------------------------------
-DATA metadata(653)/var_metadata(                                               &
+DATA metadata(656)/var_metadata(                                               &
 ! String identifier
     'deposition_rb',                                                           &
 ! Variable type
@@ -8460,7 +8493,7 @@ DATA metadata(653)/var_metadata(                                               &
 !-----------------------------------------------------------------------------
 ! Metadata for atmospheric deposition parameters: Surface resistance, Rc
 !-----------------------------------------------------------------------------
-DATA metadata(654)/var_metadata(                                               &
+DATA metadata(657)/var_metadata(                                               &
 ! String identifier
     'deposition_rc',                                                           &
 ! Variable type
@@ -8474,7 +8507,7 @@ DATA metadata(654)/var_metadata(                                               &
 ! Metadata for atmospheric deposition parameters:  Surface resistance, Rc
 ! stomatal component
 !-----------------------------------------------------------------------------
-DATA metadata(655)/var_metadata(                                               &
+DATA metadata(658)/var_metadata(                                               &
 ! String identifier
     'deposition_rc_stom',                                                      &
 ! Variable type
@@ -8489,7 +8522,7 @@ DATA metadata(655)/var_metadata(                                               &
 ! Metadata for atmospheric deposition parameters: Surface resistance, Rc
 ! non-stomatal component
 !-----------------------------------------------------------------------------
-DATA metadata(656)/var_metadata(                                               &
+DATA metadata(659)/var_metadata(                                               &
 ! String identifier
     'deposition_rc_nonstom',                                                   &
 ! Variable type
@@ -8503,7 +8536,7 @@ DATA metadata(656)/var_metadata(                                               &
 !-----------------------------------------------------------------------------
 ! Metadata for atmospheric deposition parameters: Deposition velocity, vd
 !-----------------------------------------------------------------------------
-DATA metadata(657)/var_metadata(                                               &
+DATA metadata(660)/var_metadata(                                               &
 ! String identifier
     'deposition_vd',                                                           &
 ! Variable type
@@ -8514,22 +8547,9 @@ DATA metadata(657)/var_metadata(                                               &
     "m s-1"                                                                    &
   )/
 !-----------------------------------------------------------------------------
-! Metadata for atmospheric deposition parameters: Deposition velocity, vd
-!-----------------------------------------------------------------------------
-DATA metadata(658)/var_metadata(                                               &
-! String identifier
-    'deposition_vd_gb',                                                        &
-! Variable type
-    var_type_dep_species,                                                      &
-! Long name
-    "Gridbox deposition velocity by deposited chemical species",               &
-! Units
-    "m s-1"                                                                    &
-  )/
-!-----------------------------------------------------------------------------
 ! Metadata for atmospheric deposition parameters: Deposition loss rate
 !-----------------------------------------------------------------------------
-DATA metadata(659)/var_metadata(                                               &
+DATA metadata(661)/var_metadata(                                               &
 ! String identifier
     'deposition_lossrate',                                                     &
 ! Variable type
@@ -8542,7 +8562,7 @@ DATA metadata(659)/var_metadata(                                               &
 !-----------------------------------------------------------------------------
 ! Metadata for atmospheric deposition parameters: Deposition flux
 !-----------------------------------------------------------------------------
-DATA metadata(660)/var_metadata(                                               &
+DATA metadata(662)/var_metadata(                                               &
 ! String identifier
     'deposition_flux',                                                         &
 ! Variable type
@@ -8555,7 +8575,7 @@ DATA metadata(660)/var_metadata(                                               &
 !-----------------------------------------------------------------------------
 ! Metadata for imogen imogen_radf
 !-----------------------------------------------------------------------------
-DATA metadata(661) / var_metadata(                                             &
+DATA metadata(663) / var_metadata(                                             &
 ! String identifier
     'imogen_radf',                                                             &
 ! Variable type
@@ -8569,7 +8589,7 @@ DATA metadata(661) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for imogen dtemp_g
 !-----------------------------------------------------------------------------
-DATA metadata(662) / var_metadata(                                             &
+DATA metadata(664) / var_metadata(                                             &
 ! String identifier
     'dtemp_g',                                                                 &
 ! Variable type
@@ -8583,7 +8603,7 @@ DATA metadata(662) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for imogen dctot_co2
 !-----------------------------------------------------------------------------
-DATA metadata(663) / var_metadata(                                             &
+DATA metadata(665) / var_metadata(                                             &
 ! String identifier
     'dctot_co2',                                                               &
 ! Variable type
@@ -8597,7 +8617,7 @@ DATA metadata(663) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for imogen dctot_ch4
 !-----------------------------------------------------------------------------
-DATA metadata(664) / var_metadata(                                             &
+DATA metadata(666) / var_metadata(                                             &
 ! String identifier
     'dctot_ch4',                                                               &
 ! Variable type
@@ -8611,39 +8631,13 @@ DATA metadata(664) / var_metadata(                                             &
 !-----------------------------------------------------------------------------
 ! Metadata for rivers_outflow_number
 !-----------------------------------------------------------------------------
-DATA metadata(665) / var_metadata(                                             &
+DATA metadata(667) / var_metadata(                                             &
 ! String identifier
     'rivers_outflow_number',                                                   &
 ! Variable type
     var_type_surface,                                                          &
 ! Variable is not available for output, so give dummy values for long name and units
     "", ""                                                                     &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for outflow_per_river
-!-----------------------------------------------------------------------------
-DATA metadata(666) / var_metadata(                                             &
-! String identifier
-    'outflow_per_river',                                                       &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "River outflow into the ocean for each river",                             &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for rivers_outflow_rp
-!-----------------------------------------------------------------------------
-DATA metadata(667) / var_metadata(                                             &
-! String identifier
-    'rivers_outflow_rp',                                                       &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "River outflow on river routing grid",                                     &
-! Units
-    "kg s-1"                                                                   &
   ) /
 !-----------------------------------------------------------------------------
 ! Metadata for projection_x_coord
@@ -8726,632 +8720,135 @@ DATA metadata(673) / var_metadata(                                             &
     "kg m-2 s-1"                                                               &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for canopy water potential
+! Metadata for soil_wp
 !-----------------------------------------------------------------------------
 DATA metadata(674) / var_metadata(                                             &
 ! String identifier
-    'lwp_c',                                                                   &
+    'soil_wp',                                                                 &
 ! Variable type
-    var_type_pft,                                                              &
+    var_type_soil,                                                             &
 ! Long name
-    "PFT Canopy water potential",                                              &
+    "Water potential of each soil layer",                                      &
 ! Units
     "MPa"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for river_nextx_grid
+! Metadata for soil_k
 !-----------------------------------------------------------------------------
 DATA metadata(675) / var_metadata(                                             &
 ! String identifier
-    'river_nextx_grid',                                                        &
+    'soil_k',                                                                  &
 ! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
+    var_type_soil,                                                             &
+! Long name
+    "Soil conductance in each soil layer",                                     &
+! Units
+    "kg m-2 s-1"                                                               &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for river_nexty_grid
+! Metadata for soil_root_k
 !-----------------------------------------------------------------------------
 DATA metadata(676) / var_metadata(                                             &
 ! String identifier
-    'river_nexty_grid',                                                        &
+    'soil_root_k',                                                             &
 ! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
+    var_type_soil,                                                             &
+! Long name
+    "Soil to root conductance in each soil layer",                             &
+! Units
+    "kg m-2 s-1"                                                               &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for channel_depth_grid
+! Metadata for psi_root_zone_pft
 !-----------------------------------------------------------------------------
 DATA metadata(677) / var_metadata(                                             &
 ! String identifier
-    'channel_depth_grid',                                                      &
+    'psi_root_zone_pft',                                                       &
 ! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
+    var_type_pft,                                                              &
+! Long name
+    "Root zone water potential",                                               &
+! Units
+    "MPa"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for channel_width_grid
+! Metadata for psi_leaf_pft
 !-----------------------------------------------------------------------------
 DATA metadata(678) / var_metadata(                                             &
 ! String identifier
-    'channel_width_grid',                                                      &
+    'psi_leaf_pft',                                                            &
 ! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
+    var_type_pft,                                                              &
+! Long name
+    "Leaf water potential",                                                    &
+! Units
+    "MPa"                                                                      &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for mean_sea_level_grid
+! Metadata for som_transpiration_pft
 !-----------------------------------------------------------------------------
 DATA metadata(679) / var_metadata(                                             &
 ! String identifier
-    'mean_sea_level_grid',                                                     &
+    'som_transpiration_pft',                                                   &
 ! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
+    var_type_pft,                                                              &
+! Long name
+    "Transpiration rate from stomatal optimisation calculation",               &
+! Units
+    "mol m-2 s-1"                                                              &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for river_distance_grid
+! Metadata for cica_ratio_pft
 !-----------------------------------------------------------------------------
 DATA metadata(680) / var_metadata(                                             &
 ! String identifier
-    'river_distance_grid',                                                     &
+    'cica_ratio_pft',                                                          &
 ! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
+    var_type_pft,                                                              &
+! Long name
+    "Ratio of intercellular CO2 and canopy level atmospheric " //              &
+    "CO2 concentrations",                                                      &
+! Units
+    "1"                                                                        &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for river_elevation_grid
+! Metadata for carbon_gain_pft
 !-----------------------------------------------------------------------------
 DATA metadata(681) / var_metadata(                                             &
 ! String identifier
-    'river_elevation_grid',                                                    &
+    'carbon_gain_pft',                                                         &
 ! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
+    var_type_pft,                                                              &
+! Long name
+    "Carbon gain for stomatal optimisation model",                             &
+! Units
+    "1"                                                                        &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for river_length_grid
+! Metadata for hydraulic_cost_pft
 !-----------------------------------------------------------------------------
 DATA metadata(682) / var_metadata(                                             &
 ! String identifier
-    'river_length_grid',                                                       &
+    'hydraulic_cost_pft',                                                      &
 ! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
+    var_type_pft,                                                              &
+! Long name
+    "Hydraulic cost for stomatal optimisation model",                          &
+! Units
+    "1"                                                                        &
   ) /
 !-----------------------------------------------------------------------------
-! Metadata for river_manning_grid
+! Metadata for PLC_pft
 !-----------------------------------------------------------------------------
 DATA metadata(683) / var_metadata(                                             &
 ! String identifier
-    'river_manning_grid',                                                      &
-! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for hypso_quantiles_grid
-!-----------------------------------------------------------------------------
-DATA metadata(684) / var_metadata(                                             &
-! String identifier
-    'hypso_quantiles_grid',                                                    &
-! Variable type
-    var_type_quantile,                                                         &
-! Variable is not available for output, so give dummy values for long name and
-! units
-    "", ""                                                                     &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for river_elevation
-!-----------------------------------------------------------------------------
-DATA metadata(685) / var_metadata(                                             &
-! String identifier
-    'river_elevation',                                                         &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "Elevation of top of river channel",                                       &
-! Units
-    "m"                                                                        &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for channel_bed_elevation
-!-----------------------------------------------------------------------------
-DATA metadata(686) / var_metadata(                                             &
-! String identifier
-    'channel_bed_elevation',                                                   &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "Elevation of bed of river channel",                                       &
-! Units
-    "m"                                                                        &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for channel_depth
-!-----------------------------------------------------------------------------
-DATA metadata(687) / var_metadata(                                             &
-! String identifier
-    'channel_depth',                                                           &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "River channel depth (to bankfull level)",                                 &
-! Units
-    "m"                                                                        &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for channel_width
-!-----------------------------------------------------------------------------
-DATA metadata(688) / var_metadata(                                             &
-! String identifier
-    'channel_width',                                                           &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "River channel width (at bankfull level)",                                 &
-! Units
-    "m"                                                                        &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for flood_flow
-!-----------------------------------------------------------------------------
-DATA metadata(689) / var_metadata(                                             &
-! String identifier
-    'flood_flow',                                                              &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "Flow on floodplain",                                                      &
-! Units
-    "m3 s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for flood_storage
-!-----------------------------------------------------------------------------
-DATA metadata(690) / var_metadata(                                             &
-! String identifier
-    'flood_storage',                                                           &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "Water stored on floodplain",                                              &
-! Units
-    "m3"                                                                       &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for river_channel_flow
-!-----------------------------------------------------------------------------
-DATA metadata(691) / var_metadata(                                             &
-! String identifier
-    'river_channel_flow',                                                      &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "Flow in river channel",                                                   &
-! Units
-    "m3 s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for river_channel_storage
-!-----------------------------------------------------------------------------
-DATA metadata(692) / var_metadata(                                             &
-! String identifier
-    'river_channel_storage',                                                   &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "River channel storage",                                                   &
-! Units
-    "m3"                                                                       &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for river_flow
-!-----------------------------------------------------------------------------
-DATA metadata(693) / var_metadata(                                             &
-! String identifier
-    'river_flow',                                                              &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "River flow (in channel and on floodplain)",                               &
-! Units
-    "m3 s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for sea_level_lp
-!-----------------------------------------------------------------------------
-DATA metadata(694) / var_metadata(                                             &
-! String identifier
-    'sea_level_lp',                                                            &
-! Variable type
-    var_type_surface,                                                          &
-! Variable is not available for output, so give dummy values for long name and
-! units.
-    "", ""                                                                     &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for river_depth
-!-----------------------------------------------------------------------------
-DATA metadata(695) / var_metadata(                                             &
-! String identifier
-    'river_depth',                                                             &
-! Variable type
-    var_type_rp,                                                               &
-! Long name
-    "Depth of water in river channel)",                                        &
-! Units
-    "m"                                                                        &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for rivers_storage
-!-----------------------------------------------------------------------------
-DATA metadata(696) / var_metadata(                                             &
-! String identifier
-    'rivers_storage',                                                          &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "River routing gridbox river storage",                                     &
-! Units
-    "kg"                                                                       &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_C2H4_gb
-!-----------------------------------------------------------------------------
-DATA metadata(697)/var_metadata(                                               &
-! String identifier
-    'fire_em_C2H4_gb',                                                         &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Gridbox mean C2H4 emission from fires",                                   &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_C2H4
-!-----------------------------------------------------------------------------
-DATA metadata(698)/var_metadata(                                               &
-! String identifier
-    'fire_em_C2H4',                                                            &
+    'PLC_pft',                                                                 &
 ! Variable type
     var_type_pft,                                                              &
 ! Long name
-    "PFT C2H4 emission from fires",                                            &
+    "Percentage loss of conductance at the leaf water potential relative" //   &
+    "to maximum conductance",                                                  &
 ! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_C2H6_gb
-!-----------------------------------------------------------------------------
-DATA metadata(699)/var_metadata(                                               &
-! String identifier
-    'fire_em_C2H6_gb',                                                         &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Gridbox mean C2H6 emission from fires",                                   &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_C2H6
-!-----------------------------------------------------------------------------
-DATA metadata(700)/var_metadata(                                               &
-! String identifier
-    'fire_em_C2H6',                                                            &
-! Variable type
-    var_type_pft,                                                              &
-! Long name
-    "PFT C2H6 emission from fires",                                            &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_C3H8_gb
-!-----------------------------------------------------------------------------
-DATA metadata(701)/var_metadata(                                               &
-! String identifier
-    'fire_em_C3H8_gb',                                                         &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Gridbox mean C3H8 emission from fires",                                   &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_C3H8
-!-----------------------------------------------------------------------------
-DATA metadata(702)/var_metadata(                                               &
-! String identifier
-   'fire_em_C3H8',                                                             &
-! Variable type
-    var_type_pft,                                                              &
-! Long name
-    "PFT C3H8 emission from fires",                                            &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_HCHO_gb
-!-----------------------------------------------------------------------------
-DATA metadata(703)/var_metadata(                                               &
-! String identifier
-    'fire_em_HCHO_gb',                                                         &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Gridbox mean HCHO emission from fires",                                   &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_HCHO
-!-----------------------------------------------------------------------------
-DATA metadata(704)/var_metadata(                                               &
-! String identifier
-    'fire_em_HCHO',                                                            &
-! Variable type
-    var_type_pft,                                                              &
-! Long name
-    "PFT HCHO emission from fires",                                            &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_MeCHO_gb
-!-----------------------------------------------------------------------------
-DATA metadata(705)/var_metadata(                                               &
-! String identifier
-    'fire_em_MeCHO_gb',                                                        &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Gridbox mean MeCHO emission from fires",                                  &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_MeCHO
-!-----------------------------------------------------------------------------
-DATA metadata(706)/var_metadata(                                               &
-! String identifier
-    'fire_em_MeCHO',                                                           &
-! Variable type
-    var_type_pft,                                                              &
-! Long name
-    "PFT MeCHO emission from fires",                                           &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_NH3_gb
-!-----------------------------------------------------------------------------
-DATA metadata(707)/var_metadata(                                               &
-! String identifier
-    'fire_em_NH3_gb',                                                          &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Gridbox mean NH3 emission from fires",                                    &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_NH3
-!-----------------------------------------------------------------------------
-DATA metadata(708)/var_metadata(                                               &
-! String identifier
-    'fire_em_NH3',                                                             &
-! Variable type
-    var_type_pft,                                                              &
-! Long name
-    "PFT NH3 emission from fires",                                             &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_DMS_gb
-!-----------------------------------------------------------------------------
-DATA metadata(709)/var_metadata(                                               &
-! String identifier
-    'fire_em_DMS_gb',                                                          &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Gridbox mean DMS emission from fires",                                    &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for fire_em_DMS
-!-----------------------------------------------------------------------------
-DATA metadata(710)/var_metadata(                                               &
-! String identifier
-    'fire_em_DMS',                                                             &
-! Variable type
-    var_type_pft,                                                              &
-! Long name
-    "PFT DMS emission from fires",                                             &
-! Units
-    "kg m-2 s-1"                                                               &
-  )/
-!-----------------------------------------------------------------------------
-! Metadata for unmet_environment
-!-----------------------------------------------------------------------------
-DATA metadata(711) / var_metadata(                                             &
-! String identifier
-    'unmet_environment',                                                       &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "The part of the demand for water for environmental use that is not " //   &
-    "satisfied",                                                               &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for gw_abstracted
-!-----------------------------------------------------------------------------
-DATA metadata(712) / var_metadata(                                             &
-! String identifier
-    'gw_abstracted',                                                           &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Water abstracted from renewable groundwater sources",                     &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for gw_avail
-!-----------------------------------------------------------------------------
-DATA metadata(713) / var_metadata(                                             &
-! String identifier
-    'gw_avail',                                                                &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Groundwater that is available for abstraction at start of timestep",      &
-! Units
-    "kg"                                                                       &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for gw_nr_abstracted
-!-----------------------------------------------------------------------------
-DATA metadata(714) / var_metadata(                                             &
-! String identifier
-    'gw_nr_abstracted',                                                        &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Water abstracted from non-renewable groundwater sources",                 &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for unmet_industry
-!-----------------------------------------------------------------------------
-DATA metadata(715) / var_metadata(                                             &
-! String identifier
-    'unmet_industry',                                                          &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "The part of the demand for water for industrial use that is not " //      &
-    "satisfied",                                                               &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for unmet_irrigation
-!-----------------------------------------------------------------------------
-DATA metadata(716) / var_metadata(                                             &
-! String identifier
-    'unmet_irrigation',                                                        &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "The part of the demand for water for irrigation that is not satisfied",   &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for unmet_livestock
-!-----------------------------------------------------------------------------
-DATA metadata(717) / var_metadata(                                             &
-! String identifier
-    'unmet_livestock',                                                         &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "The part of the demand for water for livestock use that is not "       // &
-    "satisfied",                                                               &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for sw_abstracted
-!-----------------------------------------------------------------------------
-DATA metadata(718) / var_metadata(                                             &
-! String identifier
-    'sw_abstracted',                                                           &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Water abstracted from surface water sources",                             &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for sw_avail
-!-----------------------------------------------------------------------------
-DATA metadata(719) / var_metadata(                                             &
-! String identifier
-    'sw_avail',                                                                &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Surface water that is available for abstraction at start of timestep",    &
-! Units
-    "kg"                                                                       &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for unmet_transfers
-!-----------------------------------------------------------------------------
-DATA metadata(720) / var_metadata(                                             &
-! String identifier
-    'unmet_transfers',                                                         &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "The part of the demand for water for transfers that is not satisfied",    &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for water_demand_unmet
-!-----------------------------------------------------------------------------
-DATA metadata(721) / var_metadata(                                             &
-! String identifier
-    'water_demand_unmet',                                                      &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "The part of the total demand for water that is not satisfied",            &
-! Units
-    "kg s-1"                                                                   &
-  ) /
-!-----------------------------------------------------------------------------
-! Metadata for water_removed
-!-----------------------------------------------------------------------------
-DATA metadata(722) / var_metadata(                                             &
-! String identifier
-    'water_removed',                                                           &
-! Variable type
-    var_type_surface,                                                          &
-! Long name
-    "Water that is removed from the system during use",                        &
-! Units
-    "kg s-1"                                                                   &
+    "1"                                                                        &
   ) /
 #endif

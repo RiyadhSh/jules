@@ -30,15 +30,14 @@ CONTAINS
 SUBROUTINE allocate_river_arrays(psparms_data,ainfo_data, progs_data,          &
                                  coastal_data,                                 &
                                  fluxes_data,                                  &
-                                 rivers_data,                                  &
-                                 wtrac_jls_data)
+                                 rivers_data)
 
 USE jules_vegetation_mod,      ONLY: l_triffid, l_phenol, l_use_pft_psi,       &
-                                     l_acclim, l_sugar, l_red
+                                     l_acclim, l_sugar
 USE jules_soil_mod,            ONLY: l_bedrock, ns_deep
 USE jules_soil_biogeochem_mod, ONLY: soil_model_ecosse, soil_bgc_model,        &
                                      l_layeredc, dim_ch4layer
-USE jules_water_tracers_mod,   ONLY: l_wtrac_jls
+USE veg3_parm_mod,             ONLY: l_veg3
 
 !Variables- dimensions
 USE jules_snow_mod,            ONLY: nsmax
@@ -50,7 +49,6 @@ USE ancil_info,                ONLY: nsoilt, dim_cs1, dim_cslayer, land_pts,   &
                                      nsurft, nmasst
 USE jules_sea_seaice_mod,      ONLY: nice, nice_use
 USE jules_soil_mod,            ONLY: sm_levels
-USE jules_water_tracers_mod,   ONLY: n_wtrac_jls, n_evap_srce
 
 !Subroutines
 USE fluxes_mod,                ONLY: fluxes_alloc
@@ -59,16 +57,14 @@ USE p_s_parms,                 ONLY: psparms_alloc
 USE ancil_info,                ONLY: ancil_info_alloc
 USE jules_rivers_mod,          ONLY: jules_rivers_alloc
 USE coastal,                   ONLY: coastal_alloc
-USE jules_wtrac_type_mod,      ONLY: wtrac_jls_alloc
 
 !TYPE definitions
-USE p_s_parms,            ONLY: psparms_data_type
-USE ancil_info,           ONLY: ainfo_data_type
-USE prognostics,          ONLY: progs_data_type
-USE coastal,              ONLY: coastal_data_type
-USE fluxes_mod,           ONLY: fluxes_data_type
-USE jules_rivers_mod,     ONLY: rivers_data_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_data_type
+USE p_s_parms,         ONLY: psparms_data_type
+USE ancil_info,        ONLY: ainfo_data_type
+USE prognostics,       ONLY: progs_data_type
+USE coastal,           ONLY: coastal_data_type
+USE fluxes_mod,        ONLY: fluxes_data_type
+USE jules_rivers_mod,  ONLY: rivers_data_type
 
 USE parkind1,      ONLY: jprb, jpim
 USE yomhook,       ONLY: lhook, dr_hook
@@ -78,22 +74,15 @@ IMPLICIT NONE
 !Arguments
 
 !TYPES containing field data (IN OUT)
-TYPE(psparms_data_type),   INTENT(IN OUT) :: psparms_data
-TYPE(ainfo_data_type),     INTENT(IN OUT) :: ainfo_data
-TYPE(progs_data_type),     INTENT(IN OUT) :: progs_data
-TYPE(coastal_data_type),   INTENT(IN OUT) :: coastal_data
-TYPE(fluxes_data_type),    INTENT(IN OUT) :: fluxes_data
-TYPE(rivers_data_type),    INTENT(IN OUT) :: rivers_data
-TYPE(jls_wtrac_data_type), INTENT(IN OUT) :: wtrac_jls_data
+TYPE(psparms_data_type), INTENT(IN OUT) :: psparms_data
+TYPE(ainfo_data_type),   INTENT(IN OUT) :: ainfo_data
+TYPE(progs_data_type),   INTENT(IN OUT) :: progs_data
+TYPE(coastal_data_type), INTENT(IN OUT) :: coastal_data
+TYPE(fluxes_data_type),  INTENT(IN OUT) :: fluxes_data
+TYPE(rivers_data_type),  INTENT(IN OUT) :: rivers_data
 
 !Local variables
 INTEGER :: temp_size
-
-! Dummy fields for the local river grid size which is used to set water tracer
-! fields in UM_JULES.  Therefore, a dummy field is needed here to pass into
-! wtrac_jls_assoc.
-INTEGER, PARAMETER :: river_row_length_dum = 1
-INTEGER, PARAMETER :: river_rows_dum = 1
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
@@ -131,7 +120,7 @@ CALL prognostics_alloc(temp_size, t_i_length, t_j_length,                      &
                       nsurft, npft, nsoilt, sm_levels, ns_deep, nsmax,         &
                       dim_cslayer, dim_cs1, dim_ch4layer,                      &
                       nice, nice_use, soil_bgc_model, soil_model_ecosse,       &
-                      l_layeredc, l_triffid, l_phenol, l_bedrock, l_red,       &
+                      l_layeredc, l_triffid, l_phenol, l_bedrock, l_veg3,      &
                       nmasst, nnpft, l_acclim, l_sugar, progs_data)
 
 ! This is where sub_surf_roff_gb and surf_roff_gb are allocated, but could
@@ -152,19 +141,12 @@ CALL ancil_info_alloc(temp_size, t_i_length, t_j_length,                       &
                       nice, nsoilt, ntype,                                     &
                       ainfo_data)
 
-CALL jules_rivers_alloc(temp_size, t_i_length, t_j_length, rivers_data)
+CALL jules_rivers_alloc(temp_size, rivers_data)
 
 CALL coastal_alloc(temp_size, t_i_length, t_j_length,                          &
                    u_i_length, u_j_length,                                     &
                    v_i_length, v_j_length,                                     &
                    nice_use, nice, coastal_data)
-
-! Allocate water tracer arrays.  As water tracers cannot currently be used
-! in standalone rivers, these arrays will be set to dimension=1.
-CALL wtrac_jls_alloc(land_pts, t_i_length, t_j_length, nsurft, nsoilt,         &
-                     sm_levels, nsmax, nice_use, n_wtrac_jls,                  &
-                     n_evap_srce, river_row_length_dum, river_rows_dum,        &
-                     l_wtrac_jls, wtrac_jls_data)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName, zhook_out, zhook_handle)
 RETURN

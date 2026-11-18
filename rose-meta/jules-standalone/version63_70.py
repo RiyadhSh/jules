@@ -1,8 +1,6 @@
+import rose.upgrade
+import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 class UpgradeError(Exception):
 
@@ -17,7 +15,7 @@ class UpgradeError(Exception):
 
     __str__ = __repr__
 
-class vn63_t1249(MacroUpgrade):
+class vn63_t1249(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -125,7 +123,7 @@ class vn63_t1249(MacroUpgrade):
 
         return config, self.reports
 
-class vn63_t1287(MacroUpgrade):
+class vn63_t1287(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -140,7 +138,7 @@ class vn63_t1287(MacroUpgrade):
         self.add_setting(config, ["namelist:jules_rivers_props", "coordinate_file"], file)
         return config, self.reports
 
-class vn63_t1272(MacroUpgrade):
+class vn63_t1272(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -153,7 +151,7 @@ class vn63_t1272(MacroUpgrade):
         # Blank upgrade macro to ensure that the inherited metadata is tested
         return config, self.reports
 
-class vn63_t1256(MacroUpgrade):
+class vn63_t1256(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -167,7 +165,7 @@ class vn63_t1256(MacroUpgrade):
         return config, self.reports
 
 
-class vn63_t1242(MacroUpgrade):
+class vn63_t1242(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Martin Best"""
 
@@ -181,7 +179,7 @@ class vn63_t1242(MacroUpgrade):
 
         return config, self.reports
 
-class vn63_t1279(MacroUpgrade):
+class vn63_t1279(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Martin Best"""
 
@@ -197,7 +195,7 @@ class vn63_t1279(MacroUpgrade):
                                   ".false.")
         return config, self.reports
 
-class vn63_t911(MacroUpgrade):
+class vn63_t911(rose.upgrade.MacroUpgrade):
     """Upgrade macro from JULES by Emma Littleton"""
     BEFORE_TAG = "vn6.3_t1279"
     AFTER_TAG = "vn6.3_t911"
@@ -231,12 +229,12 @@ class vn63_t911(MacroUpgrade):
         self.add_setting(config,["namelist:jules_agric", "harvest_doy_name"]," '' ")
         return config, self.reports
 
-class vn63_vn70(MacroUpgrade):
+class vn63_vn70(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn6.3_t911"
     AFTER_TAG = "vn7.0"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

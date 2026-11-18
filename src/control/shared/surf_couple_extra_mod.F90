@@ -92,8 +92,9 @@ SUBROUTINE surf_couple_extra(                                                  &
    lake_vars,                                                                  &
    forcing,                                                                    &
    rivers,                                                                     &
+  !veg3_parm, &
+  !veg3_field, &
    chemvars, water_resources,                                                  &
-   wtrac_jls,                                                                  &
    work_cbl                                                                    &
   )
 
@@ -120,7 +121,6 @@ USE jules_rivers_mod, ONLY: rivers_type
 ! USE veg3_field_mod, ONLY: in_dev
 USE jules_chemvars_mod, ONLY: chemvars_type
 USE water_resources_vars_mod, ONLY: water_resources_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_type
 
 ! In general CABLE utilizes a required subset of tbe JULES types, however;
 USE work_vars_mod_cbl,  ONLY: work_vars_type      ! and some kept thru timestep
@@ -180,7 +180,7 @@ USE ancil_info,               ONLY:                                            &
                                   ! Replaces USE statement
                                     dim_soil_n_pool
 
-USE atm_fields_bounds_mod,    ONLY: tdims, tdims_s, pdims_s
+USE atm_fields_bounds_mod,    ONLY: tdims, tdims_s, pdims, pdims_s
 
 USE conversions_mod,          ONLY: rsec_per_day
 
@@ -214,28 +214,19 @@ USE jules_vegetation_mod,     ONLY:                                            &
   l_triffid, l_trif_eq, l_phenol, phenol_period, triffid_period,               &
   l_inferno, ignition_method,                                                  &
   ignition_vary_natural, ignition_vary_natural_human,                          &
-  l_acclim, n_day_photo_acclim, l_red
+  l_acclim, n_day_photo_acclim
 
 USE jules_irrig_mod, ONLY: l_irrig_dmd
 
-USE jules_water_tracers_mod,  ONLY: n_wtrac_jls
-
 USE jules_water_resources_mod, ONLY:                                           &
-  l_water_resources, sw_river_source
-
-USE jules_water_tracers_mod,  ONLY: l_wtrac_jls
-USE wtrac_extra_mod,          ONLY: wtrac_alloc_extra, wtrac_dealloc_extra,    &
-                                    wtrac_ex_type
-USE wtrac_checks_jls_mod,     ONLY: wtrac_checks_sno, wtrac_checks_hyd,        &
-                                    wtrac_checks_grid
-USE wtrac_correct_jls_mod,    ONLY: wtrac_correct_sno, wtrac_correct_hyd,      &
-                                    wtrac_correct_grid
+  l_water_resources
 
 USE sf_diags_mod,             ONLY: sf_diag
 
 USE timestep_mod,             ONLY: timestep
 
-USE veg3_parm_mod,            ONLY: veg3_ctrl,litter_parms,red_parms
+USE veg3_parm_mod,            ONLY:                                            &
+  l_veg3,veg3_ctrl,litter_parms,red_parms
 
 USE veg3_field_mod,           ONLY: veg_state,red_state
 
@@ -243,19 +234,18 @@ USE water_constants_mod,      ONLY: rho_water
 
 USE ereport_mod,              ONLY: ereport
 
-!Modules specific to the UM and not needed in LFRic
-#if defined(UM_JULES) && !defined(LFRIC)
+!Modules specific to the UM
+#if defined(UM_JULES)
 USE atm_fields_mod,      ONLY: disturb_veg_prev
 
-USE atm_step_local,           ONLY:  STASHwork19, STASHwork8, STASHwork26
+USE atm_step_local,           ONLY:                                            &
+  dim_cs1,                                                                     &
+  STASHwork19, STASHwork8, STASHwork26
 
 USE model_domain_mod,         ONLY: model_type, mt_single_column
 
 USE stash_array_mod,          ONLY: sf
-#endif
-! Modules used by both UM and LFRic
-#if defined(UM_JULES)
-USE atm_step_local,           ONLY: dim_cs1
+
 #else
 !Modules specific to JULES
 USE fire_mod,                 ONLY: fire_prog, fire_diag, l_fire
@@ -277,7 +267,6 @@ USE yomhook,                     ONLY: lhook, dr_hook
 USE ereport_mod,                 ONLY: ereport
 USE jules_print_mgr,             ONLY: jules_message, jules_print
 USE jules_model_environment_mod, ONLY: lsm_id, jules, cable
-
 
 IMPLICIT NONE
 
@@ -411,7 +400,6 @@ TYPE(rivers_type), INTENT(IN OUT) :: rivers
 !TYPE(in_dev), INTENT(IN OUT) :: veg3_field
 TYPE(chemvars_type), INTENT(IN OUT) :: chemvars
 TYPE(water_resources_type), INTENT(IN OUT) :: water_resources
-TYPE(jls_wtrac_type), INTENT(IN OUT) :: wtrac_jls
 
 !CABLE TYPES containing field data (IN OUT)
 TYPE(work_vars_type), INTENT(OUT) :: work_cbl
@@ -420,7 +408,7 @@ TYPE(work_vars_type), INTENT(OUT) :: work_cbl
 !Local variables
 
 INTEGER ::                                                                     &
-   i,j,k,l,n,m,i_wt,                                                           &
+   i,j,k,l,n,m,                                                                &
         !Various counters
   errcode
         ! error code to pass to ereport.
@@ -482,17 +470,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
 
 ! Smoothing factor of exponential filter used with temperature acclimation.
 REAL(KIND=real_jlslsm) :: alpha_acclim
-
-! Water tracer local arrays
-TYPE(wtrac_ex_type) :: wtrac_ex
-
-! Compressed water tracer rain and snow fields on land points only
-REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
-  con_snow_wtrac(:,:),                                                         &
-  con_rain_wtrac(:,:),                                                         &
-  ls_rain_wtrac(:,:),                                                          &
-  ls_snow_wtrac(:,:),                                                          &
-  ls_graup_wtrac(:,:)
 
 INTEGER                      :: errorstatus
 CHARACTER(LEN=*), PARAMETER  :: RoutineName = 'SURF_COUPLE_EXTRA'
@@ -556,9 +533,6 @@ CASE ( jules )
   END IF
 #endif
 
-  ! Set up water tracer working arrays
-  CALL wtrac_alloc_extra(land_pts, nsurft, n_wtrac_jls, wtrac_ex)
-
   !Encompassing IF statement for land_pts > 0. We exit/re-enter this IF about
   !half way down to allow for river routing
 
@@ -581,32 +555,6 @@ CASE ( jules )
       u_1_gb(l)        = u_1_ij(i,j)
       v_1_gb(l)        = v_1_ij(i,j)
     END DO
-
-    IF (l_wtrac_jls) THEN
-      ! Repeat for water tracers
-      ALLOCATE(con_snow_wtrac(land_pts,n_wtrac_jls))
-      ALLOCATE(con_rain_wtrac(land_pts,n_wtrac_jls))
-      ALLOCATE(ls_snow_wtrac(land_pts,n_wtrac_jls))
-      ALLOCATE(ls_rain_wtrac(land_pts,n_wtrac_jls))
-      ALLOCATE(ls_graup_wtrac(land_pts,n_wtrac_jls))
-      DO i_wt = 1, n_wtrac_jls
-        DO l = 1, land_pts
-          j = (ainfo%land_index(l) - 1) / row_length + 1
-          i = ainfo%land_index(l) - (j-1) * row_length
-          con_snow_wtrac(l,i_wt) = wtrac_jls%con_snow_ij(i,j,i_wt)
-          con_rain_wtrac(l,i_wt) = wtrac_jls%con_rain_ij(i,j,i_wt)
-          ls_rain_wtrac(l,i_wt)  = wtrac_jls%ls_rain_ij(i,j,i_wt)
-          ls_snow_wtrac(l,i_wt)  = wtrac_jls%ls_snow_ij(i,j,i_wt)
-          ls_graup_wtrac(l,i_wt) = 0.0
-        END DO
-      END DO
-    ELSE
-      ALLOCATE(con_snow_wtrac(1,1))
-      ALLOCATE(con_rain_wtrac(1,1))
-      ALLOCATE(ls_snow_wtrac(1,1))
-      ALLOCATE(ls_rain_wtrac(1,1))
-      ALLOCATE(ls_graup_wtrac(1,1))
-    END IF
 
     !Pass jules the modelled rain fractions
     !In standalone mode, both rainfracs are passed in as zeroed arrays
@@ -687,37 +635,28 @@ CASE ( jules )
              ! passed From calling routine
            tile_frac,                                                          &
              ! From TYPE chemvars: atmospheric variables & diagnostics
-           chemvars,                                                           &
-             ! Parameters for Paulot et al H2 deposition scheme
-           nsurft, nsoilt, sm_levels, dim_cslayer, dim_cs1,                    &
-           psparms%smvcst_soilt, progs%snowdepth_surft, progs%cs_pool_soilt,   &
-           progs%t_soil_soilt )
+           chemvars)
 
     END IF
 
     !Snow (standalone and UM)
-    CALL snow ( land_pts,timestep,smlt,nsurft,n_wtrac_jls,surft_pts,           &
+    CALL snow ( land_pts,timestep,smlt,nsurft,surft_pts,                       &
                 ainfo%surft_index,psparms%catch_snow_surft,con_snow_gb,        &
                 con_rain_gb, tile_frac,ls_snow_gb,ls_graup_gb,ls_rain_gb,      &
                 fluxes%ei_surft,psparms%hcap_soilt(:,:,1),hcons_soilt,         &
-                fluxes%melt_surft,fluxes%snowinc_surft,                        &
+                fluxes%melt_surft,                                             &
                 progs%smcl_soilt(:,:,1),psparms%sthf_soilt(:,:,1),             &
                 fluxes%surf_htf_surft, progs%t_soil_soilt(:,:,1),              &
                 progs%tsurf_elev_surft, progs%tstar_surft,                     &
-                psparms%smvcst_soilt(:,:,1), con_snow_wtrac,                   &
-                wtrac_jls%ei_surft, progs%rgrain_surft,                        &
+                psparms%smvcst_soilt(:,:,1),progs%rgrain_surft,                &
                 progs%rgrainl_surft, progs%rho_snow_grnd_surft,                &
                 progs%sice_surft,progs%sliq_surft,progs%snow_grnd_surft,       &
                 progs%snow_surft, progs%snowdepth_surft, progs%tsnow_surft,    &
-                progs%nsnow_surft, con_rain_wtrac, ls_rain_wtrac,              &
-                ls_snow_wtrac, ls_graup_wtrac, wtrac_ex%melt_surft,            &
-                wtrac_jls%snow_grnd_surft, wtrac_jls%snow_surft,               &
-                wtrac_jls%sice_surft, wtrac_jls%sliq_surft, progs%ds_surft,    &
+                progs%nsnow_surft,progs%ds_surft,                              &
                 fluxes%hf_snow_melt_gb,snow_mass_gb,progs%rho_snow_surft,      &
                 fluxes%snomlt_sub_htf_gb, fluxes%snow_melt_gb,                 &
                 fluxes%snow_soil_htf,surf_ht_flux_ld,                          &
-                sf_diag, dhf_surf_minus_soil, wtrac_ex%snow_melt,              &
-                wtrac_ex%lake_snow_melt,                                       &
+                sf_diag, dhf_surf_minus_soil,                                  &
                 ! New Arguments to replace USE statements
                 ! jules_internal
                 jules_vars%unload_backgrnd_pft, npft, l_flake_model,           &
@@ -729,33 +668,10 @@ CASE ( jules )
                 lake_vars%non_lake_frac, lake_vars%lake_h_mxl_gb,              &
                 lake_vars%lake_depth_gb)
 
-    IF (l_wtrac_jls) THEN
-
-      ! Check that the snow normal water tracer stores are not significantly
-      ! diverging from the water fields
-      CALL wtrac_checks_sno(land_pts, nsurft, nsmax, surft_pts,                &
-                            ainfo%surft_index,                                 &
-                            progs%snow_surft, progs%snow_grnd_surft,           &
-                            progs%sice_surft,progs%sliq_surft,                 &
-                            wtrac_jls%snow_surft(:,:,1),                       &
-                            wtrac_jls%snow_grnd_surft(:,:,1),                  &
-                            wtrac_jls%sice_surft(:,:,:,1),                     &
-                            wtrac_jls%sliq_surft(:,:,:,1))
-
-      ! Correct snow water tracer stores to prevent build up of numerical error
-      CALL wtrac_correct_sno(land_pts, nsurft, nsmax, n_wtrac_jls,             &
-                            surft_pts, ainfo%surft_index,                      &
-                            progs%snow_surft, progs%snow_grnd_surft,           &
-                            progs%sice_surft,progs%sliq_surft,                 &
-                            wtrac_jls%snow_surft, wtrac_jls%snow_grnd_surft,   &
-                            wtrac_jls%sice_surft, wtrac_jls%sliq_surft)
-
-    END IF  ! l_wtrac_jls
-
     !Hydrology (standalone and UM)
     CALL hydrol (                                                              &
       land_pts, soil_pts, lice_pts, sm_levels, npft, nsurft, dim_cs1,          &
-      asteps_since_triffid, n_wtrac_jls, timestep, ainfo%l_lice_surft,         &
+      asteps_since_triffid, timestep, ainfo%l_lice_surft,                      &
       l_inland, l_pdm, l_soil_sat_down, l_top, stf_sub_surf_roff,              &
       ainfo%soil_index, ainfo%lice_index,                                      &
       surft_pts, ainfo%surft_index, progs%nsnow_surft,                         &
@@ -765,21 +681,17 @@ CASE ( jules )
       psparms%catch_surft, crop_vars%frac_irr_soilt, psparms%infil_surft,      &
       lake_vars%non_lake_frac, toppdm%slope_gb, tile_frac,                     &
       con_rainfrac_gb, con_rain_gb, ls_rainfrac_gb, ls_rain_gb,                &
-      con_rain_wtrac, ls_rain_wtrac,                                           &
       surf_ht_flux_ld,                                                         &
       fluxes%ecan_surft, crop_vars%ext_irr_soilt, fluxes%ext_soilt,            &
-      wtrac_jls%ecan_surft, wtrac_jls%ext_soilt,                               &
       progs%snowdepth_surft, fluxes%melt_surft, fluxes%snow_melt_gb,           &
-      wtrac_ex%melt_surft, wtrac_ex%snow_melt, fluxes%snow_soil_htf,           &
+      fluxes%snow_soil_htf,                                                    &
       a_fsat_soilt,c_fsat_soilt,a_fwet_soilt, c_fwet_soilt,                    &
       fexp_soilt, ti_mean_soilt,                                               &
-      npp_gb, inlandout_atm_gb, wtrac_jls%inlandout_atm_gb,                    &
-      progs%canopy_surft, wtrac_jls%canopy_surft,                              &
-      progs%smcl_soilt, psparms%sthf_soilt,                                    &
+      npp_gb, inlandout_atm_gb,                                                &
+      progs%canopy_surft, progs%smcl_soilt, psparms%sthf_soilt,                &
       psparms%sthu_soilt, crop_vars%sthu_irr_soilt, progs%tsoil_deep_gb,       &
       progs%t_soil_soilt, progs%t_soil_soilt_acc, progs%tsurf_elev_surft,      &
-      wtrac_jls%smcl_soilt, wtrac_jls%sthf_soilt, wtrac_jls%sthu_soilt,        &
-      fsat_soilt, fwetl_soilt, sthzw_soilt, zw_soilt, wtrac_jls%sthzw_soilt,   &
+      fsat_soilt, fwetl_soilt, sthzw_soilt, zw_soilt,                          &
       progs%cs_pool_soilt, trifctltype%resp_s_soilt,                           &
       toppdm%cs_ch4_soilt, toppdm%fch4_wetl_acc_soilt,                         &
       progs%substr_ch4, progs%mic_ch4, progs%mic_act_ch4, progs%acclim_ch4,    &
@@ -788,45 +700,10 @@ CASE ( jules )
       progs%canopy_gb, progs%smc_soilt,                                        &
       toppdm%drain_soilt, toppdm%dun_roff_soilt, fluxes%sub_surf_roff_gb,      &
       fluxes%surf_roff_gb, fluxes%tot_tfall_gb, fluxes%tot_tfall_surft,        &
-      w_flux_soilt, wtrac_jls%surf_roff_gb,  wtrac_jls%sub_surf_roff_gb,       &
-      toppdm%qbase_soilt, qbase_l_soilt, toppdm%qbase_zw_soilt,                &
+      w_flux_soilt, toppdm%qbase_soilt, qbase_l_soilt, toppdm%qbase_zw_soilt,  &
       toppdm%fch4_wetl_soilt, toppdm%fch4_wetl_cs_soilt,                       &
       toppdm%fch4_wetl_npp_soilt, toppdm%fch4_wetl_resps_soilt,                &
       trif_vars%n_leach_soilt)
-
-
-    DEALLOCATE(ls_graup_wtrac)
-    DEALLOCATE(ls_rain_wtrac)
-    DEALLOCATE(ls_snow_wtrac)
-    DEALLOCATE(con_rain_wtrac)
-    DEALLOCATE(con_snow_wtrac)
-
-    IF (l_wtrac_jls) THEN
-
-      ! Check that the hydrological normal water tracer stores are not
-      ! significantly diverging from the water fields
-      CALL wtrac_checks_hyd(land_pts, nsurft, nsoilt, sm_levels, soil_pts,     &
-                            ainfo%soil_index, surft_pts, ainfo%surft_index,    &
-                            progs%canopy_surft, psparms%sthu_soilt,            &
-                            psparms%sthf_soilt, progs%smcl_soilt, sthzw_soilt, &
-                            wtrac_jls%canopy_surft(:,:,1),                     &
-                            wtrac_jls%sthu_soilt(:,:,:,1),                     &
-                            wtrac_jls%sthf_soilt(:,:,:,1),                     &
-                            wtrac_jls%smcl_soilt(:,:,:,1),                     &
-                            wtrac_jls%sthzw_soilt(:,:,1))
-
-      ! Correct hydrological water tracer stores to prevent build up of
-      ! numerical errors
-      CALL wtrac_correct_hyd(land_pts, nsurft, nsoilt, sm_levels, n_wtrac_jls, &
-                            soil_pts, ainfo%soil_index,                        &
-                            surft_pts, ainfo%surft_index,                      &
-                            progs%canopy_surft, psparms%sthu_soilt,            &
-                            psparms%sthf_soilt, progs%smcl_soilt, sthzw_soilt, &
-                            wtrac_jls%canopy_surft, wtrac_jls%sthu_soilt,      &
-                            wtrac_jls%sthf_soilt,   wtrac_jls%smcl_soilt,      &
-                            wtrac_jls%sthzw_soilt)
-
-    END IF ! l_wtrac_jls
 
   END IF ! ( l_hydrology .AND. land_pts /= 0 )
 
@@ -841,52 +718,38 @@ CASE ( jules )
     ! Water resources (standalone; not yet allowed in UM).
   IF ( l_water_resources ) THEN
     CALL water_resources_control(                                              &
-           rivers%global_land_index, ainfo%land_index,                         &
-           rivers%map_river_to_land_points, rivers%rivers_index_rp,            &
-           forcing%con_rain_ij, forcing%con_snow_ij,                           &
-           water_resources%conv_loss_frac,                                     &
+           ainfo%land_index, forcing%con_rain_ij,                              &
+           forcing%con_snow_ij,                                                &
+           water_resources%conveyance_loss,                                    &
            water_resources%demand_rate_domestic,                               &
            water_resources%demand_rate_industry,                               &
            water_resources%demand_rate_livestock,                              &
            water_resources%demand_rate_transfers, crop_vars%dvi_cpft,          &
            flandg, crop_vars%frac_irr_soilt, ainfo%frac_soilt,                 &
-           ainfo%frac_surft, grid_area_ij,                                     &
+           ainfo%frac_surft, water_resources%irrig_eff, grid_area_ij,          &
            forcing%ls_rain_ij, forcing%ls_snow_ij, forcing%lw_down_ij,         &
-           psparms%smvccl_soilt,                                               &
-           psparms%smvcst_soilt, psparms%smvcwt_soilt, psparms%sthf_soilt,     &
+           psparms%smvccl_soilt, psparms%smvcst_soilt, psparms%sthf_soilt,     &
            fluxes%sw_surft, forcing%tl_1_ij, progs%tstar_surft,                &
            crop_vars%icntmax_gb, crop_vars%plant_n_gb,                         &
            water_resources%demand_accum,                                       &
            crop_vars%prec_1_day_av_gb, crop_vars%prec_1_day_av_use_gb,         &
-           rivers%rfm_surfstore_rp, rivers%rivers_sto_rp,                      &
-           crop_vars%rn_1_day_av_gb,                                           &
-           crop_vars%rn_1_day_av_use_gb, water_resources%sfc_water_frac,       &
-           progs%smcl_soilt,                                                   &
-           crop_vars%sthu_irr_soilt, psparms%sthu_soilt,                       &
-           sthzw_soilt, fluxes%sub_surf_roff_gb, crop_vars%tl_1_day_av_gb,     &
-           crop_vars%tl_1_day_av_use_gb, water_resources%priority_order,       &
-           water_resources%demand_unmet, water_resources%gw_abstracted,        &
-           water_resources%gw_avail, water_resources%gw_nr_abstracted,         &
-           crop_vars%irrig_water_gb, water_resources%net_abstracted_river,     &
-           water_resources%sw_abstracted, water_resources%sw_avail_total,      &
-           water_resources%water_removed )
+           crop_vars%rn_1_day_av_gb, crop_vars%rn_1_day_av_use_gb,             &
+           progs%smcl_soilt, crop_vars%sthu_irr_soilt, psparms%sthu_soilt,     &
+           crop_vars%tl_1_day_av_gb, crop_vars%tl_1_day_av_use_gb,             &
+           water_resources%priority_order, crop_vars%irrig_water_gb )
   END IF
 #endif
 
   IF ( l_rivers ) THEN
     CALL surf_couple_rivers(                                                   &
       !INTEGER, INTENT(IN)
-      land_pts, n_wtrac_jls,                                                   &
+      land_pts,                                                                &
       !REAL, INTENT(IN)
-      water_resources%net_abstracted_river,                                    &
       fluxes%sub_surf_roff_gb, fluxes%surf_roff_gb,                            &
-      wtrac_jls%sub_surf_roff_gb,  wtrac_jls%surf_roff_gb,                     &
       !INTEGER, INTENT(INOUT)
       a_steps_since_riv,                                                       &
       !REAL, INTENT (INOUT)
       tot_surf_runoff_gb, tot_sub_runoff_gb, acc_lake_evap_gb,                 &
-      wtrac_jls%tot_surf_runoff_gb, wtrac_jls%tot_sub_runoff_gb,               &
-      wtrac_jls%acc_lake_evap_gb,                                              &
       !REAL, INTENT (OUT)
       rivers%rivers_sto_per_m2_on_landpts, fluxes%rflow_gb, fluxes%rrun_gb,    &
       !Arguments for the UM-----------------------------------------
@@ -900,42 +763,15 @@ CASE ( jules )
       xpa, xua, xva, ypa, yua, yva, flandg, trivdir,                           &
       trivseq, r_area, slope, flowobs1, r_inext, r_jnext, r_land,              &
       psparms%smvcst_soilt, psparms%smvcwt_soilt, ainfo%frac_surft,            &
-      wtrac_jls%lake_evap,                                                     &
       !REAL, INTENT(INOUT)
       substore, surfstore, flowin, bflowin, twatstor,                          &
       progs%smcl_soilt, psparms%sthu_soilt,                                    &
-      wtrac_jls%twatstor, wtrac_jls%smcl_soilt, wtrac_jls%sthu_soilt,          &
       !REAL, INTENT(OUT)
       inlandout_atm_gb, inlandout_riv, riverout, box_outflow, box_inflow,      &
-      riverout_rgrid, wtrac_jls%inlandout_atm_gb,                              &
+      riverout_rgrid,                                                          &
       !  imported rivers arrays
       rivers)
   END IF ! l_rivers (ATMOS)
-
-  IF (l_rivers .AND. l_wtrac_jls) THEN
-
-    ! Check that the river normal water tracer store is not diverging
-    ! signifantly from the water field.
-    CALL wtrac_checks_grid(river_row_length, river_rows,                       &
-                           twatstor, wtrac_jls%twatstor(:,:,1),'twatstor')
-
-    ! Correct river water tracer store to prevent build up of numerical errors
-    CALL wtrac_correct_grid(river_row_length, river_rows, n_wtrac_jls,         &
-                           twatstor, wtrac_jls%twatstor)
-
-    ! Check that the hydrological normal water tracer stores are not
-    ! significantly diverging from the water fields
-    CALL wtrac_checks_hyd(land_pts, nsurft, nsoilt, sm_levels, soil_pts,       &
-                          ainfo%soil_index, surft_pts, ainfo%surft_index,      &
-                          progs%canopy_surft, psparms%sthu_soilt,              &
-                          psparms%sthf_soilt, progs%smcl_soilt, sthzw_soilt,   &
-                          wtrac_jls%canopy_surft(:,:,1),                       &
-                          wtrac_jls%sthu_soilt(:,:,:,1),                       &
-                          wtrac_jls%sthf_soilt(:,:,:,1),                       &
-                          wtrac_jls%smcl_soilt(:,:,:,1),                       &
-                          wtrac_jls%sthzw_soilt(:,:,1))
-
-  END IF ! (l_rivers .AND. l_wtrac_jls)
 
   !Irrigation (standalone and UM for some options).
   IF ( l_irrig_dmd .AND. .NOT. l_water_resources ) THEN
@@ -1057,7 +893,7 @@ CASE ( jules )
     END IF  !  l_inferno
 
     IF (l_phenol .OR. l_triffid) THEN
-      IF (l_red) THEN
+      IF (l_veg3) THEN
 
         !Update veg3 structures
         !Structures can then be passed straight through
@@ -1380,9 +1216,6 @@ CASE ( jules )
   END IF
 #endif
 
-  ! Deallocate water tracer working arrays
-  CALL wtrac_dealloc_extra(wtrac_ex)
-
   !=============================================================================
 CASE ( cable )
   ! for testing LSM switch
@@ -1391,7 +1224,6 @@ CASE ( cable )
 
   ! initialise all INTENT(OUT) for now until CABLE is implemented
   fluxes%melt_surft(:,:) = 0.0
-  fluxes%snowinc_surft(:,:) = 0.0
   fluxes%hf_snow_melt_gb(:) = 0.0
   fluxes%snomlt_sub_htf_gb(:) = 0.0
   fluxes%sub_surf_roff_gb(:) = 0.0

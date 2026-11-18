@@ -31,6 +31,8 @@ USE pftparm,  ONLY: dz0v_dh, z0v, catch0, dcatch_dlai
 USE parkind1, ONLY: jprb, jpim
 USE yomhook,  ONLY: lhook, dr_hook
 
+USE stochastic_physics_run_mod, ONLY: l_rp2, i_rp_scheme, i_rp2b, dz0v_dh_rp
+
 USE um_types, ONLY: real_jlslsm
 
 IMPLICIT NONE
@@ -80,6 +82,10 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='PFT_SPARM'
 !-----------------------------------------------------------------------------
 !end of header
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
+
+IF ( l_rp2 .AND. i_rp_scheme == i_rp2b ) THEN
+  dz0v_dh(ipft) = dz0v_dh_rp(ipft)
+END IF
 
 ! If l_spec_veg_z0 is true, then all pft z0 values are specifeid.
 ! This means that calling can_drag_z0 is only appropriate if l_spec_veg_z0

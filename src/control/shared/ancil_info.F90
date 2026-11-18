@@ -172,11 +172,6 @@ TYPE :: ainfo_data_type
     ! Meltpond depth on sea ice categories (m)
   REAL(KIND=real_jlslsm), ALLOCATABLE :: sstfrz_ij(:,:)
     ! Salinity-dependent sea surface freezing temperature (K)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: latitude(:,:)
-    ! latitude (degree)
-  REAL(KIND=real_jlslsm), ALLOCATABLE :: longitude(:,:)
-    ! longitude (degree)
-    ! hard-coded to 0 if l_local_solar_time=T to get local diagnostics
 END TYPE
 
 !================================
@@ -214,8 +209,6 @@ TYPE :: ainfo_type
   REAL(KIND=real_jlslsm), POINTER :: pond_frac_cat_sicat(:,:,:)
   REAL(KIND=real_jlslsm), POINTER :: pond_depth_cat_sicat(:,:,:)
   REAL(KIND=real_jlslsm), POINTER :: sstfrz_ij(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: latitude(:,:)
-  REAL(KIND=real_jlslsm), POINTER :: longitude(:,:)
 END TYPE
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='ANCIL_INFO'
@@ -279,8 +272,6 @@ ALLOCATE(ainfo_data%sstfrz_ij(t_i_length,t_j_length))
 ALLOCATE(ainfo_data%z1_uv_ij(t_i_length,t_j_length))
 ALLOCATE(ainfo_data%z1_tq_ij(t_i_length,t_j_length))
 ALLOCATE(ainfo_data%frac_surft(land_pts,ntype))
-ALLOCATE(ainfo_data%latitude(t_i_length,t_j_length))
-ALLOCATE(ainfo_data%longitude(t_i_length,t_j_length))
 
 ainfo_data%l_lice_surft(:)             = .FALSE.
 ainfo_data%soilt_pts(:)                = 0
@@ -310,8 +301,6 @@ ainfo_data%sstfrz_ij(:,:)              = 0.0
 ainfo_data%z1_uv_ij(:,:)               = 0.0
 ainfo_data%z1_tq_ij(:,:)               = 0.0
 ainfo_data%frac_surft(:,:)             = 0.0
-ainfo_data%latitude(:,:)               = 0.0
-ainfo_data%longitude(:,:)              = 0.0
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
@@ -371,8 +360,6 @@ DEALLOCATE(ainfo_data%sstfrz_ij)
 DEALLOCATE(ainfo_data%z1_uv_ij)
 DEALLOCATE(ainfo_data%z1_tq_ij)
 DEALLOCATE(ainfo_data%frac_surft)
-DEALLOCATE(ainfo_data%latitude)
-DEALLOCATE(ainfo_data%longitude)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 END SUBROUTINE ancil_info_dealloc
@@ -436,8 +423,6 @@ ainfo%sstfrz_ij => ainfo_data%sstfrz_ij
 ainfo%z1_uv_ij => ainfo_data%z1_uv_ij
 ainfo%z1_tq_ij => ainfo_data%z1_tq_ij
 ainfo%frac_surft => ainfo_data%frac_surft
-ainfo%latitude => ainfo_data%latitude
-ainfo%longitude => ainfo_data%longitude
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
@@ -498,8 +483,6 @@ NULLIFY(ainfo%sstfrz_ij)
 NULLIFY(ainfo%z1_uv_ij)
 NULLIFY(ainfo%z1_tq_ij)
 NULLIFY(ainfo%frac_surft)
-NULLIFY(ainfo%latitude)
-NULLIFY(ainfo%longitude)
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

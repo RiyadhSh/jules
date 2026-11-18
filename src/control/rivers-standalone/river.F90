@@ -29,7 +29,7 @@ USE time_varying_input_mod, ONLY:                                              &
 USE output_mod, ONLY: output_initial_data, sample_data, output_data,           &
                        output_close_all => close_all
 
-USE model_time_mod, ONLY: end_of_run, oasis_time
+USE model_time_mod, ONLY: timestep_number, end_of_run, oasis_time
 
 USE jules_print_mgr, ONLY: jules_message, jules_print
 
@@ -42,8 +42,7 @@ USE jules_fields_mod, ONLY: psparms_data, psparms,                             &
                             trifctl_data, trifctltype,                         &
                             coastal_data, coast,                               &
                             fluxes_data, fluxes,                               &
-                            rivers_data, rivers,                               &
-                            wtrac_jls_data, wtrac_jls
+                            rivers_data, rivers
 
 IMPLICIT NONE
 
@@ -106,9 +105,8 @@ CALL init(nml_dir,                                                             &
           progs, progs_data,                                                   &
           coastal_data, coast,                                                 &
           fluxes_data, fluxes,                                                 &
-          rivers_data, rivers,                                                 &
-          wtrac_jls_data, wtrac_jls                                            &
-)
+          rivers_data, rivers                                                  &
+          )
 
 !-----------------------------------------------------------------------------
 ! Loop over timesteps.
@@ -144,8 +142,10 @@ DO    !  timestep
   ! Call the main model science routine
   !-----------------------------------------------------------------------------
   CALL control(                                                                &
+  !   Scalar arguments (INTENT IN)
+     timestep_number,                                                          &
      !TYPES containing field data (IN OUT)
-     psparms, ainfo, progs, fluxes, rivers, wtrac_jls )
+     psparms, ainfo, progs, fluxes, rivers )
 
   !-----------------------------------------------------------------------------
   ! Sample variables for output
@@ -169,13 +169,12 @@ END DO  !  timestep loop
 !-----------------------------------------------------------------------------
 ! Clean up by closing all open files
 !-----------------------------------------------------------------------------
-CALL input_close_all()
+IF (.NOT. l_oasis_rivers) CALL input_close_all()
 CALL output_close_all()
 
 !-----------------------------------------------------------------------------
 ! Clean up the MPI environment
 !-----------------------------------------------------------------------------
-
 IF (l_oasis_rivers) THEN
   CALL oasis_finalise()
 ELSE

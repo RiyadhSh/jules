@@ -11,9 +11,8 @@
 
 MODULE veg3_field_mod
 
-USE veg3_parm_mod, ONLY: red_parms
+USE veg3_parm_mod, ONLY: red_parms, l_veg3
 USE um_types, ONLY: real_jlslsm
-USE jules_vegetation_mod, ONLY: l_red
 
 !Use at module level
 USE ancil_info,    ONLY: ainfo_type
@@ -165,7 +164,7 @@ INTEGER :: l,n,k
 !End of header
 !-----------------------------------------------------------------------------
 
-IF (l_red .AND. l_triffid) THEN
+IF (l_veg3 .AND. l_triffid) THEN
 
   ! Set pointers to the prognostic fields
   red_state%plantNumDensity => progs%plantNumDensity
@@ -255,7 +254,7 @@ TYPE(progs_type), INTENT(IN) :: progs
 
 !End of header
 
-IF (l_red) THEN
+IF (l_veg3) THEN
   ! Set up all the necessary fields in RED
   CALL veg3_red_set_fields(nnpft,nmasst)
   ! Set up the rest of the fields for VEG3

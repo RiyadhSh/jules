@@ -9,7 +9,7 @@
 ! [Met Office Ref SC0237]
 !******************************COPYRIGHT**************************************
 SUBROUTINE delta_temp(                                                         &
-  n_olevs,f_ocean,kappa_o,lambda_l,lambda_o,mu,dqradf,dtemp_l,dtemp_o, dtemp_g)
+  n_olevs,f_ocean,kappa,lambda_l,lambda_o,mu,dqradf,dtemp_l,dtemp_o, dtemp_g)
 
 USE veg_param, ONLY: secs_per_360days
 
@@ -46,7 +46,7 @@ REAL, INTENT(IN) ::                                                            &
            ! Ratio of land-to-ocean temperature anomalies (.)
   f_ocean,                                                                     &
            ! Fractional coverage of planet with ocean
-  kappa_o    ! Ocean eddy diffusivity (W/m/K)
+  kappa    ! Ocean eddy diffusivity (W/m/K)
 
 REAL, INTENT(IN OUT) ::                                                        &
   dtemp_o(n_olevs)
@@ -91,6 +91,8 @@ REAL ::                                                                        &
 
 REAL, PARAMETER :: rhocp = 4.04e6
            ! Rho times cp for the ocean (J/K/m3)
+REAL, PARAMETER :: sec_year = 3.1536e7
+           ! This will be deleted and replaced with secs_per_360days
 
 INTEGER ::                                                                     &
   timesteps,                                                                   &
@@ -104,7 +106,8 @@ INTEGER, PARAMETER :: iter_per_year = 20
 ! Set up parameters for the model
 !-----------------------------------------------------------------------
 
-timestep_local = secs_per_360days / REAL(iter_per_year)
+! timestep_local = secs_per_360days / REAL(iter_per_year)
+timestep_local = sec_year / REAL(iter_per_year)
 timesteps = iter_per_year
 
 
@@ -142,11 +145,11 @@ DO i = 1,n_olevs
   dz(i) = dz(i) * (5000.0 / depth)
 END DO
 
-r1(1) = (kappa_o / rhocp) * (timestep_local / (dz_top * dz_top))
+r1(1) = (kappa / rhocp) * (timestep_local / (dz_top * dz_top))
 r2(1) = 0.0
 DO i = 2,n_olevs
-  r1(i) = (kappa_o / rhocp) * (timestep_local / (dz(i-1) * (dz(i) + dz(i-1))))
-  r2(i) = (kappa_o / rhocp) * (timestep_local / (dz(i) * (dz(i) + dz(i-1))))
+  r1(i) = (kappa / rhocp) * (timestep_local / (dz(i-1) * (dz(i) + dz(i-1))))
+  r2(i) = (kappa / rhocp) * (timestep_local / (dz(i) * (dz(i) + dz(i-1))))
 END DO
 
 ! Reset the new values of dtemp_o_old for the start of this run.
@@ -156,22 +159,22 @@ END DO
 
 DO i = 1,timesteps
 
-  lambda_old = -dqradf / (kappa_o * f_ocean)
-  lambda_new = -dqradf / (kappa_o * f_ocean)
+  lambda_old = -dqradf / (kappa * f_ocean)
+  lambda_new = -dqradf / (kappa * f_ocean)
 
-  pdirchlet = ((1.0 - f_ocean) * lambda_l * mu) / (f_ocean * kappa_o)          &
-    + (lambda_o / kappa_o)
+  pdirchlet = ((1.0 - f_ocean) * lambda_l * mu) / (f_ocean * kappa)            &
+    + (lambda_o / kappa)
 
   CALL invert(                                                                 &
     dtemp_o_old,dtemp_o_new,pdirchlet,lambda_old,lambda_new,                   &
     r1,r2,dz_top,n_olevs)
 
   ! Now check that the flux out of the bottom is not too large.
-  flux_top =  - 0.5 * (kappa_o * lambda_old * timestep_local)                  &
-              - 0.5 * (kappa_o * lambda_new * timestep_local)                  &
-              - 0.5 * (pdirchlet * kappa_o * dtemp_o_old(1) * timestep_local)  &
-              - 0.5 * (pdirchlet * kappa_o * dtemp_o_new(1) * timestep_local)
-  flux_bottom = (timestep_local / (2.0 * dz(n_olevs))) * kappa_o               &
+  flux_top =  - 0.5 * (kappa * lambda_old * timestep_local)                    &
+              - 0.5 * (kappa * lambda_new * timestep_local)                    &
+              - 0.5 * (pdirchlet * kappa * dtemp_o_old(1) * timestep_local)    &
+              - 0.5 * (pdirchlet * kappa * dtemp_o_new(1) * timestep_local)
+  flux_bottom = (timestep_local / (2.0 * dz(n_olevs))) * kappa                 &
               * (dtemp_o_old(n_olevs) + dtemp_o_new(n_olevs))
 
   IF (ABS(flux_bottom / (flux_top+0.0000001)) > 0.01) THEN
@@ -197,7 +200,7 @@ END DO
 ! land temperature change
 dtemp_l = mu * dtemp_o(1)
 
-! global temperature change
+! global temeprature change
 ! t_global  = (1-f) * t_land + f*t_ocean.
 dtemp_g = mu * dtemp_o(1) * (1.0 - f_ocean) + f_ocean * dtemp_o(1)
 

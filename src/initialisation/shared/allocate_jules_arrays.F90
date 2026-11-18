@@ -33,13 +33,12 @@ SUBROUTINE allocate_jules_arrays(crop_vars_data,psparms_data,top_pdm_data,     &
                                  rivers_data,                                  &
                                 !veg3_parm_(data), &
                                 !veg3_field_(data), &
-                                 chemvars_data, water_resources_data,          &
-                                 wtrac_jls_data                                &
+                                 chemvars_data, water_resources_data           &
                                 )
 
 !Variables- switches
 USE jules_vegetation_mod,     ONLY: l_crop, l_triffid, l_phenol, l_use_pft_psi,&
-                                    l_acclim, l_sugar, l_red
+                                    l_acclim, l_sugar
 USE jules_irrig_mod,          ONLY: l_irrig_dmd, irr_crop, irr_crop_doell
 USE jules_surface_mod,        ONLY: l_urban2t
 USE jules_urban_mod,          ONLY: l_moruses
@@ -48,13 +47,12 @@ USE jules_soil_mod,           ONLY: l_bedrock, ns_deep
 USE jules_radiation_mod,      ONLY: l_albedo_obs
 USE jules_soil_biogeochem_mod,ONLY: soil_model_ecosse, soil_bgc_model,         &
                                     l_label_frac_cs, l_layeredc, dim_ch4layer
-USE jules_water_resources_mod,ONLY: l_have_groundwater, l_have_surface_water,  &
-                                    l_water_domestic, l_water_industry,        &
-                                    l_water_irrigation,l_water_livestock,      &
-                                    l_water_resources, l_water_transfers,      &
-                                    n_sw_source, nwater_use
+USE jules_water_resources_mod,ONLY: l_water_domestic,                          &
+                                    l_water_industry, l_water_irrigation,      &
+                                    l_water_livestock, l_water_resources,      &
+                                    l_water_transfers, nwater_use
 USE jules_deposition_mod,     ONLY: l_deposition, ndry_dep_species
-USE jules_water_tracers_mod,  ONLY: l_wtrac_jls
+USE veg3_parm_mod,            ONLY: l_veg3
 
 !Variables- dimensions
 USE jules_surface_types_mod,  ONLY: ncpft,nnpft
@@ -71,7 +69,6 @@ USE dust_parameters_mod,      ONLY: ndiv
 USE nlsizes_namelist_mod,     ONLY: bl_levels
 USE jules_sea_seaice_mod,     ONLY: nice, nice_use
 USE jules_soil_mod,           ONLY: sm_levels
-USE jules_water_tracers_mod,  ONLY: n_wtrac_jls, n_evap_srce
 
 !Subroutines
 USE crop_vars_mod,            ONLY: crop_vars_alloc
@@ -98,7 +95,6 @@ USE veg3_parm_mod,            ONLY: veg3_parm_allocate
 USE veg3_field_mod,           ONLY: veg3_field_allocate
 USE jules_rivers_mod,         ONLY: jules_rivers_alloc
 USE jules_forcing_mod,        ONLY: forcing_alloc
-USE jules_wtrac_type_mod,     ONLY: wtrac_jls_alloc
 
 #if !defined(UM_JULES)
 USE gridmean_fluxes,          ONLY: gridmean_fluxes_alloc
@@ -132,15 +128,6 @@ USE jules_rivers_mod, ONLY: rivers_data_type
 ! USE veg3_field_mod, ONLY: in_dev
 USE jules_chemvars_mod, ONLY: chemvars_data_type
 USE water_resources_vars_mod, ONLY: water_resources_data_type
-USE jules_wtrac_type_mod,    ONLY: jls_wtrac_data_type
-
-! The following are needed to get the local river grid size
-! (which is needed for water tracers)
-#if defined(UM_JULES)
-USE UM_ParVars,      ONLY: lasize
-USE UM_ParParams,    ONLY: halo_type_no_halo
-USE Field_Types,     ONLY: fld_type_r
-#endif
 
 USE parkind1,                 ONLY: jprb, jpim
 USE yomhook,                  ONLY: lhook, dr_hook
@@ -172,18 +159,7 @@ TYPE(rivers_data_type), INTENT(IN OUT) :: rivers_data
 TYPE(chemvars_data_type), INTENT(IN OUT) :: chemvars_data
 TYPE(water_resources_data_type), INTENT(IN OUT) :: water_resources_data
 
-!Water tracer TYPES containing field data (IN OUT)
-TYPE(jls_wtrac_data_type),  INTENT(IN OUT) :: wtrac_jls_data
-
 !Local variables
-
-INTEGER :: i_wt
-
-! Local river grid size
-! These are used for water tracers.  They are only set correctly if UM_JULES.
-INTEGER :: river_row_length
-INTEGER :: river_rows
-
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 REAL(KIND=jprb)               :: zhook_handle
@@ -201,7 +177,7 @@ CALL prognostics_alloc(land_pts, t_i_length, t_j_length,                       &
                       nsurft, npft, nsoilt, sm_levels, ns_deep, nsmax,         &
                       dim_cslayer, dim_cs1, dim_ch4layer,                      &
                       nice, nice_use, soil_bgc_model, soil_model_ecosse,       &
-                      l_layeredc, l_triffid, l_phenol, l_bedrock, l_red,       &
+                      l_layeredc, l_triffid, l_phenol, l_bedrock, l_veg3,      &
                       nmasst, nnpft, l_acclim, l_sugar, progs_data)
 
 CALL fluxes_alloc(land_pts, t_i_length, t_j_length,                            &
@@ -265,7 +241,7 @@ CALL ancil_info_alloc(land_pts,t_i_length,t_j_length,                          &
                       nice,nsoilt,ntype,                                       &
                       ainfo_data)
 
-CALL jules_rivers_alloc(land_pts, t_i_length, t_j_length, rivers_data)
+CALL jules_rivers_alloc(land_pts, rivers_data)
 
 CALL forcing_alloc(t_i_length,t_j_length, u_i_length, u_j_length,              &
                    v_i_length, v_j_length, forcing_data)
@@ -290,27 +266,10 @@ CALL coastal_alloc(land_pts,t_i_length,t_j_length,                             &
 
 CALL deposition_species_alloc(ntype, ndry_dep_species, l_deposition)
 
-CALL water_resources_alloc( land_pts, n_sw_source, nwater_use,                 &
-                            l_have_groundwater, l_have_surface_water,          &
-                            l_water_domestic, l_water_industry,                &
-                            l_water_irrigation, l_water_livestock,             &
-                            l_water_resources, l_water_transfers,              &
-                            water_resources_data )
-
-! Set up local river grid sizes  (Note, water tracers only work in UM_JULES)
-#if defined(UM_JULES)
-river_row_length = lasize(1,fld_type_r,halo_type_no_halo)
-river_rows       = lasize(2,fld_type_r,halo_type_no_halo)
-#else
-river_row_length = 1
-river_rows       = 1
-#endif
-
-CALL wtrac_jls_alloc(land_pts, t_i_length, t_j_length, nsurft, nsoilt,         &
-                       sm_levels, nsmax, nice_use, n_wtrac_jls,                &
-                       n_evap_srce, river_row_length, river_rows,              &
-                       l_wtrac_jls, wtrac_jls_data)
-
+CALL water_resources_alloc( land_pts, nwater_use, l_water_domestic,            &
+                            l_water_industry, l_water_irrigation,              &
+                            l_water_livestock, l_water_resources,              &
+                            l_water_transfers, water_resources_data )
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

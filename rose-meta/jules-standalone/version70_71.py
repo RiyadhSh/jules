@@ -1,8 +1,6 @@
+import rose.upgrade
+import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
 class UpgradeError(Exception):
 
@@ -17,7 +15,7 @@ class UpgradeError(Exception):
 
     __str__ = __repr__
 
-class vn70_t1327(MacroUpgrade):
+class vn70_t1327(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eleanor Burke"""
 
@@ -32,7 +30,7 @@ class vn70_t1327(MacroUpgrade):
         return config, self.reports
 
 
-class vn70_t1255(MacroUpgrade):
+class vn70_t1255(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -47,7 +45,7 @@ class vn70_t1255(MacroUpgrade):
         return config, self.reports
 
 
-class vn70_t931(MacroUpgrade):
+class vn70_t931(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Garry Hayman"""
 
@@ -185,7 +183,7 @@ class vn70_t931(MacroUpgrade):
         return config, self.reports
 
 
-class vn70_t1246(MacroUpgrade):
+class vn70_t1246(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Phil Harris"""
 
@@ -199,7 +197,7 @@ class vn70_t1246(MacroUpgrade):
         return config, self.reports
 
 
-class vn70_t1322(MacroUpgrade):
+class vn70_t1322(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eleanor Burke"""
 
@@ -212,19 +210,19 @@ class vn70_t1322(MacroUpgrade):
         # Add settings
         self.remove_setting(config, ["namelist:imogen_run_list", "file_non_co2"])
         self.remove_setting(config, ["namelist:imogen_run_list", "wgen"])
-        self.rename_setting(config, ["namelist:imogen_run_list", "file_non_co2_vals"],
+        self.rename_setting(config, ["namelist:imogen_run_list", "file_non_co2_vals"], 
                   ["namelist:imogen_run_list", "file_non_co2_radf"])
-        self.rename_setting(config, ["namelist:imogen_run_list", "include_non_co2"],
+        self.rename_setting(config, ["namelist:imogen_run_list", "include_non_co2"], 
                   ["namelist:imogen_run_list", "include_non_co2_radf"])
         self.add_setting(config, ["namelist:imogen_run_list", "l_drive_with_global_temps"], ".false.")
         return config, self.reports
-
-class vn70_vn71(MacroUpgrade):
+    
+class vn70_vn71(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn7.0_t1322"
     AFTER_TAG = "vn7.1"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

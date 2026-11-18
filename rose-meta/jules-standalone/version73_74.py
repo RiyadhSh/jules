@@ -1,10 +1,9 @@
+import rose.upgrade
+import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
-class vn73_t1441(MacroUpgrade):
+
+class vn73_t1441(rose.upgrade.MacroUpgrade):
     """Upgrade macro from JULES by Lucy Gordon"""
 
     BEFORE_TAG = "vn7.3"
@@ -17,7 +16,7 @@ class vn73_t1441(MacroUpgrade):
         return config, self.reports
 
 
-class vn73_t1172(MacroUpgrade):
+class vn73_t1172(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -60,7 +59,7 @@ class vn73_t1172(MacroUpgrade):
         return config, self.reports
 
 
-class vn73_t1405(MacroUpgrade):
+class vn73_t1405(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -90,7 +89,7 @@ class vn73_t1405(MacroUpgrade):
 
         return config, self.reports
 
-class vn73_t1360(MacroUpgrade):
+class vn73_t1360(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES #1360 by Dan Copsey"""
 
@@ -106,7 +105,7 @@ class vn73_t1360(MacroUpgrade):
         return config, self.reports
 
 
-class vn73_t1344(MacroUpgrade):
+class vn73_t1344(rose.upgrade.MacroUpgrade):
     """Upgrade macro from JULES by Simon Jones/Andy Wiltshire"""
 
     BEFORE_TAG = "vn7.3_t1360"
@@ -123,15 +122,15 @@ class vn73_t1344(MacroUpgrade):
         self.add_setting(config, ["namelist:jules_pftparm", "sug_yg_io"],','.join(['1.0']*npft))
 
         self.add_setting(config, ["namelist:jules_vegetation", "l_sugar"], ".false.")
-
+        
         return config, self.reports
 
-class vn73_vn74(MacroUpgrade):
+class vn73_vn74(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn7.3_t1344"
     AFTER_TAG = "vn7.4"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

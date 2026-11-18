@@ -1,10 +1,7 @@
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
+import rose.upgrade
+import re
 
-class vn51_t694(MacroUpgrade):
+class vn51_t694(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Danny Eisenberg"""
 
@@ -78,7 +75,7 @@ class vn51_t694(MacroUpgrade):
         return config, self.reports
 
 
-class vn51_t570(MacroUpgrade):
+class vn51_t570(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Author"""
 
@@ -93,7 +90,7 @@ class vn51_t570(MacroUpgrade):
         return config, self.reports
 
 
-class vn51_t687(MacroUpgrade):
+class vn51_t687(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Douglas Clark"""
 
@@ -108,12 +105,12 @@ class vn51_t687(MacroUpgrade):
         if setting:
             self.change_setting_value(config, ["namelist:jules_soil_props", "var"],
                                               setting.replace("clay_frac","clay"))
-
+        
         # Add settings
         return config, self.reports
 
 
-class vn51_t706(MacroUpgrade):
+class vn51_t706(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -153,7 +150,7 @@ class vn51_t706(MacroUpgrade):
         return config, self.reports
 
 
-class vn51_t430(MacroUpgrade):
+class vn51_t430(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eleanor Burke"""
 
@@ -168,7 +165,7 @@ class vn51_t430(MacroUpgrade):
         return config, self.reports
 
 
-class vn51_t748(MacroUpgrade):
+class vn51_t748(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Danny Eisenberg"""
 
@@ -196,10 +193,10 @@ class vn51_t748(MacroUpgrade):
         return config, self.reports
 
 
-class vn51_t754(MacroUpgrade):
+class vn51_t754(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Hiroshi Kusabiraki"""
-
+ 
     BEFORE_TAG = "vn5.1_t748"
     AFTER_TAG = "vn5.1_t754"
 
@@ -220,7 +217,7 @@ class vn51_t754(MacroUpgrade):
         # Add settings
         return config, self.reports
 
-class vn51_t319(MacroUpgrade):
+class vn51_t319(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -320,7 +317,7 @@ class vn51_t319(MacroUpgrade):
         return config, self.reports
 
 
-class vn51_vn52(MacroUpgrade):
+class vn51_vn52(rose.upgrade.MacroUpgrade):
 
     """Version bump macro"""
 
@@ -339,7 +336,7 @@ Do not edit any lines below this point - this is the template.
 '''
 
 
-class vn51_txxx(MacroUpgrade):
+class vn51_txxx(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Author"""
 

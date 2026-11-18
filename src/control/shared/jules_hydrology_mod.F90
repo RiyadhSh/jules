@@ -27,8 +27,8 @@ IMPLICIT NONE
 ! Switches
 !-----------------------------------------------------------------------------
 LOGICAL ::                                                                     &
-  l_hydrology = .FALSE.,                                                       &
-      ! Turns off hydrology code
+  l_hydrology = .TRUE.,                                                        &
+      ! Turns off hydrology code for UM_JULES
   l_top  = .FALSE.,                                                            &
       ! Switch for TOPMODEL-based hydrology
   l_pdm = .FALSE.,                                                             &

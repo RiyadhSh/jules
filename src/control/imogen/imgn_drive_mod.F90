@@ -42,8 +42,9 @@ IMPLICIT NONE
 TYPE :: imgn_drive_data_type
   ! Driving "control" climatology on grid
   REAL, ALLOCATABLE :: tl1_ij_clim(:,:,:)
-  REAL, ALLOCATABLE :: ql1_ij_clim(:,:,:)
-  REAL, ALLOCATABLE :: wind_ij_clim(:,:,:)
+  REAL, ALLOCATABLE :: rh1p5m_ij_clim(:,:,:)
+  REAL, ALLOCATABLE :: uwind_ij_clim(:,:,:)
+  REAL, ALLOCATABLE :: vwind_ij_clim(:,:,:)
   REAL, ALLOCATABLE :: lwdown_ij_clim(:,:,:)
   REAL, ALLOCATABLE :: swdown_ij_clim(:,:,:)
   REAL, ALLOCATABLE :: diurnal_tl1_ij_clim(:,:,:)
@@ -51,8 +52,9 @@ TYPE :: imgn_drive_data_type
   REAL, ALLOCATABLE :: pstar_ij_clim(:,:,:)
   ! anomalies read in directly
   REAL, ALLOCATABLE :: tl1_ij_anom(:,:,:)
-  REAL, ALLOCATABLE :: ql1_ij_anom(:,:,:)
-  REAL, ALLOCATABLE :: wind_ij_anom(:,:,:)
+  REAL, ALLOCATABLE :: rh1p5m_ij_anom(:,:,:)
+  REAL, ALLOCATABLE :: uwind_ij_anom(:,:,:)
+  REAL, ALLOCATABLE :: vwind_ij_anom(:,:,:)
   REAL, ALLOCATABLE :: lwdown_ij_anom(:,:,:)
   REAL, ALLOCATABLE :: swdown_ij_anom(:,:,:)
   REAL, ALLOCATABLE :: diurnal_tl1_ij_anom(:,:,:)
@@ -60,8 +62,9 @@ TYPE :: imgn_drive_data_type
   REAL, ALLOCATABLE :: pstar_ij_anom(:,:,:)
   ! pattern scaling read in and used to make anomalies
   REAL, ALLOCATABLE :: tl1_ij_patt(:,:,:)
-  REAL, ALLOCATABLE :: ql1_ij_patt(:,:,:)
-  REAL, ALLOCATABLE :: wind_ij_patt(:,:,:)
+  REAL, ALLOCATABLE :: rh1p5m_ij_patt(:,:,:)
+  REAL, ALLOCATABLE :: uwind_ij_patt(:,:,:)
+  REAL, ALLOCATABLE :: vwind_ij_patt(:,:,:)
   REAL, ALLOCATABLE :: lwdown_ij_patt(:,:,:)
   REAL, ALLOCATABLE :: swdown_ij_patt(:,:,:)
   REAL, ALLOCATABLE :: diurnal_tl1_ij_patt(:,:,:)
@@ -87,16 +90,18 @@ END TYPE imgn_drive_data_type
 TYPE :: imgn_drive_type
   ! The forcing variables.
   REAL, POINTER :: tl1_ij_clim(:,:,:)
-  REAL, POINTER :: ql1_ij_clim(:,:,:)
-  REAL, POINTER :: wind_ij_clim(:,:,:)
+  REAL, POINTER :: rh1p5m_ij_clim(:,:,:)
+  REAL, POINTER :: uwind_ij_clim(:,:,:)
+  REAL, POINTER :: vwind_ij_clim(:,:,:)
   REAL, POINTER :: lwdown_ij_clim(:,:,:)
   REAL, POINTER :: swdown_ij_clim(:,:,:)
   REAL, POINTER :: diurnal_tl1_ij_clim(:,:,:)
   REAL, POINTER :: precip_ij_clim(:,:,:)
   REAL, POINTER :: pstar_ij_clim(:,:,:)
   REAL, POINTER :: tl1_ij_anom(:,:,:)
-  REAL, POINTER :: ql1_ij_anom(:,:,:)
-  REAL, POINTER :: wind_ij_anom(:,:,:)
+  REAL, POINTER :: rh1p5m_ij_anom(:,:,:)
+  REAL, POINTER :: uwind_ij_anom(:,:,:)
+  REAL, POINTER :: vwind_ij_anom(:,:,:)
   REAL, POINTER :: lwdown_ij_anom(:,:,:)
   REAL, POINTER :: swdown_ij_anom(:,:,:)
   REAL, POINTER :: diurnal_tl1_ij_anom(:,:,:)
@@ -104,8 +109,9 @@ TYPE :: imgn_drive_type
   REAL, POINTER :: pstar_ij_anom(:,:,:)
 
   REAL, POINTER :: tl1_ij_patt(:,:,:)
-  REAL, POINTER :: ql1_ij_patt(:,:,:)
-  REAL, POINTER :: wind_ij_patt(:,:,:)
+  REAL, POINTER :: rh1p5m_ij_patt(:,:,:)
+  REAL, POINTER :: uwind_ij_patt(:,:,:)
+  REAL, POINTER :: vwind_ij_patt(:,:,:)
   REAL, POINTER :: lwdown_ij_patt(:,:,:)
   REAL, POINTER :: swdown_ij_patt(:,:,:)
   REAL, POINTER :: diurnal_tl1_ij_patt(:,:,:)
@@ -132,13 +138,11 @@ TYPE(imgn_drive_type) :: imgn_drive
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='IMGN_DRIVE_MOD'
 
-#if !defined(RIVERS_ONLY)
 CONTAINS
 
 SUBROUTINE imgn_drive_alloc(land_pts, imgn_drive_data)
 
 USE imogen_time,       ONLY: nsdmax, mm, md
-USE imogen_run, ONLY: l_daily_metdata_climatol
 USE theta_field_sizes, ONLY: t_i_length, t_j_length
 
 USE parkind1,    ONLY: jprb, jpim
@@ -149,7 +153,6 @@ IMPLICIT NONE
 !Arguments
 INTEGER, INTENT(IN) :: land_pts
 
-INTEGER :: mdused
 
 TYPE(imgn_drive_data_type), INTENT(IN OUT) :: imgn_drive_data
 
@@ -163,31 +166,28 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='IMGN_DRIVE_ALLOC'
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
-IF (l_daily_metdata_climatol) THEN
-  mdused = md
-ELSE
-  mdused = 1
-END IF
-
-ALLOCATE( imgn_drive_data%tl1_ij_clim(t_i_length,t_j_length,mm*mdused))
-ALLOCATE( imgn_drive_data%ql1_ij_clim(t_i_length,t_j_length,mm*mdused))
-ALLOCATE( imgn_drive_data%wind_ij_clim(t_i_length,t_j_length,mm*mdused))
-ALLOCATE( imgn_drive_data%lwdown_ij_clim(t_i_length,t_j_length,mm*mdused))
-ALLOCATE( imgn_drive_data%swdown_ij_clim(t_i_length,t_j_length,mm*mdused))
-ALLOCATE( imgn_drive_data%diurnal_tl1_ij_clim(t_i_length,t_j_length,mm*mdused))
-ALLOCATE( imgn_drive_data%precip_ij_clim(t_i_length,t_j_length,mm*mdused))
-ALLOCATE( imgn_drive_data%pstar_ij_clim(t_i_length,t_j_length,mm*mdused))
+ALLOCATE( imgn_drive_data%tl1_ij_clim(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%rh1p5m_ij_clim(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%uwind_ij_clim(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%vwind_ij_clim(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%lwdown_ij_clim(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%swdown_ij_clim(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%diurnal_tl1_ij_clim(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%precip_ij_clim(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%pstar_ij_clim(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%tl1_ij_anom(t_i_length,t_j_length,mm))
-ALLOCATE( imgn_drive_data%ql1_ij_anom(t_i_length,t_j_length,mm))
-ALLOCATE( imgn_drive_data%wind_ij_anom(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%rh1p5m_ij_anom(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%uwind_ij_anom(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%vwind_ij_anom(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%lwdown_ij_anom(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%swdown_ij_anom(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%diurnal_tl1_ij_anom(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%precip_ij_anom(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%pstar_ij_anom(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%tl1_ij_patt(t_i_length,t_j_length,mm))
-ALLOCATE( imgn_drive_data%ql1_ij_patt(t_i_length,t_j_length,mm))
-ALLOCATE( imgn_drive_data%wind_ij_patt(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%rh1p5m_ij_patt(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%uwind_ij_patt(t_i_length,t_j_length,mm))
+ALLOCATE( imgn_drive_data%vwind_ij_patt(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%lwdown_ij_patt(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%swdown_ij_patt(t_i_length,t_j_length,mm))
 ALLOCATE( imgn_drive_data%diurnal_tl1_ij_patt(t_i_length,t_j_length,mm))
@@ -205,24 +205,27 @@ ALLOCATE( imgn_drive_data%swdown_ij_drive(t_i_length,t_j_length,mm,md,nsdmax))
 ALLOCATE( imgn_drive_data%lwdown_ij_drive(t_i_length,t_j_length,mm,md,nsdmax))
 
 imgn_drive_data%tl1_ij_clim(:,:,:) = rmdi
-imgn_drive_data%ql1_ij_clim(:,:,:) = rmdi
-imgn_drive_data%wind_ij_clim(:,:,:) = rmdi
+imgn_drive_data%rh1p5m_ij_clim(:,:,:) = rmdi
+imgn_drive_data%uwind_ij_clim(:,:,:) = rmdi
+imgn_drive_data%vwind_ij_clim(:,:,:) = rmdi
 imgn_drive_data%lwdown_ij_clim(:,:,:) = rmdi
 imgn_drive_data%swdown_ij_clim(:,:,:) = rmdi
 imgn_drive_data%diurnal_tl1_ij_clim(:,:,:) = rmdi
 imgn_drive_data%precip_ij_clim(:,:,:) = rmdi
 imgn_drive_data%pstar_ij_clim(:,:,:) = rmdi
 imgn_drive_data%tl1_ij_anom(:,:,:) = 0.0
-imgn_drive_data%ql1_ij_anom(:,:,:) = 0.0
-imgn_drive_data%wind_ij_anom(:,:,:) = 0.0
+imgn_drive_data%rh1p5m_ij_anom(:,:,:) = 0.0
+imgn_drive_data%uwind_ij_anom(:,:,:) = 0.0
+imgn_drive_data%vwind_ij_anom(:,:,:) = 0.0
 imgn_drive_data%lwdown_ij_anom(:,:,:) =0.0
 imgn_drive_data%swdown_ij_anom(:,:,:) = 0.0
 imgn_drive_data%diurnal_tl1_ij_anom(:,:,:) = 0.0
 imgn_drive_data%precip_ij_anom(:,:,:) = 0.0
 imgn_drive_data%pstar_ij_anom(:,:,:) = 0.0
 imgn_drive_data%tl1_ij_patt(:,:,:) = 0.0
-imgn_drive_data%ql1_ij_patt(:,:,:) = 0.0
-imgn_drive_data%wind_ij_patt(:,:,:) = 0.0
+imgn_drive_data%rh1p5m_ij_patt(:,:,:) = 0.0
+imgn_drive_data%uwind_ij_patt(:,:,:) = 0.0
+imgn_drive_data%vwind_ij_patt(:,:,:) = 0.0
 imgn_drive_data%lwdown_ij_patt(:,:,:) =0.0
 imgn_drive_data%swdown_ij_patt(:,:,:) = 0.0
 imgn_drive_data%diurnal_tl1_ij_patt(:,:,:) = 0.0
@@ -265,24 +268,27 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='IMGN_DRIVE_DEALLOC'
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
 DEALLOCATE( imgn_drive_data%tl1_ij_clim)
-DEALLOCATE( imgn_drive_data%ql1_ij_clim)
-DEALLOCATE( imgn_drive_data%wind_ij_clim)
+DEALLOCATE( imgn_drive_data%rh1p5m_ij_clim)
+DEALLOCATE( imgn_drive_data%uwind_ij_clim)
+DEALLOCATE( imgn_drive_data%vwind_ij_clim)
 DEALLOCATE( imgn_drive_data%lwdown_ij_clim)
 DEALLOCATE( imgn_drive_data%swdown_ij_clim)
 DEALLOCATE( imgn_drive_data%diurnal_tl1_ij_clim)
 DEALLOCATE( imgn_drive_data%precip_ij_clim)
 DEALLOCATE( imgn_drive_data%pstar_ij_clim)
 DEALLOCATE( imgn_drive_data%tl1_ij_anom)
-DEALLOCATE( imgn_drive_data%ql1_ij_anom)
-DEALLOCATE( imgn_drive_data%wind_ij_anom)
+DEALLOCATE( imgn_drive_data%rh1p5m_ij_anom)
+DEALLOCATE( imgn_drive_data%uwind_ij_anom)
+DEALLOCATE( imgn_drive_data%vwind_ij_anom)
 DEALLOCATE( imgn_drive_data%lwdown_ij_anom)
 DEALLOCATE( imgn_drive_data%swdown_ij_anom)
 DEALLOCATE( imgn_drive_data%diurnal_tl1_ij_anom)
 DEALLOCATE( imgn_drive_data%precip_ij_anom)
 DEALLOCATE( imgn_drive_data%pstar_ij_anom)
 DEALLOCATE( imgn_drive_data%tl1_ij_patt)
-DEALLOCATE( imgn_drive_data%ql1_ij_patt)
-DEALLOCATE( imgn_drive_data%wind_ij_patt)
+DEALLOCATE( imgn_drive_data%rh1p5m_ij_patt)
+DEALLOCATE( imgn_drive_data%uwind_ij_patt)
+DEALLOCATE( imgn_drive_data%vwind_ij_patt)
 DEALLOCATE( imgn_drive_data%lwdown_ij_patt)
 DEALLOCATE( imgn_drive_data%swdown_ij_patt)
 DEALLOCATE( imgn_drive_data%diurnal_tl1_ij_patt)
@@ -328,24 +334,27 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 CALL imgn_drive_nullify(imgn_drive)
 
 imgn_drive%tl1_ij_clim => imgn_drive_data%tl1_ij_clim
-imgn_drive%ql1_ij_clim => imgn_drive_data%ql1_ij_clim
-imgn_drive%wind_ij_clim => imgn_drive_data%wind_ij_clim
+imgn_drive%rh1p5m_ij_clim => imgn_drive_data%rh1p5m_ij_clim
+imgn_drive%uwind_ij_clim => imgn_drive_data%uwind_ij_clim
+imgn_drive%vwind_ij_clim => imgn_drive_data%vwind_ij_clim
 imgn_drive%lwdown_ij_clim => imgn_drive_data%lwdown_ij_clim
 imgn_drive%swdown_ij_clim => imgn_drive_data%swdown_ij_clim
 imgn_drive%diurnal_tl1_ij_clim => imgn_drive_data%diurnal_tl1_ij_clim
 imgn_drive%precip_ij_clim => imgn_drive_data%precip_ij_clim
 imgn_drive%pstar_ij_clim => imgn_drive_data%pstar_ij_clim
 imgn_drive%tl1_ij_anom => imgn_drive_data%tl1_ij_anom
-imgn_drive%ql1_ij_anom => imgn_drive_data%ql1_ij_anom
-imgn_drive%wind_ij_anom => imgn_drive_data%wind_ij_anom
+imgn_drive%rh1p5m_ij_anom => imgn_drive_data%rh1p5m_ij_anom
+imgn_drive%uwind_ij_anom => imgn_drive_data%uwind_ij_anom
+imgn_drive%vwind_ij_anom => imgn_drive_data%vwind_ij_anom
 imgn_drive%lwdown_ij_anom => imgn_drive_data%lwdown_ij_anom
 imgn_drive%swdown_ij_anom => imgn_drive_data%swdown_ij_anom
 imgn_drive%diurnal_tl1_ij_anom =>imgn_drive_data%diurnal_tl1_ij_anom
 imgn_drive%precip_ij_anom => imgn_drive_data%precip_ij_anom
 imgn_drive%pstar_ij_anom => imgn_drive_data%pstar_ij_anom
 imgn_drive%tl1_ij_patt => imgn_drive_data%tl1_ij_patt
-imgn_drive%ql1_ij_patt => imgn_drive_data%ql1_ij_patt
-imgn_drive%wind_ij_patt => imgn_drive_data%wind_ij_patt
+imgn_drive%rh1p5m_ij_patt => imgn_drive_data%rh1p5m_ij_patt
+imgn_drive%uwind_ij_patt => imgn_drive_data%uwind_ij_patt
+imgn_drive%vwind_ij_patt => imgn_drive_data%vwind_ij_patt
 imgn_drive%lwdown_ij_patt => imgn_drive_data%lwdown_ij_patt
 imgn_drive%swdown_ij_patt => imgn_drive_data%swdown_ij_patt
 imgn_drive%diurnal_tl1_ij_patt =>imgn_drive_data%diurnal_tl1_ij_patt
@@ -388,24 +397,27 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='IMGN_DRIVE_NULLIFY'
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
 NULLIFY( imgn_drive%tl1_ij_clim)
-NULLIFY( imgn_drive%ql1_ij_clim)
-NULLIFY( imgn_drive%wind_ij_clim)
+NULLIFY( imgn_drive%rh1p5m_ij_clim)
+NULLIFY( imgn_drive%uwind_ij_clim)
+NULLIFY( imgn_drive%vwind_ij_clim)
 NULLIFY( imgn_drive%lwdown_ij_clim)
 NULLIFY( imgn_drive%swdown_ij_clim)
 NULLIFY( imgn_drive%diurnal_tl1_ij_clim)
 NULLIFY( imgn_drive%precip_ij_clim)
 NULLIFY( imgn_drive%pstar_ij_clim)
 NULLIFY( imgn_drive%tl1_ij_anom)
-NULLIFY( imgn_drive%ql1_ij_anom)
-NULLIFY( imgn_drive%wind_ij_anom)
+NULLIFY( imgn_drive%rh1p5m_ij_anom)
+NULLIFY( imgn_drive%uwind_ij_anom)
+NULLIFY( imgn_drive%vwind_ij_anom)
 NULLIFY( imgn_drive%lwdown_ij_anom)
 NULLIFY( imgn_drive%swdown_ij_anom)
 NULLIFY( imgn_drive%diurnal_tl1_ij_anom)
 NULLIFY( imgn_drive%precip_ij_anom)
 NULLIFY( imgn_drive%pstar_ij_anom)
 NULLIFY( imgn_drive%tl1_ij_patt)
-NULLIFY( imgn_drive%ql1_ij_patt)
-NULLIFY( imgn_drive%wind_ij_patt)
+NULLIFY( imgn_drive%rh1p5m_ij_patt)
+NULLIFY( imgn_drive%uwind_ij_patt)
+NULLIFY( imgn_drive%vwind_ij_patt)
 NULLIFY( imgn_drive%lwdown_ij_patt)
 NULLIFY( imgn_drive%swdown_ij_patt)
 NULLIFY( imgn_drive%diurnal_tl1_ij_patt)
@@ -426,7 +438,6 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN
 END SUBROUTINE imgn_drive_nullify
 
-#endif
 
 END MODULE imgn_drive_mod
 #endif

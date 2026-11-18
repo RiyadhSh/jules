@@ -29,8 +29,6 @@ SUBROUTINE deposition_from_ukca_chemistry(                                     &
              soilmc_lp, zbl, dzl, frac_types, u_s,                             &
              dep_loss_rate_ij, nlev_with_ddep, len_stashwork50, stashwork50)
 
-USE ancil_info, ONLY: nsurft, dim_cs1
-
 USE deposition_check_species_mod, ONLY: deposition_check_species
 
 USE deposition_jules_ddepctl_mod, ONLY: deposition_jules_ddepctl
@@ -170,25 +168,8 @@ REAL(KIND=real_jlslsm) ::                                                      &
   dep_rc_nonstom_ij(row_length, rows, ntype, ndry_dep_species),                &
     ! surface resistance, Rc (s m-1)
     ! - non-stomatal component
-  dep_vd_ij(row_length, rows, ntype, ndry_dep_species),                        &
+  dep_vd_ij(row_length, rows, ntype, ndry_dep_species)
     ! surface deposition velocity term (m s-1)
-  dep_vd_gb(row_length, rows, ndry_dep_species)
-    ! surface deposition velocity term (m s-1) on gridbox
-
-! For H2 deposition: Paulot et al. scheme
-REAL(KIND=real_jlslsm) ::                                                      &
-  vol_smc_sat_dep(land_points),                                                &
-    ! volumetric saturation point (m3 water / m3 of soil)
-    ! for Paulot H2 deposition scheme
-  soil_carbon_dep(land_points,dim_cs1),                                        &
-    ! soil carbon for Paulot H2 deposition scheme
-  deep_soil_temp_dep(land_points),                                             &
-    ! deep soil temperature for Paulot H2 deposition scheme
-  snow_depth(land_points,nsurft),                                              &
-    ! snow depth on ground on tiles (m)
-    ! for Paulot H2 deposition scheme
-  soil_sand(land_points)
-    ! fraction of soil that is sand
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
@@ -238,14 +219,6 @@ dep_rc_ij(:,:,:,:) = 0.0
 dep_rc_stom_ij(:,:,:,:) = 0.0
 dep_rc_nonstom_ij(:,:,:,:) = 0.0
 dep_vd_ij(:,:,:,:) = 0.0
-dep_vd_gb(:,:,:) = 0.0
-! For H2 deposition scheme
-! Placeholder: will eventually be passed through subroutine interface
-soil_sand(:) = 0.0
-vol_smc_sat_dep(:) = 0.0
-soil_carbon_dep(:,:) = 0.0
-deep_soil_temp_dep(:) = 0.0
-snow_depth(:,:) = 0.0
 
 ! Convert stomatal conductance from grid to land vector
 DO m = 1, npft
@@ -265,19 +238,16 @@ CALL deposition_jules_ddepctl(a_step, secs_per_step,                           &
   z0tile_lp, sw_surft, surf_wetness, stcon_lp, laift_lp, canhtft_lp, t0tile_lp,&
   canopy_surft, soilmc_lp, zbl, dzl, frac_types, u_s,                          &
   dep_surfconc_ij,                                                             &
-    ! Parameters for Paulot et al H2 deposition scheme
-  nsurft, dim_cs1,                                                             &
-  vol_smc_sat_dep, snow_depth, soil_carbon_dep, deep_soil_temp_dep, soil_sand, &
-    ! Output deposition parameters
+  ! Output deposition parameters
   dep_ra_ij, dep_rb_ij, dep_rc_ij, dep_rc_stom_ij, dep_rc_nonstom_ij,          &
-  dep_vd_ij, dep_loss_rate_ij, dep_flux_ij, nlev_with_ddep, dep_vd_gb          &
+  dep_vd_ij, dep_loss_rate_ij, dep_flux_ij, nlev_with_ddep                     &
   )
 
 ! Calculate STASH deposition diagnostics
 ! Do not include in LFRic code as not relevant nor workable
 #if !defined (LFRIC)
 CALL diagnostics_dep( row_length, rows, bl_levels,                             &
-  dep_vd_ij, dep_vd_gb, dep_loss_rate_ij, stashwork50 )
+  dep_vd_ij, dep_loss_rate_ij, stashwork50 )
 #endif
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)

@@ -10,8 +10,7 @@ IMPLICIT NONE
 
 CONTAINS
 
-SUBROUTINE fill_variables_from_file(file_name, identifiers, sdf_names,         &
-                                    is_climatology)
+SUBROUTINE fill_variables_from_file(file_name, identifiers, sdf_names)
 
 USE input_mod, ONLY: grid, use_subgrid, subgrid
 
@@ -55,8 +54,6 @@ CHARACTER(LEN=*), INTENT(IN) :: identifiers(:)
     ! The model identifiers of the variables to fill
 CHARACTER(LEN=*), INTENT(IN) :: sdf_names(:)
     ! The name of the variable in the file for each identifier
-LOGICAL, INTENT(IN) :: is_climatology(:)
-    ! Indicates whether the ancillary input is a climatology
 
 !-----------------------------------------------------------------------------
 ! Work variables
@@ -103,11 +100,6 @@ IF ( nvars /= SIZE(sdf_names) )                                                &
                  "identifiers and sdf_names must have the same number " //     &
                  "of elements")
 
-IF ( nvars /= SIZE(is_climatology) ) THEN
-  CALL log_fatal("fill_variables_from_file",                                   &
-                 "is_climatology does not have nvars elements")
-END IF
-
 !-----------------------------------------------------------------------------
 ! Map the string identifiers to their integer ids
 !-----------------------------------------------------------------------------
@@ -144,7 +136,7 @@ DO i = 1,nvars
 
   ! Get the levels dims used by this variable - we only care about the names
   ! used in input files
-  CALL get_var_levs_dims(var_ids(i), is_climatology(i), ndims = ndims,         &
+  CALL get_var_levs_dims(var_ids(i), ndims = ndims,                            &
                          dim_names_in = dim_names, dim_sizes = dim_sizes)
 
   DO j = 1,ndims
@@ -155,8 +147,7 @@ DO i = 1,nvars
         file_gridded_def_dim(in_file, dim_names(j), dim_sizes(j))              &
       )
 
-    ! Get the dimension id from the dict and add it to the list for this
-    ! variable
+    ! Get the dimension id from the dict and add it to the list for this variable
     CALL dict_get(file_dim_ids, dim_names(j), dim_ids(j))
   END DO
 

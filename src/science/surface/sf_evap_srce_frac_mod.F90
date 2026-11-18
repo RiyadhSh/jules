@@ -40,7 +40,7 @@ CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='SF_EVAP_SRCE_FRAC_MOD'
 CONTAINS
 
 SUBROUTINE sf_evap_srce_frac (land_pts, surft_pts, surft_index, flake,         &
- fracaero, snowdep_surft, dq, catch, cansnowtile, evap_srce_frac)
+ fraca, snowdep_surft, dq, catch, cansnowtile, evap_srce_frac)
 
 USE jules_water_tracers_mod, ONLY: n_evap_srce, evap_srce_snow,                &
                                    evap_srce_cano, evap_srce_soil,             &
@@ -63,7 +63,7 @@ INTEGER, INTENT(IN) ::                                                         &
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
  flake(land_pts)                                                               &
                        ! IN Lake fraction
-,fracaero(land_pts)                                                            &
+,fraca(land_pts)                                                               &
                        ! IN Fraction of surface moisture flux with only
                        !    aerodynamic resistance
 ,snowdep_surft(land_pts)                                                       &
@@ -105,7 +105,7 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !$OMP DEFAULT(NONE)                                                            &
 !$OMP PRIVATE(l,k,n_evap)                                                      &
 !$OMP SHARED(surft_pts,surft_index,evap_srce_frac,                             &
-!$OMP        flake,fracaero,dq,snowdep_surft,can_model,cansnowtile,catch)
+!$OMP        flake,fraca,dq,snowdep_surft,can_model,cansnowtile,catch)
 DO k = 1,surft_pts
   l = surft_index(k)
 
@@ -118,26 +118,26 @@ DO k = 1,surft_pts
   IF (snowdep_surft(l) > 0.0) THEN
     IF (can_model == 4 .AND. cansnowtile) THEN
       ! Canopy snow model is used
-      ! In this case, fracaero = 0.0
+      ! In this case, fraca = 0.0
       evap_srce_frac(l,evap_srce_snow) = (1.0 - flake(l))
       evap_srce_frac(l,evap_srce_lake) = flake(l)
     ELSE
       ! Either non-vegatative tile or vegatative tile with no canopy snow
       ! model
-      evap_srce_frac(l,evap_srce_snow) = fracaero(l) * (1.0 - flake(l))
-      evap_srce_frac(l,evap_srce_soil) = (1.0-fracaero(l)) * (1.0 - flake(l))
+      evap_srce_frac(l,evap_srce_snow) = fraca(l) * (1.0 - flake(l))
+      evap_srce_frac(l,evap_srce_soil) = (1.0-fraca(l)) * (1.0 - flake(l))
       evap_srce_frac(l,evap_srce_lake) = flake(l)
     END IF
   ELSE
     IF (dq(l) < 0.0) THEN
       ! Evaporation is occurring
-      evap_srce_frac(l,evap_srce_cano) = fracaero(l) * (1.0 - flake(l))
-      evap_srce_frac(l,evap_srce_soil) = (1.0-fracaero(l)) * (1.0 - flake(l))
+      evap_srce_frac(l,evap_srce_cano) = fraca(l) * (1.0 - flake(l))
+      evap_srce_frac(l,evap_srce_soil) = (1.0-fraca(l)) * (1.0 - flake(l))
       evap_srce_frac(l,evap_srce_lake) = flake(l)
     ELSE
       ! Condensation is occurring
       ! Just aerodynamic resistance for all surfaces so no distinction
-      ! between canopy and soil (fracaero = 1.0)
+      ! between canopy and soil (fraca = 1.0)
       IF (catch(l) > 0.0) THEN
         ! From canopy
         evap_srce_frac(l,evap_srce_cano) = (1.0 - flake(l))

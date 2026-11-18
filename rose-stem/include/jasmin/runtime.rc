@@ -22,24 +22,27 @@
         inherit = REMOTE
         env-script = """
                 eval $(rose task-env)
-                module load oneapi/compilers/24.2.0
-                module load oneapi/mpi/24.2.0
-                module load netcdf/intel2024.2.0/4.9.2
-                module load netcdf/intel2024.2.0/fortran/4.6.1
-                export HDF5_LIBDIR=/apps/jasmin/supported/libs/hdf5/intel2024.2.0/1.14.4-2/lib
-                export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HDF5_LIBDIR
-                export NETCDF_FORTRAN_ROOT=/apps/jasmin/supported/libs/netcdf/intel2024.2.0/fortran/4.6.1
+                export PATH=/apps/jasmin/metomi/bin:$PATH
+                module load intel/19.0.0
+                module load contrib/gnu/gcc/7.3.0
+                module load eb/OpenMPI/intel/3.1.1
                 module list 2>&1
+                export NETCDF_FORTRAN_ROOT=/gws/nopw/j04/jules/admin/netcdf/local_nc_par/3.1.1/intel.19.0.0/
+                export NETCDF_ROOT=/gws/nopw/j04/jules/admin/netcdf/local_nc_par/3.1.1/intel.19.0.0/
+                export HDF5_LIBDIR=/gws/nopw/j04/jules/admin/netcdf/local_nc_par/3.1.1/intel.19.0.0/lib
+                export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HDF5_LIBDIR
+                env | grep LD_LIBRARY_PATH
                 """
 
         [[[job]]]
             batch system = slurm
         [[[directives]]]
-            --account = jules
-            --qos = debug
-            --partition = debug
+            --partition = par-multi
+            --constraint="skylake348G"
         [[[environment]]]
-            ROSE_LAUNCHER = srun
+            ROSE_LAUNCHER = mpirun
+            NETCDF_FORTRAN_ROOT=/gws/nopw/j04/jules/admin/netcdf/local_nc_par/3.1.1/intel.19.0.0/
+            NETCDF_ROOT=/gws/nopw/j04/jules/admin/netcdf/local_nc_par/3.1.1/intel.19.0.0/
 
         {% if JASMIN_JULES_BASE_DIR is defined %}
             JASMIN_JULES_BASE_DIR = {{JASMIN_JULES_BASE_DIR}}
@@ -47,12 +50,6 @@
             JASMIN_JULES_BASE_DIR = "/gws/nopw/j04/jules"
         {% endif %}
             JASMIN_ROSE_STEM_DATA_DIR = $JASMIN_JULES_BASE_DIR/admin
-
-    [[remote_init_jasmin]]
-        inherit = JASMIN_LOTUS
-        script = true
-        [[[job]]]
-            execution time limit = PT2M
 
     [[JASMIN_FCM_MAKE]]
         inherit = None, JASMIN_LOTUS, EXTRACT
@@ -224,13 +221,6 @@
             ROSE_TASK_APP = loobos_jules_es_1p0_deposition
             ROSE_APP_OPT_CONF_KEYS = deposition-dd2
 
-    [[loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = LOOBOS, JASMIN_LOOBOS
-        [[[environment]]]
-            DUMP_FILE = ../loobos_jules_es_1p0_deposition_spinup/output/loobos_jules_es_1p0_deposition_spinup.dump.19971231.82800.nc
-            ROSE_TASK_APP = loobos_jules_es_1p0_deposition
-            ROSE_APP_OPT_CONF_KEYS = deposition-dd2h2
-
     [[loobos_jules_layeredcn_spinup]]
         inherit = LOOBOS, JASMIN_LOOBOS
 
@@ -289,6 +279,7 @@
     [[JASMIN_GSWP2]]
         inherit = None, JASMIN_COMPUTE
         [[[directives]]]
+            --partition = par-multi
             --ntasks = 8
         [[[environment]]]
             BUILD_NAME = fcm_make_mpi
@@ -299,20 +290,17 @@
             BUILD_NAME = fcm_make_mpi_rivers-only
 
     [[gswp2_rivers]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = GSWP2, JASMIN_GSWP2
 
     [[gswp2_rivers_spinup]]
         inherit = GSWP2, JASMIN_GSWP2
 
     [[gswp2_rivers_restart]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = GSWP2, JASMIN_GSWP2
         [[[environment]]]
 	   DUMP_FILE = ../gswp2_rivers_spinup/output/gswp2_rivers_spinup.dump.19820701.10800.nc
 
     [[gswp2_rivers_rivers-only]]
-	pre-script = gen_gswp2_rivers_props_rfm_file
         inherit = GSWP2, JASMIN_GSWP2_RIVERS_ONLY
         [[[environment]]]
             ROSE_TASK_APP = gswp2_rivers
@@ -328,20 +316,17 @@
             ROSE_APP_OPT_CONF_KEYS = overbank_hypso
 
     [[gswp2_trip]]
-        pre-script = gen_gswp2_rivers_props_trip_file
         inherit = GSWP2, JASMIN_GSWP2
 
     [[gswp2_trip_spinup]]
         inherit = GSWP2,  JASMIN_GSWP2
 
     [[gswp2_trip_restart]]
-        pre-script = gen_gswp2_rivers_props_trip_file
         inherit = GSWP2, JASMIN_GSWP2
         [[[environment]]]
             DUMP_FILE = ../gswp2_trip_spinup/output/gswp2_trip_spinup.dump.19820701.10800.nc
 
     [[gswp2_trip_rivers-only]]
-        pre-script = gen_gswp2_rivers_props_trip_file
         inherit = GSWP2, JASMIN_GSWP2_RIVERS_ONLY
         [[[environment]]]
             ROSE_TASK_APP = gswp2_trip
@@ -384,6 +369,7 @@
     [[JASMIN_ERAINT]]
         inherit = None, JASMIN_COMPUTE
         [[[directives]]]
+            --partition = par-multi
             --ntasks = 8
 	[[[environment]]]
             BUILD_NAME = fcm_make_mpi
@@ -399,6 +385,7 @@
     [[JASMIN_IMOGEN]]
         inherit = None, JASMIN_COMPUTE
         [[[directives]]]
+            --partition = par-multi
             --ntasks = 8
 	[[[environment]]]
             BUILD_NAME = fcm_make_mpi
@@ -424,28 +411,6 @@
     [[imogen_layeredc]]
         inherit = IMOGEN, JASMIN_IMOGEN
         [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_co2conc]]
-        inherit = IMOGEN, JASMIN_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = co2conc
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_dtempg]]
-        inherit = IMOGEN, JASMIN_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = dtempg
-            DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
-
-    [[imogen_layeredc_ch4]]
-        inherit = IMOGEN, JASMIN_IMOGEN
-        [[[environment]]]
-            ROSE_TASK_APP = imogen_layeredc
-            ROSE_APP_OPT_CONF_KEYS = ch4
             DUMP_FILE = ../imogen_layeredc_spinup/output/imogen_layeredc_spinup.dump.18650101.0.nc
 
 ###############################################################################
@@ -453,7 +418,7 @@
 ###############################################################################
     [[JASMIN_NETCDF_COMPARISON]]
         inherit = None, JASMIN_LOTUS, NETCDF_COMPARISON
-        env-script = "module load jaspy"
+        env-script = "module load jasmin-sci"
         [[[environment]]]
             KGO_DIR = $JASMIN_ROSE_STEM_DATA_DIR/rose-stem-kgo/{{ KGO_VERSION }}
 
@@ -551,11 +516,6 @@
         inherit = KGO_CHECK, JASMIN_NETCDF_COMPARISON
         [[[environment]]]
             OUTPUT_DIR = ../loobos_jules_es_1p0_deposition_dd2/output
-
-    [[nccmp_loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = KGO_CHECK, JASMIN_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../loobos_jules_es_1p0_deposition_dd2h2/output
 
     [[nccmp_loobos_jules_layeredcn]]
         inherit = KGO_CHECK, JASMIN_NETCDF_COMPARISON
@@ -732,21 +692,6 @@
         [[[environment]]]
             OUTPUT_DIR = ../imogen_layeredc/output
 
-    [[nccmp_imogen_layeredc_co2conc]]
-        inherit = KGO_CHECK, JASMIN_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_co2conc/output
-
-    [[nccmp_imogen_layeredc_dtempg]]
-        inherit = KGO_CHECK, JASMIN_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_dtempg/output
-
-    [[nccmp_imogen_layeredc_ch4]]
-        inherit = KGO_CHECK, JASMIN_NETCDF_COMPARISON
-        [[[environment]]]
-            OUTPUT_DIR = ../imogen_layeredc_ch4/output
-
 ###############################################################################
 ## Housekeeping jobs
 ###############################################################################
@@ -884,11 +829,6 @@
         inherit = HOUSEKEEPING, JASMIN_LOTUS
         [[[environment]]]
             DIR1 = ../loobos_jules_es_1p0_deposition_dd2
-
-    [[housekeep_loobos_jules_es_1p0_deposition_dd2h2]]
-        inherit = HOUSEKEEPING, JASMIN_LOTUS
-        [[[environment]]]
-            DIR1 = ../loobos_jules_es_1p0_deposition_dd2h2
 
     [[housekeep_loobos_jules_layeredcn_spinup]]
         inherit = HOUSEKEEPING, LINUX
@@ -1089,19 +1029,4 @@
         inherit = HOUSEKEEPING, JASMIN_LOTUS
         [[[environment]]]
             DIR1 = ../imogen_layeredc
-
-    [[housekeep_imogen_layeredc_co2conc]]
-        inherit = HOUSEKEEPING, JASMIN_LOTUS
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_co2conc
-
-    [[housekeep_imogen_layeredc_dtempg]]
-        inherit = HOUSEKEEPING, JASMIN_LOTUS
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_dtempg
-
-    [[housekeep_imogen_layeredc_ch4]]
-        inherit = HOUSEKEEPING, JASMIN_LOTUS
-        [[[environment]]]
-            DIR1 = ../imogen_layeredc_ch4
 

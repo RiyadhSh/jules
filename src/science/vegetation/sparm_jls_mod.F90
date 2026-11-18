@@ -31,19 +31,14 @@ USE pft_sparm_mod,            ONLY: pft_sparm
 USE nvg_sparm_mod,            ONLY: nvg_sparm
 
 !Use in relevant variables
-USE jules_surface_types_mod,  ONLY: lake, npft, ntype, soil, urban_canyon,     &
-                                    urban_roof
-USE jules_vegetation_mod,     ONLY: can_model, l_spec_veg_z0
+USE jules_surface_types_mod,  ONLY: lake, npft, ntype
+USE jules_vegetation_mod,     ONLY: can_model
 USE blend_h,                  ONLY: lb
 USE jules_surface_mod,        ONLY: i_aggregate_opt, l_aggregate
 USE jules_snow_mod,           ONLY: cansnowtile, snowloadlai
 USE c_z0h_z0m,                ONLY: z0h_z0m
-USE jules_urban_mod,          ONLY: l_moruses
 
-USE stochastic_physics_run_mod, ONLY: l_rp2, i_rp_scheme, i_rp2b, rp_idx,      &
-                                      z0hm_pft_rp, z0hm_soil_rp, z0v_rp,       &
-                                      z0_soil_rp, z0_urban_mult_rp
-
+USE stochastic_physics_run_mod, ONLY: l_rp2, i_rp_scheme, i_rp2b, z0hm_pft_rp
 
 USE parkind1,                 ONLY: jprb, jpim
 USE yomhook,                  ONLY: lhook, dr_hook
@@ -89,13 +84,7 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
 ! Local variables.
 !-----------------------------------------------------------------------------
 INTEGER ::                                                                     &
-  i,j,l,n  ! Loop counters
-
-INTEGER ::                                                                     &
-  tile_pts(ntype),                                                             &
-!   Number of points contining tiles of the current category
-  tile_index(land_pts,ntype)
-!   Index over tiles
+  j,l,n  ! Loop counters
 
 REAL(KIND=real_jlslsm) ::                                                      &
   catch(land_pts),                                                             &
@@ -131,7 +120,6 @@ IF ( l_rp2 .AND. i_rp_scheme == i_rp2b) THEN
   DO n = 1,npft
     z0h_z0m(n) = z0hm_pft_rp(n)
   END DO
-  z0h_z0m(soil) = z0hm_soil_rp(rp_idx)
 END IF
 
 IF ( .NOT. l_aggregate ) THEN
@@ -232,44 +220,6 @@ ELSE ! l_aggregate
     IF (i_aggregate_opt == 1) z0h_bare_surft(l,1) = z0h(l)
   END DO
 END IF  !  l_aggregate
-
-! Apply perturbations
-
-IF ( l_rp2 .AND. i_rp_scheme == i_rp2b) THEN
-  IF ( l_spec_veg_z0) THEN
-    ! Apply perturbations to z0_surft for plant functional types
-    DO i = 1, npft
-      z0_surft(:,i) = z0v_rp(i)
-    END DO
-  END IF
-  z0_surft(:,soil) = z0_soil_rp(rp_idx)
-
-  IF ( l_moruses ) THEN
-    ! Apply perturbations to z0_surft for urban roof and canyon tiles
-
-    IF (l_aggregate) THEN
-      tile_pts(1) = land_pts
-      DO l = 1, land_pts
-        tile_index(l,1) = l
-      END DO
-    ELSE
-      DO n = 1, ntype
-        tile_pts(n)=surft_pts(n)
-        DO j = 1, surft_pts(n)
-          ! Here tiles match types.
-          tile_index(j,n)=surft_index(j,n)
-        END DO
-      END DO
-    END IF
-
-    n = urban_canyon
-    DO j = 1,tile_pts(n)
-      l = tile_index(j,n)
-      z0_surft(l,n)          = z0_urban_mult_rp(rp_idx)*z0_surft(l,n)
-      z0_surft(l,urban_roof) = z0_urban_mult_rp(rp_idx)*z0_surft(l,urban_roof)
-    END DO
-  END IF
-END IF
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

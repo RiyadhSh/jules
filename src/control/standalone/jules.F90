@@ -63,8 +63,7 @@ USE jules_fields_mod, ONLY: crop_vars_data, crop_vars,                         &
                             lake_data, lake_vars,                              &
                             chemvars_data, chemvars,                           &
                             rivers_data, rivers,                               &
-                            water_resources_data, water_resources,             &
-                            wtrac_jls_data, wtrac_jls
+                            water_resources_data, water_resources
 
 ! In general CABLE utilizes a required subset of tbe JULES types, however;
 ! CABLE requires extra prognostics and some vars to be kept thru a timestep
@@ -148,7 +147,6 @@ CALL init(nml_dir, crop_vars_data, crop_vars,                                  &
                    chemvars_data, chemvars,                                    &
                    rivers_data, rivers,                                        &
                    water_resources_data, water_resources,                      &
-                   wtrac_jls_data, wtrac_jls,                                  &
                    ! CABLE state vars, progs, params and miscellaneous
                    ! requirements
                    progs_cbl_vars_data, progs_cbl_vars,                        &
@@ -166,7 +164,6 @@ DO    !  timestep
   ! Update the IMOGEN climate variables if required
   !-----------------------------------------------------------------------------
   IF ( l_imogen .AND. start_of_year ) THEN
-    CALL update_prescribed_variables()   ! read in required variables
     CALL imogen_update_clim(progs, imgn_drive, imgn_vars, ainfo)
   END IF
 
@@ -175,9 +172,7 @@ DO    !  timestep
   !  - Update variables provided by files
   !  - Update variables that are derived from those updated in the first phase
   !-----------------------------------------------------------------------------
-  IF ( .NOT. l_imogen) THEN
-    CALL update_prescribed_variables()
-  END IF
+  CALL update_prescribed_variables()
   CALL update_derived_variables(crop_vars,psparms,ainfo,urban_param,progs,     &
                                 jules_vars, forcing, imgn_drive)
 
@@ -208,7 +203,6 @@ DO    !  timestep
       !veg3_field, &
       chemvars,                                                                &
       rivers, water_resources,                                                 &
-      wtrac_jls,                                                               &
       progs_cbl_vars,                                                          &
       work_vars_cbl                                                            &
       )

@@ -48,19 +48,18 @@ REAL ::                                                                        &
               ! Fraction of SW radiation that is diffuse for IMOGEN
 
 CHARACTER(LEN=max_file_name_len) ::                                            &
-  file_patt = '',                                                              &
-              ! File containing the patterns
-  file_clim = '',                                                              &
-              ! File containing initialising climatology.
-  file_base_anom = ''
-              ! File containing prescribed anomalies ("name")
-              ! Actual filename is in the form "name_year.nc"
+  dir_patt = '',                                                               &
+              ! Directory containing the patterns
+  dir_clim = '',                                                               &
+              ! Directory containing initialising climatology.
+  dir_anom = ''
+              ! Directory containing prescribed anomalies
 
 
 NAMELIST  / imogen_anlg_vals_list/ q2co2,f_ocean,kappa_o,                      &
                                  lambda_l,lambda_o,mu,                         &
-                                 t_ocean_init,file_patt,                       &
-                                 file_clim, file_base_anom,                    &
+                                 t_ocean_init,dir_patt,                        &
+                                 dir_clim, dir_anom,                           &
                                  diff_frac_const_imogen
 
 END MODULE imogen_anlg_vals

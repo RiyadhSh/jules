@@ -59,7 +59,7 @@ REAL, ALLOCATABLE :: data_land(:,:), data_grid(:,:,:)
 
 INTEGER :: nlevs  ! The size of the combined levels dimension
 
-INTEGER :: i, j, l, k  ! Indexing variables
+INTEGER :: i, j, l  ! Indexing variables
 
 
 !-----------------------------------------------------------------------------
@@ -79,25 +79,15 @@ data_land(:,:) = RESHAPE(cube_land%values, SHAPE(data_land))
 
 ! Initialise data_grid to missing data - this is the value it will take at
 ! non-land points
-!$OMP PARALLEL DO IF(nlevs > 1) DEFAULT(NONE) SCHEDULE(STATIC)                 &
-!$OMP SHARED( nlevs, data_grid, land_pts, ainfo, data_land, t_i_length,        &
-!$OMP         t_j_length )  PRIVATE( i, j, k, l )
-DO k = 1, nlevs
-  DO j = 1, t_j_length
-    DO i = 1, t_i_length
-      data_grid(i,j,k) = mdi
-    END DO
-  END DO
+data_grid(:,:,:) = mdi
 
-  ! Do the mapping
-  DO l = 1,land_pts
-    j = (ainfo%land_index(l) - 1) / t_i_length + 1
-    i = ainfo%land_index(l) - (j-1) * t_i_length
+! Do the mapping
+DO l = 1,land_pts
+  j = (ainfo%land_index(l) - 1) / t_i_length + 1
+  i = ainfo%land_index(l) - (j-1) * t_i_length
 
-    data_grid(i,j,k) = data_land(l,k)
-  END DO
+  data_grid(i,j,:) = data_land(l,:)
 END DO
-!$OMP END PARALLEL DO
 
 ! Copy the gridded data into the return cube
 cube_grid = cube_create([ t_i_length, t_j_length, cube_land%SHAPE(2:) ])

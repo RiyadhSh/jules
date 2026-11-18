@@ -30,6 +30,7 @@ SUBROUTINE surf_couple_initialise(a_step,                                      &
 
 !USE in relevant subroutines
 USE init_veg_mod,           ONLY: init_veg
+USE init_riv_mod,           ONLY: init_riv
 USE init_a2t_4a_mod,        ONLY: init_a2t_4a
 USE jules_init_mod,         ONLY: jules_init
 USE init_urban_mod,         ONLY: init_urban
@@ -47,7 +48,7 @@ USE ereport_mod,            ONLY: ereport
 
 !USE in relevant variables from JULES modules
 USE jules_surface_mod,      ONLY: l_aggregate
-USE jules_rivers_mod,       ONLY: l_rivers
+USE jules_rivers_mod,       ONLY: l_rivers, rivers_first
 USE jules_irrig_mod,        ONLY: l_irrig_dmd
 USE assign_irrig_fraction_mod, ONLY: assign_irrig_fraction
 USE update_irrig_variables_mod, ONLY: update_irrig_variables
@@ -150,15 +151,23 @@ END IF
 
 ! River routing
 IF (l_rivers) THEN
+  ! Reset rivers_first variable back to first routing call
+  rivers_first = .TRUE.
+  CALL umPrint('Initialising RIVER_ROUTING, reset rivers_first' ,              &
+        src='surf_couple_initialise')
+
   ! Initialise the step counter for river routing.
-  nstep_since_riv = 0
+  CALL init_riv(nstep_since_riv, icode, cmessage)
+  IF (icode  /=  0) THEN
+    CALL Ereport(RoutineName,icode,Cmessage)
+  END IF
 
   ! Set up the ATMOS grid lat./long.coords for regridding to river routing grid
   CALL init_a2t_4a(a_realhd, xpa, xua, xva, ypa, yua, yva)
 END IF !l_rivers
 
 ! 7.5 Initialise JULES variables
-CALL jules_init(land_index,psparms,progs,lake_vars,ainfo)
+CALL jules_init(land_index,psparms,progs,lake_vars)
 
 !Copy back the relevant items from inthd and give them a more memorable name
 a_inthd_arg(22) = triffid_period_arg

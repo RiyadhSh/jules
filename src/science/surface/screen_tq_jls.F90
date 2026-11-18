@@ -704,7 +704,7 @@ IF (sf_diag%st1p5 .OR. (IScrnTDiag == IP_ScrnDecpl2)                           &
           TScrnDcl_SSI(i,j) = sf_diag%t1p5m_ssi(i,j)
 
 
-          !              Calculate the value for air-sea-decoupled screen height
+          !	         Calculate the value for air-sea-decoupled screen height
           !              temperature over sea/sea-ice.
           term_numx = tstar_ssi(i,j) -                                         &
             (sf_diag%t1p5m_ssi(i,j) + grcp * (z_obs_tq + z0mssi(i,j) - z0hssi(i,j)))
@@ -843,8 +843,8 @@ IF (sf_diag%st1p5 .OR. (IScrnTDiag == IP_ScrnDecpl2)                           &
           ! diagnosed one.
           TScrnDcl_SURFT(l,n) = sf_diag%t1p5m_surft(l,n)
 
-          ! Calculate the value for air-surface-decoupled screen height
-          ! temperature over land tiles.
+          !	     Calculate the value for air-surface-decoupled screen height
+          !          temperature over land tiles.
           term_numx = tstar_surft(l,n) -                                       &
                       (sf_diag%t1p5m_surft(l,n) +                              &
                       grcp * (z_obs_tq + z0m_surft(l,n) - z0h_surft(l,n)))
@@ -900,14 +900,12 @@ IF (sf_diag%st1p5 .OR. (IScrnTDiag == IP_ScrnDecpl2)                           &
         CALL qsat(qs,tstar_ssi,pstar,t_i_length,t_j_length)
       END IF
 
-!$OMP PARALLEL                                                                 &
+!$OMP PARALLEL DO                                                              &
 !$OMP DEFAULT(NONE)                                                            &
-!$OMP SHARED( nsurft, land_pts, sf_diag, tstar_surft, pstar_land, pstar,       &
-!$OMP         l_mr_physics, surft_pts, surft_index, i_ind, j_ind, resft,       &
-!$OMP         chr1p5m, qw_1, flandg, tile_frac, epsilon_surft,                 &
-!$OMP         tdims, epsilon_ssi, chr1p5m_sice, qs)                            &
-!$OMP PRIVATE( i, j, k, l, n, cer1p5m, qs_surft)
-!$OMP DO SCHEDULE(STATIC)
+!$OMP SCHEDULE(STATIC)                                                         &
+!$OMP SHARED( tdims, sf_diag, flandg, epsilon_ssi,                             &
+!$OMP         chr1p5m_sice, qw_1, qs)                                          &
+!$OMP PRIVATE( i, j, cer1p5m)
       DO j = tdims%j_start,tdims%j_end
         DO i = tdims%i_start,tdims%i_end
           sf_diag%q1p5m(i,j) = 0.0
@@ -923,17 +921,27 @@ IF (sf_diag%st1p5 .OR. (IScrnTDiag == IP_ScrnDecpl2)                           &
           END IF
         END DO
       END DO
-!$OMP END DO
+!$OMP END PARALLEL DO
 
-!$OMP DO SCHEDULE(STATIC)
+!$OMP PARALLEL DO                                                              &
+!$OMP DEFAULT(NONE)                                                            &
+!$OMP SCHEDULE(STATIC)                                                         &
+!$OMP SHARED(pstar_land, pstar, i_ind, j_ind, land_pts)                        &
+!$OMP PRIVATE(l, i, j)
       DO l = 1,land_pts
         i = i_ind(l)
         j = j_ind(l)
         pstar_land(l) = pstar(i,j)
       END DO
-!$OMP END DO
+!$OMP END PARALLEL DO
 
-!$OMP DO SCHEDULE(STATIC)
+!$OMP PARALLEL DO                                                              &
+!$OMP DEFAULT(NONE)                                                            &
+!$OMP SCHEDULE(STATIC)                                                         &
+!$OMP SHARED( nsurft, land_pts, sf_diag, tstar_surft, pstar_land,              &
+!$OMP         l_mr_physics, surft_pts, surft_index, i_ind, j_ind, resft,       &
+!$OMP         chr1p5m, qw_1, flandg, tile_frac,epsilon_surft)                  &
+!$OMP PRIVATE( i, j, k, l, n, cer1p5m, qs_surft)
       DO n = 1,nsurft
         DO l = 1,land_pts
           sf_diag%q1p5m_surft(l,n) = 0.0
@@ -957,10 +965,9 @@ IF (sf_diag%st1p5 .OR. (IScrnTDiag == IP_ScrnDecpl2)                           &
           sf_diag%q1p5m_surft(l,n) = qw_1(i,j) + cer1p5m * ( qw_1(i,j) - qs_surft(l) )
         END DO
       END DO
-!$OMP END DO
+!$OMP END PARALLEL DO
 
       DO n = 1,nsurft
-!$OMP DO SCHEDULE(STATIC)
         DO k = 1,surft_pts(n)
           l = surft_index(k,n)
           i = i_ind(l)
@@ -968,10 +975,8 @@ IF (sf_diag%st1p5 .OR. (IScrnTDiag == IP_ScrnDecpl2)                           &
           sf_diag%q1p5m(i,j) = sf_diag%q1p5m(i,j)                              &
                + flandg(i,j) * tile_frac(l,n) * sf_diag%q1p5m_surft(l,n)
         END DO
-!$OMP END DO
       END DO
 
-!$OMP END PARALLEL
     END IF
 
   END IF

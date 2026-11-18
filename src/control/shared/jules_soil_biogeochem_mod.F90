@@ -165,10 +165,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
   tau_lit = rmdi
     ! Parameter controlling the decay of litter inputs with depth (m-1).
 
-REAL(KIND=real_jlslsm) ::                                                      &
-  z_burn_max = rmdi
-    ! Parameter setting maximum depth of burn
-
 !-----------------------------------------------------------------------------
 ! Namelist variables used in the CH4 Emission Scheme
 !-----------------------------------------------------------------------------
@@ -240,7 +236,7 @@ NAMELIST  / jules_soil_biogeochem/                                             &
     t0_ch4, const_ch4_cs, const_ch4_npp, const_ch4_resps, q10_ch4_cs,          &
     q10_ch4_npp, q10_ch4_resps, tau_ch4, ch4_cpow, k2_ch4, kd_ch4, rho_ch4,    &
     q10_mic_ch4, cue_ch4, mu_ch4, alpha_ch4, frz_ch4, ev_ch4, q10_ev_ch4,      &
-    l_label_frac_cs, z_burn_max
+    l_label_frac_cs
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE ::                                        &
   ModuleName = 'JULES_SOIL_BIOGEOCHEM_MOD'
@@ -261,7 +257,7 @@ USE jules_surface_mod, ONLY:                                                   &
 
 USE jules_vegetation_mod, ONLY:                                                &
   ! imported scalars
-  l_triffid, l_trif_fire, l_nitrogen, l_inferno
+  l_triffid, l_trif_fire, l_nitrogen
 
 
 USE ereport_mod, ONLY: ereport
@@ -373,6 +369,14 @@ IF ( l_label_frac_cs .AND. l_layeredc ) THEN
   END SELECT
 END IF
 
+! Check that l_layeredc=T is not used with l_trif_fire=T. This combination
+! would require that further code is added.
+IF ( soil_bgc_model == soil_model_4pool .AND. l_trif_fire                      &
+                                                    .AND. l_layeredc ) THEN
+  CALL ereport( RoutineName, errorstatus,                                      &
+                'l_layeredc cannot be used with l_trif_fire=T' )
+END IF
+
 ! Check that ECOSSE is not used with l_trif_fire=T. This combination
 ! would require that further code is added to ECOSSE.
 IF ( soil_bgc_model == soil_model_ecosse .AND. l_trif_fire ) THEN
@@ -460,16 +464,6 @@ IF ( l_layeredc .AND. l_nitrogen ) THEN
   ELSE IF ( diff_n_pft < 0.1 .OR. diff_n_pft > 1500.0 ) THEN
     CALL ereport(RoutineName, errorstatus,                                     &
                  "diff_n_pft must lie in the range 0.1 to 1500")
-  END IF
-END IF
-
-! check value of z_burn_max with l_layeredc
-IF ( l_layeredc ) THEN
-  IF ( ABS( z_burn_max - rmdi ) > EPSILON(1.0) ) THEN
-    IF ( z_burn_max <= 0.0 .OR. z_burn_max > 10.0 ) THEN
-      CALL ereport(RoutineName, errorstatus,                                   &
-                   "z_burn_max must be positive & less than 10 meters")
-    END IF
   END IF
 END IF
 
@@ -683,9 +677,6 @@ CALL jules_print('jules_soil_biogeochem_mod', lineBuffer)
 WRITE(lineBuffer, *) ' tau_lit = ', tau_lit
 CALL jules_print('jules_soil_biogeochem_mod', lineBuffer)
 
-WRITE(lineBuffer, *) ' z_burn_max = ', z_burn_max
-CALL jules_print('jules_soil_biogeochem_mod', lineBuffer)
-
 WRITE(lineBuffer, *) ' diff_n_pft = ', diff_n_pft
 CALL jules_print('jules_soil_biogeochem_mod', lineBuffer)
 
@@ -802,7 +793,7 @@ CHARACTER(LEN=errormessagelength) :: iomessage
 ! set number of each type of variable in my_namelist type
 INTEGER, PARAMETER :: no_of_types = 3
 INTEGER, PARAMETER :: n_int = 2
-INTEGER, PARAMETER :: n_real = 28 + 4
+INTEGER, PARAMETER :: n_real = 27 + 4
 INTEGER, PARAMETER :: n_log = 7
 
 TYPE :: my_namelist
@@ -837,7 +828,6 @@ TYPE :: my_namelist
   REAL(KIND=real_jlslsm) :: alpha_ch4
   REAL(KIND=real_jlslsm) :: ev_ch4
   REAL(KIND=real_jlslsm) :: q10_ev_ch4
-  REAL(KIND=real_jlslsm) :: z_burn_max
   LOGICAL :: l_layeredC
   LOGICAL :: l_label_frac_cs
   LOGICAL :: l_q10
@@ -901,7 +891,6 @@ IF (mype == 0) THEN
   my_nml % alpha_ch4        = alpha_ch4
   my_nml % ev_ch4           = ev_ch4
   my_nml % q10_ev_ch4       = q10_ev_ch4
-  my_nml % z_burn_max       = z_burn_max
 
 END IF
 
@@ -945,7 +934,6 @@ IF (mype /= 0) THEN
   alpha_ch4        = my_nml % alpha_ch4
   ev_ch4           = my_nml % ev_ch4
   q10_ev_ch4       = my_nml % q10_ev_ch4
-  z_burn_max       = my_nml % z_burn_max
 END IF
 
 CALL mpl_type_free(mpl_nml_type,icode)

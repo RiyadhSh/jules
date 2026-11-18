@@ -9,9 +9,9 @@
 ! [Met Office Ref SC0237]
 !******************************COPYRIGHT**************************************
 
-SUBROUTINE diffcarb_land_co2(land_pts, d_land_atmos_co2, darea, dctot_co2)
+SUBROUTINE diffcarb_land_co2(land_pts, d_land_atmos_co2, lat, dctot_co2, conv)
 
-USE conversions_mod, ONLY: conv_gtc_to_ppm
+USE cellarea_calc_mod, ONLY: cellarea_calc
 
 IMPLICIT NONE
 
@@ -32,24 +32,31 @@ IMPLICIT NONE
 
 INTEGER, INTENT(IN) ::                                                         &
   land_pts
-               ! Number of land points
+               ! IN Number of land points
 
 REAL, INTENT(IN) ::                                                            &
+  lat(land_pts),                                                               &
+               ! IN Latitute (degrees)
   dctot_co2(land_pts),                                                         &
-               ! Change in total surface gridbox co2 content
-               ! between a calling period (here years) (kg C/m2)
-  darea(land_pts)
-               ! Gridbox area (m2)
+               ! IN Change in total surface gridbox CO2
+               !    content during a period "YEAR_CO2" (kg C/m2)
+  conv
+               ! IN Converts global emission of C (Gt/yr)
+               !    into atmospheric CO2 (ppm/GtC)
 
-REAL, INTENT(OUT) ::                                                           &
+
+REAL, INTENT(IN OUT) ::                                                        &
   d_land_atmos_co2
-               ! Change in atmospheric CO2 concentration
-               ! as a result of land-atmosphere feedbacks
-               ! between calling periods (here years) (ppm/year)
+               ! OUT Change in atmospheric CO2 concentration
+               !     as a result of land-atmosphere feedbacks
+               !     between calls to SCENARIO (ppm/"YEAR_CO2")
+
 
 REAL ::                                                                        &
-  land_gain
+  land_gain,                                                                   &
                ! Total gain in carbon by land (kg C)
+  darea(land_pts)
+               ! WORK Gridbox area (m2)
 
 INTEGER ::                                                                     &
   l            ! Looping parameter
@@ -57,11 +64,14 @@ INTEGER ::                                                                     &
 
 
 land_gain = 0.0
+
+CALL cellarea_calc(land_pts, lat, darea)
+
 DO l = 1,land_pts
   land_gain = land_gain + darea(l) * dctot_co2(l)
 END DO
 
-d_land_atmos_co2 = -(land_gain / 1.0e12) * conv_gtc_to_ppm
+d_land_atmos_co2 = -(land_gain / 1.0e12) * conv
 
 RETURN
 

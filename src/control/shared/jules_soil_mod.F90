@@ -29,8 +29,15 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------
 ! Switches
 !-----------------------------------------------------------------------------
+INTEGER, PARAMETER ::                                                          &
+  sm_levels_default = 4
+
 INTEGER ::                                                                     &
-  sm_levels = imdi
+  sm_levels = sm_levels_default
+      ! Number of soil layers (standalone only - this variable is not used
+      ! when run in the UM)
+      ! When running in the UM, its value is checked against the default and
+      ! a warning is issued if it has changed
 
 LOGICAL ::                                                                     &
   l_vg_soil      = .FALSE.,                                                    &
@@ -53,11 +60,14 @@ LOGICAL ::                                                                     &
   soil_props_const_z = .FALSE.,                                                &
       ! Switch for whether soil ancils has the same values on each layer.
       ! Set in the JULES_SOIL_PROPS namelist.
-  l_holdwater = .FALSE.
+  l_holdwater = .FALSE.,                                                       &
       ! Switch to control how supersaturated and negative soil moisture is
       ! handled in the implicit calculation. FALSE: excess/required moisture
       ! is pushed out/in from the base of the soil. TRUE: water is added/
       ! taken from an adjacent layer.
+  l_bound_soil_wp = .FALSE.
+      ! Switch to apply bounding to soil water potential calculations.
+      ! JBaguley
 
 #if !defined(UM_JULES)
 LOGICAL ::                                                                     &
@@ -116,9 +126,18 @@ REAL(KIND=real_jlslsm) ::                                                      &
       ! Depth of layer over which soil moisture diagnostic is averaged (m)
   zst = rmdi,                                                                  &
       ! Depth of layer over which soil temperature diagnostic is averaged (m)
-  confrac = rmdi
+  confrac = rmdi,                                                              &
       ! Fraction of the gridbox over which convective precipitation is
       ! assumed to fall
+  ds_psi = -609032185.8
+      ! Negative soil water potential at zero saturation for dry soil
+      ! aproximation (cm). Default value from M. Schneider and
+      ! K.-U. Goss 2012 paragraph 7. Conversion factor for cm to MPa
+      ! taken from CABLE drysoil aproximation.
+      ! log(-psi(cm)) = 6.8
+      ! psi(cm) = -10^6.8
+      ! psi(cm) * 1.0 / (10.0 * 1036) = psi(MPa) = -609.0321858
+      ! psi(Pa) = -609032185.8 JBaguley
 
 !-----------------------------------------------------------------------------
 ! Bedrock parameters
@@ -157,6 +176,25 @@ REAL(KIND=real_jlslsm)  ::                                                     &
   dzsoil_elev = -1.0
       ! Depth of tiled bedrock subsurfaces under elevated tiles (m)
 
+!JBaguley
+LOGICAL, POINTER ::                                                            &
+  l_ds_correction(:)
+      ! When calculating soil water potential for a soil layer, if the
+      ! soil water potential is bellow that at which the stomata are
+      ! closed eather:
+      !  - True: Apply the dry soil correction
+      !  - False: Set the soil water potential equal to that at which
+      !           the stomata are closed.
+      ! Only used when fsmc_mod = 2. !JBaguley
+
+LOGICAL, TARGET ::                                                             &
+  l_ds_correction_io(sm_levels_max)
+      ! Fixed length equivalent of l_ds_correction for namelist IO
+
+! Initialise ds_correction_io to false
+DATA l_ds_correction_io / sm_levels_max * .false. /
+
+
 !-----------------------------------------------------------------------------
 ! Namelist definition for UM and standalone
 !-----------------------------------------------------------------------------
@@ -165,14 +203,14 @@ NAMELIST  / jules_soil/                                                        &
 ! Additional parameters for standalone JULES only (for soil tiling).
     l_broadcast_ancils,                                                        &
 #endif
-! Soil levels
+! Levels - not used in the UM
     sm_levels,                                                                 &
 ! Switches
     l_vg_soil, l_dpsids_dsdz, l_soil_sat_down, soilhc_method, l_bedrock,       &
-    l_holdwater, l_tile_soil,                                                  &
+    l_holdwater, l_tile_soil, l_ds_correction_io, l_bound_soil_wp,             &
 ! Parameters
     cs_min, zsmc, zst, confrac, ns_deep, hcapdeep, hcondeep,                   &
-    dzdeep, dzsoil_io, dzsoil_elev
+    dzdeep, dzsoil_io, dzsoil_elev, ds_psi
 
 
 
@@ -181,7 +219,7 @@ CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='JULES_SOIL_MOD'
 CONTAINS
 
 #if !defined(RIVERS_ONLY)
-SUBROUTINE check_jules_soil()
+SUBROUTINE check_jules_soil(sm_levels_in)
 
 USE jules_irrig_mod, ONLY: l_irrig_dmd
 USE jules_surface_mod, ONLY: l_elev_land_ice
@@ -204,17 +242,36 @@ IMPLICIT NONE
 CHARACTER(LEN=*), PARAMETER ::                                                 &
    RoutineName = 'CHECK_JULES_SOIL'   ! Name of this procedure.
 
+INTEGER, INTENT(IN) :: sm_levels_in
+    ! The number of soil levels
+    ! This is passed in because the value in the namelist is not used when
+    ! running in the UM
+    ! This is due to complications with reading it from dump etc.
+
 INTEGER :: errorstatus
 
 ! Set error status to show a fatal error for all checks.
 errorstatus = 101
 
-! Check that sm_levels has been set
-IF ( sm_levels < 1 ) THEN
-  errorstatus = 101
-  CALL ereport("check_jules_soil", errorstatus,                                &
-               "sm_levels must be between 1 and sm_levels_max")
+!-----------------------------------------------------------------------------
+! Verify that a suitable sm_levels was given in the namelist
+!
+!   * If we are running in the UM and the user tried to specify sm_levels
+!     using the namelist, emit an error as it is probably something that
+!     needs looking at
+!     We use the passed in value instead
+!   * If we are running standalone, we ignore the passed in value and use the
+!     value from the namelist
+!-----------------------------------------------------------------------------
+#if defined(UM_JULES)
+IF ( sm_levels /= sm_levels_default ) THEN
+  CALL ereport(RoutineName, errorstatus,                                       &
+               "sm_levels cannot be set using the JULES_SOIL namelist " //     &
+               "when running as part of the UM")
 END IF
+
+sm_levels = sm_levels_in
+#endif
 
 ! Check that there are not too many levels
 IF ( sm_levels > sm_levels_max ) THEN
@@ -241,6 +298,15 @@ IF (l_elev_land_ice .AND. dzsoil_elev < 0.01) THEN
   CALL ereport(RoutineName, errorstatus,                                       &
                "dzsoil_elev < 0.01 - check namelist jules_soil")
 END IF
+
+! Associate the l_ds_correction pointer with the appropriate section
+! of l_ds_correction_io
+l_ds_correction => l_ds_correction_io(1:sm_levels) !JBaguley
+
+! check that ds_psi is negative
+If (ds_psi >= 0) THEN
+  CALL ereport(RoutineName, errorstatus, 'ds_psi must be less than zero')
+End If !JBaguley
 
 ! check that confrac is set and is between 0 and 1
 IF ( ABS( confrac - rmdi ) < EPSILON(1.0) ) THEN
@@ -345,6 +411,9 @@ CALL jules_print('jules_soil', lineBuffer)
 WRITE(lineBuffer, *) '  l_tile_soil = ', l_tile_soil
 CALL jules_print('jules_soil', lineBuffer)
 
+WRITE(lineBuffer, *) '  l_bound_soil_wp = ', l_bound_soil_wp
+CALL jules_print('jules_soil', lineBuffer)
+
 WRITE(lineBuffer, *) '  soilhc_method = ', soilhc_method
 CALL jules_print('jules_soil', lineBuffer)
 
@@ -377,6 +446,12 @@ CALL jules_print('jules_soil', lineBuffer)
 
 WRITE(lineBuffer, *) '  dzsoil_elev = ', dzsoil_elev
 CALL jules_print('jules_soil', lineBuffer)
+
+WRITE(lineBuffer, *) '  l_ds_correction_io = ', l_ds_correction_io
+CALL jules_print('jules_soil', lineBuffer) ! JBaguley
+
+WRITE(lineBuffer, *) '  ds_psi = ', ds_psi
+CALL jules_print('jules_soil', lineBuffer) ! JBaguley
 
 CALL jules_print('jules_soil',                                                 &
     '- - - - - - end of namelist - - - - - -')
@@ -441,6 +516,8 @@ TYPE :: my_namelist
   LOGICAL :: l_holdwater
   LOGICAL :: l_bedrock
   LOGICAL :: l_tile_soil
+  LOGICAL :: l_ds_correction_io(sm_levels_max) ! JBaguley
+  LOGICAL :: l_bound_soil_wp !JBaguley
 END TYPE my_namelist
 
 TYPE (my_namelist) :: my_nml
@@ -458,24 +535,26 @@ IF (mype == 0) THEN
         IOMSG = iomessage)
   CALL check_iostat(errorstatus, "namelist jules_soil", iomessage)
 
-  my_nml % sm_levels       = sm_levels
-  my_nml % soilhc_method   = soilhc_method
-  my_nml % ns_deep         = ns_deep
-  my_nml % cs_min          = cs_min
-  my_nml % zsmc            = zsmc
-  my_nml % zst             = zst
-  my_nml % confrac         = confrac
-  my_nml % hcapdeep        = hcapdeep
-  my_nml % hcondeep        = hcondeep
-  my_nml % dzdeep          = dzdeep
-  my_nml % dzsoil_io       = dzsoil_io
-  my_nml % dzsoil_elev     = dzsoil_elev
-  my_nml % l_vg_soil       = l_vg_soil
-  my_nml % l_dpsids_dsdz   = l_dpsids_dsdz
-  my_nml % l_soil_sat_down = l_soil_sat_down
-  my_nml % l_holdwater     = l_holdwater
-  my_nml % l_bedrock       = l_bedrock
-  my_nml % l_tile_soil     = l_tile_soil
+  my_nml % sm_levels          = sm_levels
+  my_nml % soilhc_method      = soilhc_method
+  my_nml % ns_deep            = ns_deep
+  my_nml % cs_min             = cs_min
+  my_nml % zsmc               = zsmc
+  my_nml % zst                = zst
+  my_nml % confrac            = confrac
+  my_nml % hcapdeep           = hcapdeep
+  my_nml % hcondeep           = hcondeep
+  my_nml % dzdeep             = dzdeep
+  my_nml % dzsoil_io          = dzsoil_io
+  my_nml % dzsoil_elev        = dzsoil_elev
+  my_nml % l_vg_soil          = l_vg_soil
+  my_nml % l_dpsids_dsdz      = l_dpsids_dsdz
+  my_nml % l_soil_sat_down    = l_soil_sat_down
+  my_nml % l_holdwater        = l_holdwater
+  my_nml % l_bedrock          = l_bedrock
+  my_nml % l_tile_soil        = l_tile_soil
+  my_nml % l_ds_correction_io = l_ds_correction_io !JBaguley
+  my_nml % l_bound_soil_wp    = l_bound_soil_wp !JBaguley
 
 END IF
 
@@ -483,24 +562,26 @@ CALL mpl_bcast(my_nml,1,mpl_nml_type,0,my_comm,icode)
 
 IF (mype /= 0) THEN
 
-  sm_levels       = my_nml % sm_levels
-  soilhc_method   = my_nml % soilhc_method
-  ns_deep         = my_nml % ns_deep
-  cs_min          = my_nml % cs_min
-  zsmc            = my_nml % zsmc
-  zst             = my_nml % zst
-  confrac         = my_nml % confrac
-  hcapdeep        = my_nml % hcapdeep
-  hcondeep        = my_nml % hcondeep
-  dzdeep          = my_nml % dzdeep
-  dzsoil_io       = my_nml % dzsoil_io
-  dzsoil_elev     = my_nml % dzsoil_elev
-  l_vg_soil       = my_nml % l_vg_soil
-  l_dpsids_dsdz   = my_nml % l_dpsids_dsdz
-  l_soil_sat_down = my_nml % l_soil_sat_down
-  l_holdwater     = my_nml % l_holdwater
-  l_bedrock       = my_nml % l_bedrock
-  l_tile_soil     = my_nml % l_tile_soil
+  sm_levels          = my_nml % sm_levels
+  soilhc_method      = my_nml % soilhc_method
+  ns_deep            = my_nml % ns_deep
+  cs_min             = my_nml % cs_min
+  zsmc               = my_nml % zsmc
+  zst                = my_nml % zst
+  confrac            = my_nml % confrac
+  hcapdeep           = my_nml % hcapdeep
+  hcondeep           = my_nml % hcondeep
+  dzdeep             = my_nml % dzdeep
+  dzsoil_io          = my_nml % dzsoil_io
+  dzsoil_elev        = my_nml % dzsoil_elev
+  l_vg_soil          = my_nml % l_vg_soil
+  l_dpsids_dsdz      = my_nml % l_dpsids_dsdz
+  l_soil_sat_down    = my_nml % l_soil_sat_down
+  l_holdwater        = my_nml % l_holdwater
+  l_bedrock          = my_nml % l_bedrock
+  l_tile_soil        = my_nml % l_tile_soil
+  l_ds_correction_io = my_nml % l_ds_correction_io !JBaguley
+  l_bound_soil_wp    = my_nml % l_bound_soil_wp !JBaguley
 END IF
 
 CALL mpl_type_free(mpl_nml_type,icode)

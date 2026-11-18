@@ -41,14 +41,14 @@ CONTAINS
 !-----------------------------------------------------------------------------
 
 SUBROUTINE rivers_route_trip( sfc_runoff, sub_sfc_runoff, outflow, baseflow,   &
-                              rivers_outflow_rp, rivers_next_rp,               &
-                              rivers_seq_rp, rivers_sto_rp ,                   &
-                              rivers_boxareas_rp,                              &
-                              rivers_lat_rp, rivers_lon_rp )
+                              riverout_rgrid,rivers_next_rp,rivers_seq_rp,     &
+                              rivers_sto_rp ,rivers_boxareas_rp, rivers_lat_rp,&
+                              rivers_lon_rp )
 
 USE jules_rivers_mod, ONLY:                                                    &
 !  imported scalars with intent(in)
      np_rivers,nstep_rivers,nseqmax,river_mouth,rivers_meander,rivers_speed
+
 
 USE rivers_utils, ONLY:                                                        &
 !  imported procedures
@@ -67,7 +67,6 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 !  arrays with intent(in)
      sfc_runoff(np_rivers)                                                     &
      !  average rate of surface runoff since last rivers call (kg m-2 s-1)
-     !  This includes any abstraction of water for water resources.
      ,sub_sfc_runoff(np_rivers)
      !  average rate of sub-surface runoff since last call (kg m-2 s-1)
 
@@ -80,20 +79,20 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
      ,baseflow(np_rivers)                                                      &
      !  rate of channel base flow leaving gridbox (kg m-2 s-1)
      !  At present this is set to zero.
-    ,rivers_outflow_rp(np_rivers)
-     ! River outflow into the ocean (kg s-1)
+    ,riverout_rgrid(np_rivers)
+     ! River outflow into the ocean on river grid (kg s-1)
 
 ! Rivers Arrays
-INTEGER, INTENT(IN)     :: rivers_next_rp(:)
-INTEGER, INTENT(IN)     :: rivers_seq_rp(:)
-REAL,    INTENT(IN)     :: rivers_boxareas_rp(:)
-REAL,    INTENT(IN)     :: rivers_lat_rp(:)
-REAL,    INTENT(IN)     :: rivers_lon_rp(:)
+INTEGER, INTENT(IN OUT) :: rivers_next_rp(:)
+INTEGER, INTENT(IN OUT) :: rivers_seq_rp(:)
 REAL,    INTENT(IN OUT) :: rivers_sto_rp(:)
+REAL,    INTENT(IN OUT) :: rivers_boxareas_rp(:)
+REAL,    INTENT(IN OUT) :: rivers_lat_rp(:)
+REAL,    INTENT(IN OUT) :: rivers_lon_rp(:)
 
 INTEGER ::                                                                     &
 !  local scalars (work/loop counters)
-     ip, iseq
+     ip,iseq
 
 REAL(KIND=real_jlslsm) ::                                                      &
 !  local scalars
@@ -113,7 +112,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
     ,riverslength(np_rivers)
     !  distance between gridpoints (m)
 
-CHARACTER(LEN=*), PARAMETER :: RoutineName='RIVERS_ROUTE_TRIP'
 !-----------------------------------------------------------------------------
 
 dt = REAL(nstep_rivers) * timestep
@@ -125,9 +123,9 @@ DO ip = 1, np_rivers
                                   rivers_boxareas_rp(ip)
 
   ! Initialise outflows.
-  outflow(ip)           = 0.0
-  baseflow(ip)          = 0.0
-  rivers_outflow_rp(ip) = 0.0
+  outflow(ip)        = 0.0
+  baseflow(ip)       = 0.0
+  riverout_rgrid(ip) = 0.0
 END DO
 
 !-----------------------------------------------------------------------------
@@ -188,13 +186,13 @@ END DO !river sequences
 ! End main TRIP algorithm routine
 
 !-----------------------------------------------------------------------------
-! Catch all outflow going into the sea and save it in rivers_outflow_rp.
+! Catch all outflow going into the sea and save it in riverout_rgrid.
 ! Also return flows in flux density units kg/m2/s.
 !-----------------------------------------------------------------------------
 DO ip = 1,np_rivers
 
-  IF ( rivers_next_rp(ip) == river_mouth ) THEN
-    rivers_outflow_rp(ip) = outflow(ip)
+  IF ( rivers_next_rp(ip) == -river_mouth ) THEN
+    riverout_rgrid(ip) = outflow(ip)
   END IF
 
   ! Return flows in flux density units kg/m2/s

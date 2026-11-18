@@ -36,11 +36,10 @@ CONTAINS
 !##############################################################################
 
 SUBROUTINE initialise_namelist_vars( nvars, nvars_const, nvars_file,           &
-                                     nvars_required, l_file_list,              &
+                                     nvars_required, l_have_template,          &
                                      file_nml, const_val, use_file, use_var,   &
                                      file_name, tpl_name, var, var_name,       &
-                                     nvars_optional, optional_vars,            &
-                                     is_climatology )
+                                     nvars_optional, optional_vars )
 
 ! Description:
 !   Initialise variables that appear in many ancillary namelists.
@@ -63,9 +62,8 @@ INTEGER, INTENT(OUT) ::                                                        &
     ! The number of variables that are required in the current configuration.
 
 LOGICAL, INTENT(OUT) ::                                                        &
-  l_file_list
-    ! Flag indicating if we have a list of files either as variable-name
-    ! templating is being used or we have supplied a list of files.
+  l_have_template
+    ! Flag indicating if variable-name templating is being used.
 
 CHARACTER(LEN=*), INTENT(OUT) ::                                               &
   file_nml
@@ -108,12 +106,6 @@ CHARACTER(LEN=*), OPTIONAL, INTENT(OUT) ::                                     &
   optional_vars(:)
     ! Identifiers for optional variables.
 
-LOGICAL, OPTIONAL, INTENT(OUT) ::                                              &
-  is_climatology(:)
-    ! Indicates whether the ancillary input is a 12-month climatology. This
-    ! currently assumes that there are 12 monthly values valid on 16th of the
-    ! month.
-
 ! End of header.
 !------------------------------------------------------------------------------
 
@@ -136,11 +128,8 @@ IF ( PRESENT( nvars_optional ) ) THEN
     optional_vars(:) = ''  ! Empty identifiers.
   END IF
 END IF
-IF ( PRESENT( is_climatology ) ) THEN
-  is_climatology(:) = .FALSE.
-END IF
 ! Initially assume any file name does not include variable-name templating.
-l_file_list     = .FALSE.
+l_have_template = .FALSE.
 use_var(:)      = .FALSE. ! Variable is not required.
 file_name(:)    = ''      ! Empty file name.
 
@@ -151,24 +140,19 @@ END SUBROUTINE initialise_namelist_vars
 
 SUBROUTINE check_namelist_values( nvars, nvars_max, nvars_required,            &
                                   calling_routine, file_nml, const_val,        &
-                                  use_file, read_list, required_vars,          &
-                                  tpl_name, var, nvars_const, nvars_file,      &
-                                  l_file_list, use_var, file_name,             &
-                                  var_name, nvars_optional, optional_vars )
+                                  use_file, required_vars, tpl_name, var,      &
+                                  nvars_const, nvars_file, l_have_template,    &
+                                  use_var, file_name, var_name,                &
+                                  nvars_optional, optional_vars )
 
 ! Description:
 !   Check that variables in the namelist have been provided and set up other
 !   variables.
 
-USE errormessagelength_mod, ONLY: errormessagelength
-USE io_constants, ONLY: file_list_unit
-USE logging_mod, ONLY: log_error, log_info, log_warn, log_fatal
+USE logging_mod, ONLY: log_info, log_warn, log_fatal
 USE missing_data_mod, ONLY: rmdi
 USE string_utils_mod, ONLY: to_string
 USE templating_mod, ONLY: tpl_has_var_name, tpl_substitute_var
-USE jules_print_mgr, ONLY: newline
-
-USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: IOSTAT_END
 
 IMPLICIT NONE
 
@@ -197,13 +181,10 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     ! The constant value to use for each variable that has use_file = F.
 
 LOGICAL, INTENT(IN) ::                                                         &
-  use_file(nvars_max),                                                         &
+  use_file(nvars_max)
     ! Flag indicating if a variable is to be read from file.
     !   T - read from file
     !   F - set using a constant value
-  read_list
-    ! T - The given file contains a list of file names
-    ! F - Ancillary data should be read directly from the given file
 
 CHARACTER(LEN=*), INTENT(IN) ::                                                &
   required_vars(nvars_max),                                                    &
@@ -223,8 +204,8 @@ INTEGER, INTENT(IN OUT) ::                                                     &
     ! The number of variables to read from file.
 
 LOGICAL, INTENT(IN OUT) ::                                                     &
-  l_file_list
-    ! Flag indicating if we have a list of files.
+  l_have_template
+    ! Flag indicating if variable-name templating is being used.
 
 !------------------------------------------------------------------------------
 ! Array arguments with INTENT(INOUT)
@@ -256,18 +237,12 @@ CHARACTER(LEN=*), OPTIONAL, INTENT(IN) ::                                      &
 ! Local scalars.
 !------------------------------------------------------------------------------
 INTEGER ::                                                                     &
-  i,                                                                           &
-    ! Loop counter.
-  n
-    ! Counter.
-
-INTEGER :: ERROR  ! Error indicator
+  i
+    !  Loop counter.
 
 LOGICAL ::                                                                     &
   l_have_optional
-    ! Flag indicating if optional variables are present.
-
-CHARACTER(LEN=errormessagelength) :: iomessage
+    ! Flag indicating if optional variablse are present.
 
 CHARACTER(LEN=*), PARAMETER :: RoutineName = 'CHECK_NAMELIST_VALUES'
 
@@ -275,7 +250,7 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName = 'CHECK_NAMELIST_VALUES'
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-! Check for optional arguments.
+! Deal with optional arguments.
 !------------------------------------------------------------------------------
 l_have_optional = .FALSE.
 IF ( PRESENT(nvars_optional) ) THEN
@@ -294,62 +269,6 @@ IF ( PRESENT(nvars_optional) ) THEN
   END IF  ! nvars_optional > 0
 
 END IF  !  present
-
-!------------------------------------------------------------------------------
-! Check that we have exactly the same number of values given for each variable.
-! This aims to prevent situations when a user has updated some entries but not
-! all - e.g. reduced nvars but not removed an item from const_val, which could
-! potentially result in an incorrect and unintended value being used.
-! Later checks detect any missing values (as might happen if a user increases
-! nvars between runs); here we check that no extra values are provided (as
-! might happen if nvars has been reduced).
-! Although some of these situations are potentially harmless we improve clarity
-! by rejecting any inconsistencies.
-!------------------------------------------------------------------------------
-n = 0  ! Initialise counter.
-DO i = nvars+1,nvars_max
-
-  IF ( var(i) /= '' ) THEN
-    CALL log_error(RoutineName,                                                &
-                   TRIM(calling_routine)                                    // &
-                   ": extra value provided for var: "                       // &
-                   TRIM(var(i)) )
-    n = n + 1
-  END IF
-
-  IF ( var_name(i) /= '' ) THEN
-    CALL log_error(RoutineName,                                                &
-                   TRIM(calling_routine)                                    // &
-                   ": extra value provided for var_name: "                  // &
-                   TRIM(var_name(i)) )
-    n = n + 1
-  END IF
-
-  IF ( tpl_name(i) /= '' ) THEN
-    CALL log_error(RoutineName,                                                &
-                   TRIM(calling_routine)                                    // &
-                   ": extra value provided for tpl_name: "                  // &
-                   TRIM(tpl_name(i)) )
-    n = n + 1
-  END IF
-
-  IF ( ABS( const_val(i) - rmdi ) > EPSILON(1.0) ) THEN
-    CALL log_error(RoutineName,                                                &
-                   TRIM(calling_routine)                                    // &
-                   ": extra value provided for const_val: "                 // &
-                   TRIM(to_string(const_val(i))) )
-    n = n + 1
-  END IF
-
-END DO
-
-IF ( n /= 0 ) THEN
-  CALL log_fatal(RoutineName,                                                  &
-                 TRIM(calling_routine)                                      // &
-                 ": one or more namelist arrays has more values than the"   // &
-                 " expected " // TRIM(to_string(nvars))                     // &
-                 " (see separate messages)")
-END IF
 
 !------------------------------------------------------------------------------
 ! Check that the variable identifiers are not empty.
@@ -378,83 +297,6 @@ DO i = 1,nvars_required
                    TRIM(required_vars(i)) // "'")
   END IF
 END DO
-
-!------------------------------------------------------------------------------
-! Read list of files if present and ensure templating is not used
-!------------------------------------------------------------------------------
-IF ( read_list ) THEN
-  l_file_list = .TRUE.
-  IF ( LEN_TRIM(file_nml) == 0 ) THEN
-    CALL log_fatal(RoutineName,                                                &
-                   TRIM(calling_routine)                      //               &
-                   ": No file name given to read file list from.")
-  END IF
-  CALL log_info(RoutineName,                                                   &
-                TRIM(calling_routine)                                       // &
-                ": Reading list of ancillary file names from file "         // &
-                TRIM(file_nml))
-  ! Open the file
-  OPEN(file_list_unit, FILE=file_nml, STATUS='old', POSITION='rewind',         &
-                        ACTION='read', IOSTAT = ERROR, IOMSG = iomessage)
-  IF ( ERROR /= 0 ) THEN
-    CALL log_fatal(RoutineName,                                                &
-                   TRIM(calling_routine)                        //             &
-                   ": Error opening file " // TRIM(file_nml) // " " //         &
-                   "(IOSTAT=" // TRIM(to_string(ERROR)) // " IOMSG=" //        &
-                   TRIM(iomessage) // ")")
-  END IF
-
-  ! Read up to nvars_max file names, one per line.
-  ! We allow nvars_max so that we can check for the case when too many names
-  ! have been provided (as that could be a mistake).
-  n = 0  ! initialise counter
-  DO i = 1,nvars_max
-    READ(file_list_unit, *, IOSTAT = ERROR, IOMSG = iomessage) file_name(i)
-    ! Deal with reaching the end of the file.
-    IF ( ERROR == IOSTAT_END ) THEN
-      EXIT
-    ELSE IF ( ERROR /= 0 ) THEN
-      CALL log_fatal(RoutineName,                                              &
-                     TRIM(calling_routine)                  //                 &
-                     ": Error reading file name from file " //                 &
-                     "(IOSTAT=" // TRIM(to_string(ERROR)) // " IOMSG=" //      &
-                     TRIM(iomessage) // ")")
-    END IF
-    ! Update number of lines read.
-    n = n + 1
-    ! Check file name is provided. An empty name is acceptable if the variable
-    ! will not be read from file.
-    IF ( use_file(i) .AND. LEN_TRIM(file_name(i)) == 0 ) THEN
-      CALL log_fatal(RoutineName,                                              &
-                     TRIM(calling_routine)                                  // &
-                     ": Empty file name in list.")
-    END IF
-    ! Check for templating.
-    IF ( tpl_has_var_name( file_name(i) ) ) THEN
-      CALL log_fatal(RoutineName,                                              &
-                     TRIM(calling_routine)                  //                 &
-                     ": File name in list cannot contain template.")
-    END IF
-  END DO
-
-  ! Check file list has the correct number of entries
-  IF ( n /= nvars ) THEN
-    CALL log_fatal(RoutineName,                                                &
-                   TRIM(calling_routine)                                    // &
-                   ": File list should have nvars entries, found "          // &
-                   TRIM(to_string(n)))
-  END IF
-
-  ! Close the file
-  CLOSE(file_list_unit, IOSTAT = ERROR, IOMSG = iomessage)
-  IF ( ERROR /= 0 ) THEN
-    CALL log_fatal(RoutineName,                                                &
-                   TRIM(calling_routine)                  //                   &
-                   ": Error closing file " // TRIM(file_nml) // " " //         &
-                   "(IOSTAT=" // TRIM(to_string(ERROR)) // " IOMSG=" //        &
-                   TRIM(iomessage) // ")")
-  END IF
-END IF
 
 !------------------------------------------------------------------------------
 ! Loop though the list of identifiers provided, checking which variables we
@@ -489,41 +331,36 @@ DO i = 1,nvars
       ! Increment counter.
       nvars_file = nvars_file + 1
 
-      IF ( .NOT. read_list ) THEN
-        ! If this is the first variable to read from file, perform further
-        ! checks.
-        ! This is not required if file names have been read from a list as this
-        ! has already been done. Variable name templating is not allowed.
-        IF ( nvars_file == 1 ) THEN
-          ! Check that a file name was provided.
-          IF ( LEN_TRIM(file_nml) == 0 ) THEN
-            CALL log_fatal(RoutineName, "No file name provided")
-          END IF
-
-          ! Check if a file name template is present.
-          !   Indicate that we will have a list of files to read.
-          IF ( tpl_has_var_name(file_nml) ) THEN
-            l_file_list = .TRUE.
-          END IF
-        END IF  !  nvars_file = 1
-
-        IF ( l_file_list ) THEN
-          ! Check that a template string was provided for this variable.
-          IF ( LEN_TRIM(tpl_name(i)) == 0 ) THEN
-            CALL log_fatal( RoutineName,                                       &
-                            TRIM(calling_routine)                    //        &
-                            ": No variable name template substitution "  //    &
-                            "provided for " // TRIM(var(i)) )
-          END IF
-          ! Substitute into the template.
-          file_name(i) = tpl_substitute_var( file_nml, tpl_name(i) )
-
-        ELSE
-          ! We are not using a template nor reading a list, therefore
-          ! use the same file name for all variables.
-          file_name(i) = file_nml
+      ! If this is the first variable to read from file, perform further
+      ! checks.
+      IF ( nvars_file == 1 ) THEN
+        ! Check that a file name was provided.
+        IF ( LEN_TRIM(file_nml) == 0 ) THEN
+          CALL log_fatal(RoutineName, "No file name provided")
         END IF
-      END IF ! .NOT. read_list
+
+        ! Check if a file name template is present.
+        IF ( tpl_has_var_name(file_nml) ) THEN
+          l_have_template = .TRUE.
+        END IF
+      END IF  !  nvars_file = 1
+
+      IF ( l_have_template ) THEN
+        ! Check that a template string was provided for this variable.
+        IF ( LEN_TRIM(tpl_name(i)) == 0 ) THEN
+          CALL log_fatal( RoutineName,                                         &
+                          TRIM(calling_routine)                      //        &
+                          ": No variable name template substitution "  //      &
+                          "provided for " // TRIM(var(i)) )
+        END IF
+        ! Substitute into the template.
+        file_name(i) = tpl_substitute_var( file_nml, tpl_name(i) )
+
+      ELSE
+        ! We are not using a template. Use the same file name for all
+        ! variables.
+        file_name(i) = file_nml
+      END IF
 
       ! If no name is given for the variable to be read, use the identifier.
       IF ( LEN_TRIM( var_name(i) ) == 0 ) THEN
@@ -532,8 +369,7 @@ DO i = 1,nvars
 
       CALL log_info(RoutineName,                                               &
                     "'" // TRIM(var(i)) // "' will be read from file " //      &
-                    "variable '" // TRIM(var_name(i)) // "' from file "        &
-                    //newline// file_name(i) )
+                    "variable '" // TRIM(var_name(i)) // "'" )
 
     ELSE
 
@@ -647,9 +483,9 @@ END SUBROUTINE set_constant_vars
 !##############################################################################
 !##############################################################################
 
-SUBROUTINE set_file_vars( nvars, nvars_file, nvars_max, l_file_list,           &
+SUBROUTINE set_file_vars( nvars, nvars_file, nvars_max, l_have_template,       &
                           calling_routine, use_file, use_var, file_name,       &
-                          var, var_name, is_climatology )
+                          var, var_name )
 
 ! Description:
 !   Set variables that are to be read from a file.
@@ -659,6 +495,8 @@ USE fill_variables_from_file_mod, ONLY: fill_variables_from_file
 USE io_constants, ONLY: max_sdf_name_len, max_file_name_len
 
 USE logging_mod, ONLY: log_fatal
+
+USE templating_mod, ONLY: tpl_has_var_name, tpl_substitute_var
 
 IMPLICIT NONE
 
@@ -674,8 +512,8 @@ INTEGER, INTENT(IN) ::                                                         &
     ! The maximum-allowed number of variables.
 
 LOGICAL, INTENT(IN) ::                                                         &
-  l_file_list
-    ! Flag indicating if we have a list of files.
+  l_have_template
+    ! Flag indicating if variable-name templating is being used.
 
 CHARACTER(LEN=*), INTENT(IN) ::                                                &
   calling_routine
@@ -700,11 +538,6 @@ CHARACTER(LEN=*), INTENT(IN) ::                                                &
   var_name(nvars_max)
     ! The name of the variable to be read from file, for each variable.
 
-LOGICAL, INTENT(IN) ::                                                         &
-  is_climatology(nvars_max)
-    ! Indicates whether the ancillary input is a 12-month climatology. This
-    ! currently assumes that there are 12 monthly values valid on 16th of the
-    ! month.
 !------------------------------------------------------------------------------
 ! Local scalar variables.
 !------------------------------------------------------------------------------
@@ -725,12 +558,6 @@ CHARACTER(LEN=LEN(var_name)) ::                                                &
   file_var_name(nvars_max)
     ! The name of each variable in the file.
 
-LOGICAL ::                                                                     &
-  file_is_climatology(nvars_max)
-    ! Indicates whether the ancillary input is a 12-month climatology. This
-    ! currently assumes that there are 12 monthly values valid on 16th of the
-    ! month.
-
 ! Name of this routine.
 CHARACTER(LEN=*), PARAMETER :: RoutineName = 'SET_FILE_VARS'
 
@@ -747,38 +574,33 @@ j = 0
 DO i = 1,nvars
   IF ( use_var(i) .AND. use_file(i) ) THEN
     j = j + 1
-    file_var(j)            = var(i)
-    file_var_name(j)       = var_name(i)
-    file_name_use(j)       = file_name(i)
-    file_is_climatology(j) = is_climatology(i)
+    file_var(j)      = var(i)
+    file_var_name(j) = var_name(i)
+    file_name_use(j) = file_name(i)
   END IF
 END DO
 
-IF ( j /= nvars_file ) THEN
-  CALL log_fatal(RoutineName,                                                  &
-                 TRIM(calling_routine)                    //                   &
-                 ": Unexpected mismatch in number of variables from file.")
-END IF
 
+IF ( l_have_template ) THEN
 
-IF ( l_file_list ) THEN
-  ! We have a list of files. Loop through the variables setting one from
-  ! each file.
+  ! We are using a file name template. Loop through the variables setting
+  ! one from each file.
   DO i = 1,nvars_file
     CALL fill_variables_from_file( file_name_use(i), [ file_var(i) ],          &
-                                 [ file_var_name(i) ],                         &
-                                 [ file_is_climatology(i) ] )
+                                  [ file_var_name(i) ] )
 
   END DO  !  vars
+
 ELSE
+
   ! We are not using a file name template. Set all variables from the same
   ! file.
 
   ! In this case all values of file_name_use are identical.
   CALL fill_variables_from_file( file_name_use(1), file_var(1:nvars_file),     &
-                                 file_var_name(1:nvars_file),                  &
-                                 file_is_climatology(1:nvars_file) )
-END IF  !  l_file_list
+                                 file_var_name(1:nvars_file) )
+
+END IF  !  template
 
 END SUBROUTINE set_file_vars
 

@@ -21,8 +21,7 @@ IMPLICIT NONE
 
 PRIVATE  !  private scope by default
 PUBLIC get_xy_pos, calc_grid_index, landpts_to_rivpts,                         &
-       calc_map_river_to_land_points, rivpts_to_landpts,                       &
-       twod_to_rp, rp_to_twod
+       calc_map_river_to_land_points, rivpts_to_landpts
 
 CONTAINS
 
@@ -980,76 +979,5 @@ CALL do_areaver( nx_rivers, ny_rivers, nx_rivers, invert_srce, runoff_out,     &
 RETURN
 END SUBROUTINE regrid_rivers_to_land
 !##############################################################################
-
-SUBROUTINE twod_to_rp( field_2d, field_rp, rivers )
-!------------------------------------------------------------------------------
-! Description:
-!   Converts from a 2D global grid to a 1D rivers grid
-!   with no remapping or interpolation.
-!
-!------------------------------------------------------------------------------
-! Modules used:
-USE jules_rivers_mod, ONLY: nx_rivers, ny_rivers, np_rivers, rivers_type
-
-IMPLICIT NONE
-
-REAL, INTENT(IN) :: field_2d(nx_rivers,ny_rivers)
-                        !  Input 2D global field
-REAL, INTENT(OUT) :: field_rp(np_rivers)
-                        !  Output 1D river points field
-TYPE(rivers_type), INTENT(IN) :: rivers
-                        !  Extra river information
-
-! Local scalar variables
-
-INTEGER :: ip            !  loop counter
-INTEGER :: ilon          !  longitude index
-INTEGER :: ilat          !  latitude index
-
-DO ip = 1,np_rivers
-  ilon = rivers%rivers_ilon_rp(ip)
-  ilat = rivers%rivers_ilat_rp(ip)
-  field_rp(ip) = field_2d(ilon,ilat)
-END DO
-
-END SUBROUTINE twod_to_rp
-
-!###############################################################################
-
-SUBROUTINE rp_to_twod( field_rp, field_2d, rivers )
-!------------------------------------------------------------------------------
-! Description:
-!   Converts from a 1D rivers grid to a 2D global grid
-!   with no remapping or interpolation.
-!
-!------------------------------------------------------------------------------
-! Modules used:
-USE jules_rivers_mod, ONLY: nx_rivers, ny_rivers, np_rivers, rivers_type
-
-IMPLICIT NONE
-
-REAL, INTENT(IN) :: field_rp(np_rivers)
-                        !  Input 1D river points field
-REAL, INTENT(OUT) :: field_2d(nx_rivers,ny_rivers)
-                        !  Output 2D global field
-TYPE(rivers_type), INTENT(IN) :: rivers
-                        !  Extra river information
-
-! Local scalar variables
-
-INTEGER :: ip            !  loop counter
-INTEGER :: ilon          !  longitude index
-INTEGER :: ilat          !  latitude index
-
-field_2d(:,:) = 0.0
-
-DO ip = 1,np_rivers
-  ilon = rivers%rivers_ilon_rp(ip)
-  ilat = rivers%rivers_ilat_rp(ip)
-  field_2d(ilon,ilat) = field_rp(ip)
-END DO
-
-END SUBROUTINE rp_to_twod
-
 
 END MODULE rivers_regrid_mod

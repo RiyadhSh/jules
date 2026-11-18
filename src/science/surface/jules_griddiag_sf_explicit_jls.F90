@@ -56,7 +56,7 @@ SUBROUTINE jules_griddiag_sf_explicit (                                        &
 ! OUT data required for mineral dust scheme
  r_b_dust,cd_std_dust,                                                         &
 ! OUT data required elsewhere in UM system :
- fb_surf,u_s,blendht,                                                          &
+ fb_surf,u_s,                                                                  &
 ! OUT data required elsewhere in boundary layer or surface code
  rhokh,h_blend_orog,z0hssi,z0mssi,z0m_eff,                                     &
 !ancil_info (IN)
@@ -274,10 +274,8 @@ INTEGER, INTENT(IN) ::                                                         &
 !-----------------------------------------------------------------------
 ! data
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
- rhostar(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)                  &
+  rhostar(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)
                               ! INOUT Surface air density
-,blendht(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)
-                             ! INOUT blending height
 
 !Diagnostics
 TYPE (strnewsfdiag), INTENT(IN OUT) :: sf_diag
@@ -376,14 +374,8 @@ REAL(KIND=real_jlslsm) ::                                                      &
                              ! Effective roughness length for heat
 ,z0m_gb_land(land_pts)                                                         &
                              ! GBM momentum land roughness length
-,z0h_gb_land(land_pts)                                                         &
+,z0h_gb_land(land_pts)
                              ! GBM land roughness length for heat
-,cd_gb                                                                         &
-                             ! GBM transfer coefficient
-,blendht_now                                                                   &
-                             ! blending height at the current time step
-,blendht_next
-                             ! blending height at the next time step
 
 #if !defined(UM_JULES)
 LOGICAL :: l_dust_diag
@@ -490,10 +482,9 @@ ELSE
 END IF
 !
 DO n = 1,nsurft
-!$OMP PARALLEL DO IF(surft_pts(n) > 1) SCHEDULE(STATIC) DEFAULT(NONE)          &
+!$OMP PARALLEL DO SCHEDULE(STATIC) DEFAULT(NONE) PRIVATE(i,j,k,l, tmp1,tmp2)   &
 !$OMP SHARED(n,surft_pts,surft_index,land_index,t_i_length,rib,flandg,         &
-!$OMP        tile_frac,rib_surft,fz0,z0m_surft,fz0h,z0h_surft)                 &
-!$OMP PRIVATE(i,j,k,l, tmp1,tmp2)
+!$OMP tile_frac,rib_surft,fz0,z0m_surft,fz0h,z0h_surft)
   DO k = 1,surft_pts(n)
     l = surft_index(k,n)
     j=(land_index(l) - 1) / t_i_length + 1
@@ -637,10 +628,8 @@ END IF
 
 
 DO n = 1,nsurft
-!$OMP PARALLEL DO IF(surft_pts(n) > 1) SCHEDULE(STATIC)                        &
-!$OMP SHARED(n,surft_pts,surft_index,land_index,t_i_length,rhokh,flandg,       &
-!$OMP        tile_frac,rhokh_surft)                                            &
-!$OMP PRIVATE(i,j,k,l)
+!$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(i,j,k,l) SHARED(n,surft_pts,        &
+!$OMP surft_index,land_index,t_i_length,rhokh,flandg,tile_frac,rhokh_surft)
   DO k = 1,surft_pts(n)
     l = surft_index(k,n)
     j=(land_index(l) - 1) / t_i_length + 1
@@ -682,30 +671,6 @@ DO j = tdims%j_start,tdims%j_end
 END DO
 !$OMP END PARALLEL DO
 
-!---------------------------------------------------------------------
-! Calculate blending height for the next time step. To do this, we
-! need to calculate gridbox mean transfer coefficent, cd_gb.
-!----------------------------------------------------------------------
-
-!$OMP PARALLEL DO DEFAULT(NONE) PRIVATE(cd_gb, blendht_now, blendht_next, i, j)&
-!$OMP SHARED(tdims, flandg, cd_land, cd_ssi, blendht)                          &
-!$OMP SCHEDULE(STATIC)
-DO j = tdims%j_start,tdims%j_end
-  DO i = tdims%i_start,tdims%i_end
-    cd_gb = flandg(i,j) * cd_land(i,j) + (1.0 - flandg(i,j)) * cd_ssi(i,j)
-    blendht_now = blendht(i,j)
-    blendht_next = 2.0 * 220.0 * cd_gb
-    blendht(i,j) = 0.5 * (blendht_now + blendht_next)
-  END DO
-END DO
-!$OMP END PARALLEL DO
-
-! Feed blending height to the surface diagnostic data structure.
-IF (sf_diag%l_blendht) THEN
-  sf_diag%blendht = blendht
-END IF
-
-
 ! Calculate parameters required for CLASSIC aerosol
 ! Note that the values for cd_std and ch_surft are now those
 ! set using the "aerosol roughness length"
@@ -744,10 +709,9 @@ DO n = 1, nsurft
   IF (cansnowtile(n)) THEN
     unload_backgrnd_pft(:,n) = unload_rate_cnst(n)
     IF ( unload_rate_u(n) /= 0.0 ) THEN
-!$OMP PARALLEL DO IF(surft_pts(n) > 1) SCHEDULE(STATIC)                        &
-!$OMP SHARED(n,surft_pts,surft_index,land_index,t_i_length,cdr10m,vshr_land,   &
-!$OMP        unload_rate_u,unload_backgrnd_pft)                                &
-!$OMP PRIVATE(i,j,k,l,ws10)
+!$OMP PARALLEL DO SCHEDULE(STATIC) PRIVATE(i,j,k,l,ws10) SHARED(n,surft_pts,   &
+!$OMP surft_index,land_index,t_i_length,cdr10m,vshr_land,unload_rate_u,        &
+!$OMP unload_backgrnd_pft)
       DO k = 1, surft_pts(n)
         l = surft_index(k,n)
         j=(land_index(l) - 1) / t_i_length + 1

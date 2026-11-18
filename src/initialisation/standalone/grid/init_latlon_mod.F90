@@ -28,7 +28,6 @@ USE fill_variables_from_file_mod, ONLY: fill_variables_from_file
 USE io_constants, ONLY: max_sdf_name_len, max_file_name_len, namelist_unit
 
 USE jules_water_resources_mod, ONLY: l_water_irrigation
-USE update_mod, ONLY: l_imogen
 
 USE missing_data_mod, ONLY: rmdi
 
@@ -210,9 +209,8 @@ IF ( .NOT. l_coord_latlon ) THEN
   required_vars(nvars_required) = 'projection_y_coord'
 END IF
 
-! If irrigation or imogen is used, add gridbox area
-! (unless it will be read from dump).
-IF ( l_water_irrigation .OR. l_imogen) THEN
+! If irrigation is used, add gridbox area (unless it will be read from dump).
+IF ( l_water_irrigation ) THEN
   IF ( .NOT. ancil_dump_read%latlon ) THEN
     nvars_required = nvars_required + 1
     required_vars(nvars_required) =    'grid_area'
@@ -313,16 +311,13 @@ IF ( nvars_file > 0 ) THEN
       END IF
       CALL fill_variables_from_file(                                           &
                                tpl_substitute_var(FILE, file_tpl_name(i)),     &
-                               [ file_var(i) ], [ file_var_name(i) ],          &
-                               is_climatology = [ .FALSE. ] )
+                               [ file_var(i) ], [ file_var_name(i) ] )
     END DO
   ELSE
     ! We are not using a file name template, so set all variables from the
     ! same file.
     CALL fill_variables_from_file( FILE, file_var(1:nvars_file),               &
-                                   file_var_name(1:nvars_file),                &
-                               is_climatology = [ (.FALSE., i=1, nvars_file) ] &
-                                )
+                                   file_var_name(1:nvars_file) )
   END IF
 END IF  !  nvars_file
 

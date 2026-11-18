@@ -15,20 +15,25 @@ CONTAINS
 SUBROUTINE check_unavailable_options()
 
 USE ereport_mod, ONLY: ereport
-USE jules_print_mgr, ONLY: jules_message, jules_print, jules_format,           &
-                           PrNorm, newline
-USE missing_data_mod, ONLY: imdi
-USE jules_hydrology_mod, ONLY: l_var_rainfrac
+USE jules_print_mgr, ONLY:                                                     &
+    jules_message,                                                             &
+    jules_print,                                                               &
+    jules_format,                                                              &
+    PrNorm
+
 USE jules_surface_mod, ONLY: formdrag, no_drag, i_modiscopt, iscrntdiag,       &
                              srf_ex_cnv_gust, l_vary_z0m_soil
+
 USE jules_surface_types_mod, ONLY: tile_map_ids, ntype
-USE jules_rivers_mod,  ONLY: i_river_vn, l_inland, rivers_um_trip,             &
-                             trip_globe_shape
+
+USE jules_rivers_mod,  ONLY: i_river_vn, l_inland, rivers_um_trip
+
 USE jules_radiation_mod, ONLY: l_sea_alb_var_chl, l_dolr_land_black
+
 USE jules_vegetation_mod, ONLY: l_nrun_mid_trif, l_trif_init_accum
+
 USE jules_deposition_mod, ONLY: l_ukca_dry_dep_so2wet, l_ukca_ddepo3_ocean,    &
                                 l_deposition_from_ukca
-USE jules_water_tracers_mod, ONLY: l_wtrac_jls
 
 IMPLICIT NONE
 
@@ -36,9 +41,8 @@ IMPLICIT NONE
 INTEGER :: errcode, error_sum
 CHARACTER(LEN=*), PARAMETER :: RoutineName='CHECK_UNAVAILABLE_OPTIONS'
 
-error_sum = 0
-
 ! jules_surface
+error_sum = 0
 IF ( formdrag /= no_drag ) THEN
   error_sum = error_sum + 1
   WRITE(jules_message,'(I0,A,I0)') error_sum,                                  &
@@ -97,8 +101,8 @@ END IF
 IF ( i_river_vn == rivers_um_trip ) THEN
   error_sum = error_sum + 1
   WRITE(jules_message,'(I0,A,I0)') error_sum,                                  &
-     ": Rivers UM trip (1) can only be run in UM-JULES. i_river_vn = ",        &
-     i_river_vn
+     ": Rivers UM trip can only be run in UM JULES mode. i_river_vn = ",       &
+     rivers_um_trip
   CALL jules_print(RoutineName, jules_message, level = PrNorm)
 END IF
 
@@ -107,15 +111,6 @@ IF ( l_inland ) THEN
   WRITE(jules_message,'(I0,A,L1)') error_sum,                                  &
      ": Re-routing inland basin water back to soil moisture is not " //        &
      " required (must not be selected) by standalone. l_inland = ", l_inland
-  CALL jules_print(RoutineName, jules_message, level = PrNorm)
-END IF
-
-IF ( trip_globe_shape /= imdi ) THEN
-  error_sum = error_sum + 1
-  WRITE(jules_message,'(I0,A,L1)') error_sum,                                  &
-     ": The shape of the TRIP globe can not be altered in standalone mode." // &
-     " trip_globe_shape must not be input. trip_globe_shape = ",               &
-     trip_globe_shape
   CALL jules_print(RoutineName, jules_message, level = PrNorm)
 END IF
 
@@ -172,14 +167,6 @@ IF ( l_ukca_dry_dep_so2wet ) THEN
   CALL jules_print(RoutineName, jules_message, level = PrNorm)
 END IF
 
-IF ( l_wtrac_jls ) THEN
-  error_sum = error_sum + 1
-  WRITE(jules_message,'(I0,A,L1)') error_sum,                                  &
-     ": Water tracers cannot be run in standalone mode. " //                   &
-     "l_wtrac_jls =", l_wtrac_jls
-  CALL jules_print(RoutineName, jules_message, level = PrNorm)
-END IF
-
 ! Defining errors ends here. Now issue FATAL ereport.
 IF ( error_sum > 0 ) THEN
   errcode = 10
@@ -210,23 +197,6 @@ IF ( l_dolr_land_black ) THEN
   CALL ereport(RoutineName, errcode, jules_message)
 END IF
 
-! jules_hydrology
-IF ( l_var_rainfrac ) THEN
-  ! This should be a fatal ereport but configurations with l_var_rainfrac=T
-  ! exist in the Rose stem tests.
-  errcode = -10
-  WRITE(jules_message,'(A,L1)')                                                &
-     " The use of variable large scale and convective rain fractions" //       &
-     " should not be available to standalone as the" //                        &
-     newline //                                                                &
-     "                       functionality to supply the large-scale and" //   &
-     " convective rain fractions via the driving data does not exist." //      &
-     newline //                                                                &
-     "                       l_var_rainfrac = T is equivalent to" //           &
-     " l_var_rainfrac = F with 0.5 for large-scale and" //                     &
-     " 'jules_soil::confrac' for convective rain."
-  CALL ereport(RoutineName, errcode, jules_message)
-END IF
 
 RETURN
 END SUBROUTINE check_unavailable_options

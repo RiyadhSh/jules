@@ -23,7 +23,7 @@ MODULE timestep_mod
 
 IMPLICIT NONE
 
-REAL    :: timestep             ! atmosphere model timestep (s)
+REAL    :: timestep             ! atmosphere model timestep
 
 END MODULE timestep_mod
 #endif

@@ -1,4 +1,4 @@
-#if !defined(RIVERS_ONLY)
+#if !defined(UM_JULES)
 ! *****************************COPYRIGHT**************************************
 ! (C) Crown copyright Met Office. All rights reserved.
 ! For further details please refer to the file COPYRIGHT.txt
@@ -57,21 +57,36 @@ USE jules_rivers_mod, ONLY:                                                    &
   l_rivers
 
 !Others
+USE io_constants, ONLY:                                                        &
+  max_file_name_len, max_dim_var, mode_write, max_sdf_name_len, format_ascii,  &
+  format_ncdf
+
 USE parallel_mod, ONLY:                                                        &
   is_master_task, gather_land_field
 
 USE model_interface_mod, ONLY:                                                 &
   identifier_len
 
-USE file_mod, ONLY:                                                            &
-  file_handle, file_write_var, file_close
+USE dictionary_mod, ONLY:                                                      &
+  dict, dict_create, dict_set, dict_get, dict_has_key, dict_free
 
-USE dump_mod,                            ONLY: max_var_dump
-USE logging_mod,                         ONLY: log_fatal, log_info
+USE string_utils_mod, ONLY:                                                    &
+  to_string
+
+USE file_mod, ONLY:                                                            &
+  file_handle, file_open, file_def_dim, file_def_var,                          &
+  file_enddef, file_write_var, file_close
+
+USE output_mod, ONLY:                                                          &
+  output_dir, run_id
+
+USE model_time_mod, ONLY:                                                      &
+  current_time, is_spinup, spinup_cycle
+
+USE get_dim_info_mod,  ONLY: get_dim_info
+USE dump_mod,          ONLY: max_dim_dump, max_var_dump, dump_format
+USE logging_mod,       ONLY: log_fatal, log_info
 USE required_vars_for_configuration_mod, ONLY: required_vars_for_configuration
-USE create_dump_file_mod,                ONLY: create_dump_file
-USE write_dump_var_rivers_mod,           ONLY: write_dump_var_rivers
-USE add_dump_coords_for_rivers_mod,      ONLY: add_dump_coords_for_rivers
 
 IMPLICIT NONE
 
@@ -89,7 +104,18 @@ IMPLICIT NONE
 !   Language: Fortran 90.
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
+! Local parameters.
+LOGICAL, PARAMETER :: l_reading_false = .FALSE.
+  ! A value of .FALSE. that is passed to argument l_reading of subroutine
+  ! get_dim_info to show that it is being called in connection with writing
+  ! (not reading) a dump.
+
 ! Work variables
+CHARACTER(LEN=max_file_name_len) :: file_name
+                                    ! The filename to use for the dump file
+CHARACTER(LEN=max_file_name_len) :: dt_string
+                                    ! The datetime string to use in the file
+                                    ! name
 CHARACTER(LEN=identifier_len) :: identifiers(max_var_dump)
                                     ! The model identifiers for the variables
                                     ! to put in the dump
@@ -102,10 +128,23 @@ TYPE(file_handle) :: FILE  ! The dump file
 INTEGER :: nvars  ! The number of variables we are processing
 INTEGER :: nvars_from_ancil
 
+! Variables used when defining dimensions
+TYPE(dict) :: file_dim_ids  ! Dictionary of the dimensions that have been
+                            ! defined
+                            ! Maps dim_name => dim_id
+
+INTEGER :: ndims  ! The number of levels dims for the current variable
+CHARACTER(LEN=max_sdf_name_len) :: dim_names(max_dim_var)
+                  ! The levels dimension names for the current variable
+INTEGER :: dim_sizes(max_dim_var)
+                  ! The sizes of the levels dims for the current variable
+INTEGER :: dim_ids(max_dim_var)
+                  ! The ids in file of the levels dims for the current
+                  ! variable
 INTEGER :: var_ids(max_var_dump)
                       ! The ids of the variables in the dump file
 
-INTEGER :: i, m, n, s  ! Loop counters
+INTEGER :: i, j, m, n, s  ! Loop counters
 
 REAL :: frac_irrig_all_tiles_real
 REAL :: set_irrfrac_irrtiles_real
@@ -122,15 +161,11 @@ REAL, ALLOCATABLE :: global_data_4d(:,:,:,:)
 
 LOGICAL, PARAMETER :: l_output_mode = .TRUE.
 
-CHARACTER(LEN=*), PARAMETER :: RoutineName='WRITE_DUMP'
-
 !-----------------------------------------------------------------------------
 
 !-----------------------------------------------------------------------------
 ! Get the list of identifiers that we are going to output
 !-----------------------------------------------------------------------------
-nvars            = 0
-nvars_from_ancil = 0
 CALL required_vars_for_configuration(nvars, identifiers,                       &
                                      nvars_from_ancil, vars_from_ancil,        &
                                      l_output_mode)
@@ -155,10 +190,111 @@ END IF
 
 ! Similarly, add latitude and longitude of river points, if needed.
 IF ( l_rivers ) THEN
-  CALL add_dump_coords_for_rivers(nvars, identifiers)
+  nvars = nvars + 1
+  identifiers(nvars) = 'rivers_lat_rp'
+  nvars = nvars + 1
+  identifiers(nvars) = 'rivers_lon_rp'
+  IF ( .NOT. l_coord_latlon ) THEN
+    nvars = nvars + 1
+    identifiers(nvars) = 'rivers_x_coord_rp'
+    nvars = nvars + 1
+    identifiers(nvars) = 'rivers_y_coord_rp'
+  END IF
 END IF
 
-CALL create_dump_file(nvars, identifiers, FILE, var_ids)
+!-----------------------------------------------------------------------------
+! In the master task only, we open a new file and define the required
+! dimensions and variables
+!-----------------------------------------------------------------------------
+IF ( is_master_task() ) THEN
+  !---------------------------------------------------------------------------
+  ! Generate the file name that we want to use and open the file
+  !---------------------------------------------------------------------------
+  ! File name starts with run id + indicator of a dump file
+  file_name = TRIM(run_id) // ".dump."
+
+  ! Include the current spinup cycle if there is one
+  IF ( is_spinup )                                                             &
+    file_name = TRIM(file_name) //                                             &
+                "spin" // TRIM(to_string(spinup_cycle)) // "."
+
+  ! Then current date and time
+  WRITE(dt_string, '(I4.4,I2.2,I2.2)') current_time%year,                      &
+                                       current_time%month,                     &
+                                       current_time%day
+  dt_string = TRIM(dt_string) // "." // TRIM(to_string(current_time%TIME))
+  file_name = TRIM(file_name) // TRIM(dt_string)
+
+  ! Add the extension based on dump format
+  SELECT CASE ( dump_format )
+  CASE ( format_ascii )
+    file_name = TRIM(file_name) // ".asc"
+
+  CASE ( format_ncdf )
+    file_name = TRIM(file_name) // ".nc"
+
+  CASE DEFAULT
+    CALL log_fatal("write_dump",                                               &
+                   "Unrecognised file format - " // TRIM(dump_format))
+  END SELECT
+
+  ! Prepend the output directory
+  file_name = TRIM(output_dir) // "/" // TRIM(file_name)
+
+  ! We use the lowest level file API here, as we don't want to impose a grid
+  FILE=file_open(file_name, mode_write)
+
+  !---------------------------------------------------------------------------
+  ! Create the dimensions and variables
+  !---------------------------------------------------------------------------
+  file_dim_ids = dict_create(max_dim_dump, INT(1))
+
+  DO i = 1,nvars
+
+    !------------------------------------------------------------------------
+    ! Get information about the dimensions used by the variable.
+    ! The argument l_reading_false shows that we are writing (not reading) a
+    ! dump.
+    !------------------------------------------------------------------------
+    CALL get_dim_info( l_reading_false, identifiers(i), ndims,  dim_sizes,     &
+                       dim_names )
+
+    !-------------------------------------------------------------------------
+    ! Define the dimensions if they have not already been defined
+    ! We use a dictionary to keep track of defined dimension ids
+    !
+    ! At the same time, gather up the dimension ids needed by the current
+    ! variable.
+    !-------------------------------------------------------------------------
+    DO j = 1,ndims
+      ! If it has not yet been defined, define the dimension, storing its id
+      IF ( .NOT. dict_has_key(file_dim_ids, dim_names(j)) )                    &
+        CALL dict_set(                                                         &
+          file_dim_ids, dim_names(j),                                          &
+          file_def_dim(FILE, dim_names(j), dim_sizes(j))                       &
+        )
+
+      ! Get the dimension id from the dict and add it to the list for this
+      ! variable.
+      CALL dict_get(file_dim_ids, dim_names(j), dim_ids(j))
+    END DO
+
+    !-------------------------------------------------------------------------
+    ! Define the variable, saving the id in the file for later
+    !-------------------------------------------------------------------------
+    var_ids(i) = file_def_var(FILE, identifiers(i), dim_ids(1:ndims),          &
+                              .FALSE.)
+
+  END DO
+
+  !---------------------------------------------------------------------------
+  ! We have finished defining things
+  !---------------------------------------------------------------------------
+  CALL file_enddef(FILE)
+  CALL dict_free(file_dim_ids)
+
+END IF  ! MASTER TASK
+
 
 !-----------------------------------------------------------------------------
 ! Gather data from other tasks and write it to file
@@ -187,7 +323,7 @@ DO i = 1,nvars
   ! Note that gather_land_field can only gather one land_pts array at a time,
   ! so to gather variables with multiple levels we must loop
 
-  CALL log_info(RoutineName, identifiers(i))
+  CALL log_info("write_dump", identifiers(i))
 
   SELECT CASE ( identifiers(i) )
   CASE ( 'gs' )
@@ -679,10 +815,7 @@ DO i = 1,nvars
   CASE ( 'rivers_lat_rp', 'rivers_lon_rp', 'rivers_sto_rp',                    &
          'rivers_x_coord_rp', 'rivers_y_coord_rp',                             &
          'rfm_surfstore_rp', 'rfm_substore_rp',                                &
-         'rfm_flowin_rp', 'rfm_bflowin_rp', 'rivers_outflow_rp',               &
-         'flood_flow', 'flood_flow_prev', 'flood_storage',                     &
-         'flood_storage_prev', 'river_channel_flow', 'river_channel_storage',  &
-         'river_depth_prev', 'river_flow_prev' )
+         'rfm_flowin_rp', 'rfm_bflowin_rp' )
     ! Rivers are run on a single task, hence nothing to do here.
 
     !-------------------------------------------------------------------------
@@ -932,8 +1065,11 @@ DO i = 1,nvars
     END IF
 
     ! Water resources properties ancil namelist
-  CASE ( 'conv_loss_frac' )
-    CALL gather_land_field(water_resources%conv_loss_frac, global_data_1d)
+  CASE ( 'conveyance_loss' )
+    CALL gather_land_field(water_resources%conveyance_loss, global_data_1d)
+
+  CASE ( 'irrig_eff' )
+    CALL gather_land_field(water_resources%irrig_eff, global_data_1d)
 
   CASE ( 'sfc_water_frac' )
     CALL gather_land_field(water_resources%sfc_water_frac, global_data_1d)
@@ -947,7 +1083,7 @@ DO i = 1,nvars
     CALL gather_land_field(lake_vars%lake_depth_gb, global_data_1d)
 
   CASE DEFAULT
-    CALL log_fatal(RoutineName,                                                &
+    CALL log_fatal("write_dump",                                               &
                    "No code to gather variable for dump - " //                 &
                    TRIM(identifiers(i)))
   END SELECT
@@ -1065,6 +1201,34 @@ DO i = 1,nvars
     CASE ( 'ch4_ppbv' )
       CALL file_write_var(FILE, var_ids(i), imgn_vars%ch4_ppbv)
 
+      ! Cases for river routing variables
+    CASE ( 'rivers_lat_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rivers_lat_rp)
+
+    CASE ( 'rivers_lon_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rivers_lon_rp)
+
+    CASE ( 'rivers_sto_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rivers_sto_rp)
+
+    CASE ( 'rivers_x_coord_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rivers_x_coord_rp)
+
+    CASE ( 'rivers_y_coord_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rivers_y_coord_rp)
+
+    CASE ( 'rfm_surfstore_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rfm_surfstore_rp)
+
+    CASE ( 'rfm_substore_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rfm_substore_rp)
+
+    CASE ( 'rfm_flowin_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rfm_flowin_rp)
+
+    CASE ( 'rfm_bflowin_rp' )
+      CALL file_write_var(FILE, var_ids(i), rivers%rfm_bflowin_rp)
+
       !-----------------------------------------------------------------------
       ! Ancillary variables
       !-----------------------------------------------------------------------
@@ -1146,7 +1310,10 @@ DO i = 1,nvars
       CALL file_write_var(FILE, var_ids(i), nirrtile_real)
 
       ! Water resources properties ancil namelist
-    CASE ( 'conv_loss_frac' )
+    CASE ( 'conveyance_loss' )
+      CALL file_write_var(FILE, var_ids(i), global_data_1d)
+
+    CASE ( 'irrig_eff' )
       CALL file_write_var(FILE, var_ids(i), global_data_1d)
 
     CASE ( 'sfc_water_frac' )
@@ -1158,11 +1325,10 @@ DO i = 1,nvars
 
     CASE ( 'lake_depth_gb' )
       CALL file_write_var(FILE, var_ids(i), global_data_1d)
-
     CASE DEFAULT
-      ! Cases for river routing variables plus log fatal for unknown identifier
-      CALL write_dump_var_rivers( identifiers(i), FILE, var_ids(i) )
-
+      CALL log_fatal("write_dump",                                             &
+                     "Unrecognised variable for dump - " //                    &
+                     TRIM(identifiers(i)))
     END SELECT
   END IF  ! MASTER TASK
 END DO

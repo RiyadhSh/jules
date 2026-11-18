@@ -203,10 +203,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
     ! Soil temperature on soil biogeochemistry layers (K).
 #endif
 
-REAL(KIND=real_jlslsm) ::                                                      &
-  f_root_pft_tmp(dim_cslayer)
-    ! Temporary array for root fraction in each soil layer per PFT.
-
 CHARACTER(LEN=*), PARAMETER :: RoutineName = 'SOIL_N_PRECALC'
 
 !-----------------------------------------------------------------------------
@@ -259,10 +255,9 @@ IF ( have_layers ) THEN
   ! Calculate the fraction and normalised roots in each soil layer.
   !-------------------------------------------------------------------------
   DO n = 1,npft
-    CALL root_frac( n, dim_cslayer, dz, rootd_ft(n), f_root_pft_tmp )
-    f_root_pft(n,:) = f_root_pft_tmp(:)
-    f_root_pft_dz(n,:) = f_root_pft_tmp(:) / dzsoil(:) /                       &
-                         (f_root_pft_tmp(1) / dzsoil(1))
+    CALL root_frac( n, dim_cslayer, dz, rootd_ft(n), f_root_pft(n,:) )
+    f_root_pft_dz(n,:) = f_root_pft(n,:) / dzsoil(:) /                         &
+                        (f_root_pft(n,1) / dzsoil(1))
   END DO
 
   !-------------------------------------------------------------------------

@@ -63,15 +63,6 @@ INTEGER, PARAMETER ::                                                          &
      ! Diagnose the screen temperature and humidity using including transient
      ! effects and radiative cooling
 
-! Options for anthrop_heat_option
-INTEGER, PARAMETER ::                                                          &
-   dukes   = 0,                                                                &
-      ! Urban anthropogenic heat flux based on the Digest of UK Energy
-      ! statistics (DUKES). Fixed annual cycle with no diurnal variation and
-      ! no geographical dependence
-   flanner = 1
-      ! Urban anthropogenic heat flux using the Flanner (2009) scheme.
-      ! Latitude-dependent annual and diurnal cycles applied to a baseline flux
 
 !-----------------------------------------------------------------------------
 ! Switches
@@ -108,8 +99,6 @@ LOGICAL ::                                                                     &
       ! calculations
 
 INTEGER ::                                                                     &
-  anthrop_heat_option = imdi,                                                  &
-      ! Switch for diurnal/seasonal cycle in anthropogenic heat.
   i_modiscopt = 0,                                                             &
       ! Method of discretization in the surface layer
   all_tiles = 0,                                                               &
@@ -266,8 +255,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
       ! (multiplying the turbulent convective scaling velocity)
   orog_drag_param = rmdi,                                                      &
       ! Drag coefficient for orographic form drag
-  anthrop_heat_mean = rmdi,                                                    &
-      ! Baseline mean anthropogenic heat flux in Flanner scheme (W/m2)
 !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 !  Parameters for heat capacity of vegetation.
     hleaf = 5.7e4,                                                             &
@@ -292,13 +279,12 @@ REAL(KIND=real_jlslsm) ::                                                      &
 NAMELIST  / jules_surface/                                                     &
 ! Switches
     l_flake_model, l_epot_corr, l_point_data, l_aggregate, l_land_ice_imp,     &
-    l_anthrop_heat_src, anthrop_heat_option, i_modiscopt, all_tiles, cor_mo_iter, &
-    iscrntdiag,i_aggregate_opt, formdrag, fd_stability_dep, fd_hill_option,    &
+    l_anthrop_heat_src, i_modiscopt, all_tiles, cor_mo_iter, iscrntdiag,       &
+    i_aggregate_opt, formdrag, fd_stability_dep, fd_hill_option,               &
     srf_ex_cnv_gust, l_vary_z0m_soil, l_elev_lw_down, l_elev_land_ice,         &
     l_urban2t, l_mo_buoyancy_calc,                                             &
 ! Parameters
-    orog_drag_param, beta_cnv_bl, anthrop_heat_mean, hleaf, hwood, beta1,      &
-    beta2, fwe_c3, fwe_c4
+    orog_drag_param, beta_cnv_bl, hleaf, hwood, beta1, beta2, fwe_c3, fwe_c4
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='JULES_SURFACE_MOD'
 
@@ -335,39 +321,6 @@ IF ( i_modiscopt < 0 .OR. i_modiscopt > 1 ) THEN
   errcode = 101
   CALL ereport("check_jules_surface", errcode,                                 &
                "i_modiscopt should be 0 or 1")
-END IF
-
-IF (l_anthrop_heat_src) THEN
-  IF ( anthrop_heat_option < dukes .OR. anthrop_heat_option > flanner ) THEN
-    errcode = 101
-    CALL ereport("check_jules_surface", errcode,                               &
-                 "anthrop_heat_option should be 0 or 1")
-  ELSE IF ( anthrop_heat_option == flanner .AND. anthrop_heat_mean <= 0 ) THEN
-    errcode = 101
-    CALL ereport("check_jules_surface", errcode,                               &
-                 "anthrop_heat_mean should be positive non-zero")
-  END IF
-
-  IF ( anthrop_heat_option /= flanner .AND. anthrop_heat_mean /= rmdi ) THEN
-    errcode = 101
-    CALL ereport("check_jules_surface", errcode,                               &
-                 "anthrop_heat_mean not used and should not be set if " //     &
-                 "anthrop_heat_option /= 1 (flanner)")
-  END IF
-ELSE
-  IF ( anthrop_heat_option /= imdi ) THEN
-    errcode = 101
-    CALL ereport("check_jules_surface", errcode,                               &
-                 "anthrop_heat_option not used and should not be set if " //   &
-                 "l_anthrop_heat_src /= .true.")
-  END IF
-
-  IF ( anthrop_heat_mean /= rmdi ) THEN
-    errcode = 101
-    CALL ereport("check_jules_surface", errcode,                               &
-                 "anthrop_heat_mean not used and should not be set if " //     &
-                 "l_anthrop_heat_src /= .true.")
-  END IF
 END IF
 
 IF ( all_tiles < 0 .OR. all_tiles > 1 ) THEN
@@ -537,12 +490,6 @@ CALL jules_print('jules_surface', lineBuffer)
 WRITE(lineBuffer, *) '  l_anthrop_heat_src = ', l_anthrop_heat_src
 CALL jules_print('jules_surface', lineBuffer)
 
-WRITE(lineBuffer, *) '  anthrop_heat_option = ', anthrop_heat_option
-CALL jules_print('jules_surface', lineBuffer)
-
-WRITE(lineBuffer, *) '  anthrop_heat_mean = ', anthrop_heat_mean
-CALL jules_print('jules_surface', lineBuffer)
-
 WRITE(lineBuffer, *) '  l_vary_z0m_soil = ', l_vary_z0m_soil
 CALL jules_print('jules_surface', lineBuffer)
 
@@ -640,8 +587,8 @@ CHARACTER(LEN=errormessagelength) :: iomessage
 
 ! set number of each type of variable in my_namelist type
 INTEGER, PARAMETER :: no_of_types = 3
-INTEGER, PARAMETER :: n_int = 10
-INTEGER, PARAMETER :: n_real = 9
+INTEGER, PARAMETER :: n_int = 9
+INTEGER, PARAMETER :: n_real = 8
 INTEGER, PARAMETER :: n_log = 11
 
 TYPE :: my_namelist
@@ -655,10 +602,8 @@ TYPE :: my_namelist
   INTEGER :: fd_stability_dep
   INTEGER :: fd_hill_option
   INTEGER :: srf_ex_cnv_gust
-  INTEGER :: anthrop_heat_option
   REAL(KIND=real_jlslsm) :: orog_drag_param
   REAL(KIND=real_jlslsm) :: beta_cnv_bl
-  REAL(KIND=real_jlslsm) :: anthrop_heat_mean
   REAL(KIND=real_jlslsm) :: hleaf
   REAL(KIND=real_jlslsm) :: hwood
   REAL(KIND=real_jlslsm) :: beta1
@@ -704,8 +649,6 @@ IF (mype == 0) THEN
   my_nml % srf_ex_cnv_gust    = srf_ex_cnv_gust
   my_nml % orog_drag_param    = orog_drag_param
   my_nml % beta_cnv_bl        = beta_cnv_bl
-  my_nml % anthrop_heat_option  = anthrop_heat_option
-  my_nml % anthrop_heat_mean  = anthrop_heat_mean
   my_nml % hleaf              = hleaf
   my_nml % hwood              = hwood
   my_nml % beta1              = beta1
@@ -741,8 +684,6 @@ IF (mype /= 0) THEN
   srf_ex_cnv_gust    = my_nml % srf_ex_cnv_gust
   orog_drag_param    = my_nml % orog_drag_param
   beta_cnv_bl        = my_nml % beta_cnv_bl
-  anthrop_heat_option = my_nml % anthrop_heat_option
-  anthrop_heat_mean  = my_nml % anthrop_heat_mean
   hleaf              = my_nml % hleaf
   hwood              = my_nml % hwood
   beta1              = my_nml % beta1

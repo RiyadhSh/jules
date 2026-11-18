@@ -23,7 +23,7 @@ USE parallel_mod, ONLY: is_master_task
 
 IMPLICIT NONE
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Description:
 !   For each profile, decide if we need to output a file containing initial
 !   data for a section of the run
@@ -34,8 +34,7 @@ IMPLICIT NONE
 ! Code Description:
 !   Language: Fortran 90.
 !   This code is written to JULES coding standards v1.
-!------------------------------------------------------------------------------
-
+!-----------------------------------------------------------------------------
 ! Work variables
 TYPE(file_ts) :: FILE  ! The initial data file
 
@@ -50,80 +49,65 @@ TYPE(data_cube) :: data_for_output  ! Cube to hold data for output
 
 INTEGER :: i,j  ! Loop counter
 
-CHARACTER(LEN=*), PARAMETER :: RoutineName = 'OUTPUT_INITIAL_DATA'
 
-!end of header
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-! IF we are not in the first timestep of a section, there is nothing to do
+
+!-----------------------------------------------------------------------------
+! If we are not in the first timestep of a section, there is nothing to do
 ! for any profile
-!------------------------------------------------------------------------------
-IF ( is_spinup .AND. current_time /= spinup_start ) THEN
+!-----------------------------------------------------------------------------
+IF ( is_spinup .AND. current_time /= spinup_start )                            &
   RETURN
-END IF
 
-IF ( .NOT. is_spinup .AND. current_time /= main_run_start ) THEN
+IF ( .NOT. is_spinup .AND. current_time /= main_run_start )                    &
   RETURN
-END IF
 
+
+!-----------------------------------------------------------------------------
+! Check what we need to do for each profile
+!-----------------------------------------------------------------------------
 DO i = 1,nprofiles
 
-  !----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Check if we need to output initial data for this profile
-  !----------------------------------------------------------------------------
-  IF ( .NOT. profiles(i)%output_initial ) THEN
-    ! IF initial state was not asked for, there is nothing to do
-    CYCLE
-  END IF
+  !-----------------------------------------------------------------------------
+  IF ( .NOT. profiles(i)%output_initial )                                      &
+  ! If initial state was not asked for, there is nothing to do
+        CYCLE
 
   IF ( .NOT. ANY( profiles(i)%fields(1:profiles(i)%nfields)%field_type         &
                   == output_snapshot ) ) THEN
-    ! IF there is no snapshot data in the profile, there is nothing to output
-    ! here.
+    ! If there is no snapshot data in the profile, there is nothing to output here
     CYCLE
   END IF
 
-  IF ( is_spinup .AND. .NOT. profiles(i)%output_spinup ) THEN
-    ! IF we are at the start of a spinup cycle but profile is not outputting
-    ! during spinup, we don't need to do anything
-    CYCLE
-  END IF
+  IF ( is_spinup .AND. .NOT. profiles(i)%output_spinup )                       &
+  ! If we are at the start of a spinup cycle but profile is not outputting during
+  ! spinup, we don't need to do anything
+        CYCLE
 
   IF ( .NOT. is_spinup ) THEN
-
     ! We are at the start of the main run
-    IF ( .NOT. profiles(i)%output_main_run ) THEN
-      ! If the profile is not outputting for the main run, there is nothing to
-      ! do.
-      CYCLE
-    END IF
+    IF ( .NOT. profiles(i)%output_main_run )                                   &
+    ! If the profile is not outputting for the main run, there is nothing to do
+            CYCLE
 
-    IF ( profiles(i)%output_start /= main_run_start ) THEN
-      ! If the profile does not start outputting until later in the run, there
-      ! is nothing to do.
-      CYCLE
-    END IF
-
-    !--------------------------------------------------------------------------
-    ! River profiles are only output from the master task.
-    !--------------------------------------------------------------------------
-    IF ( profiles(i)%is_river_profile .AND. .NOT. is_master_task() ) THEN
-      CYCLE
-    END IF
-
+    IF ( profiles(i)%output_start /= main_run_start )                          &
+    ! If the profile does not start outputting until later in the run, there is nothing to do
+            CYCLE
   END IF
 
-  !----------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
   ! Open an initial data file for the profile
-  !----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! All file names start with the run id followed by the profile name
   file_name = TRIM(run_id) // "." // TRIM(profiles(i)%profile_name)
 
   IF ( is_spinup ) THEN
-    ! IF we are in a spinup cycle, add that to the file name
-    file_name = TRIM(file_name) // "." // "spin" //                            &
-                TRIM(to_string(spinup_cycle))
+    ! If we are in a spinup cycle, add that to the file name
+    file_name = TRIM(file_name) // "." // "spin" // TRIM(to_string(spinup_cycle))
   END IF
 
   ! Indicate that it is an initial data file
@@ -133,7 +117,7 @@ DO i = 1,nprofiles
   SELECT CASE ( output_format )
   CASE ( format_ascii )
     IF ( profiles(i)%is_river_profile ) THEN
-      CALL log_fatal(RoutineName,                                              &
+      CALL log_fatal("output_initial_data",                                    &
                      "Cannot create river grid output in ASCII format")
     END IF
     file_name = TRIM(file_name) // ".asc"
@@ -142,7 +126,7 @@ DO i = 1,nprofiles
     file_name = TRIM(file_name) // ".nc"
 
   CASE DEFAULT
-    CALL log_fatal(RoutineName,                                                &
+    CALL log_fatal("output_initial_data",                                      &
                    "Unrecognised file format - " // TRIM(output_format))
   END SELECT
 
@@ -150,63 +134,76 @@ DO i = 1,nprofiles
   file_name = TRIM(output_dir) // "/" // TRIM(file_name)
 
   ! The timestamp in files is the end of the output period, so we create a file
-  ! with exactly one output period ending at the current time.
+  ! with exactly one output period ending at the current time
   ! We don't much care about time_bounds since the only real valid output is
-  ! snapshot variables, for which the timestamp is the important thing.
+  ! snapshot variables, for which the timestamp is the important thing
   ! So we create a file that ends at the current time, starts 1 second before
-  ! and has an output period of 1.
+  ! and has an output period of 1
   file_start = datetime_subtract(current_time, 1)
 
-  !----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Check if we want land or river output
-  !----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   IF ( profiles(i)%is_river_profile ) THEN
     out_grid = river_out_grid
   ELSE
     out_grid = grid
   END IF
 
-  FILE = internal_open_output_file(                                            &
-           file_start, current_time, 1, .FALSE., profiles(i)%is_river_profile, &
-           file_name, out_grid, profiles(i)%fields(1:profiles(i)%nfields),     &
-           profiles(i)%l_land_frac)
+  FILE=internal_open_output_file(                                              &
+    file_start, current_time, 1, .FALSE., profiles(i)%is_river_profile,        &
+    file_name, out_grid, profiles(i)%fields(1:profiles(i)%nfields),            &
+    profiles(i)%l_land_frac                                                    &
+  )
 
-  !----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Populate any snapshot variables in the file
-  !----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   DO j = 1,profiles(i)%nfields
-
     ! Ignore variables that are not snapshot variables
-    IF ( profiles(i)%fields(j)%field_type /= output_snapshot ) THEN
-      CYCLE
-    END IF
+    IF ( profiles(i)%fields(j)%field_type /= output_snapshot ) CYCLE
 
-    ! Extract the data to output
-    data_for_output = extract_var(profiles(i)%fields(j)%var_id)
-
-    ! Output the data to file
     IF ( profiles(i)%is_river_profile ) THEN
-      CALL file_ts_write_var(                                                  &
-             FILE, profiles(i)%fields(j)%file_id, data_for_output,             &
-             ! No subgrid used for river variables
-             .FALSE. )
+      ! River profiles are written by the master task only
+      IF ( is_master_task() ) THEN
+
+        ! Extract the data to output
+        data_for_output = extract_var(profiles(i)%fields(j)%var_id)
+
+        ! Output the data to file
+        CALL file_ts_write_var(                                                &
+           FILE, profiles(i)%fields(j)%file_id, data_for_output,               &
+           ! No subgrid used for river variables
+           .FALSE.                                                             &
+           )
+
+      END IF
     ELSE
       ! All other variables are written in parallel
+
+      ! Extract the data to output
+      data_for_output = extract_var(profiles(i)%fields(j)%var_id)
+
+      ! Output the data to file
       CALL file_ts_write_var(                                                  &
-             FILE, profiles(i)%fields(j)%file_id, data_for_output,             &
-             ! Subgrid information (for writing a slab of the output grid in
-             ! parallel mode)
-             USE_subgrid, subgrid )
+         FILE, profiles(i)%fields(j)%file_id, data_for_output,                 &
+         ! Subgrid information (for writing a slab of the output grid in
+         ! parallel mode)
+         use_subgrid, subgrid                                                  &
+         )
     END IF
 
     ! Free the temporary cube
     CALL cube_free(data_for_output)
   END DO
 
-  !----------------------------------------------------------------------------
-  ! Close the file.
-  !----------------------------------------------------------------------------
-  CALL file_ts_close(FILE)
+
+  !-----------------------------------------------------------------------------
+  ! Close the file. We do this for all tasks of a land profile and just the
+  ! master task of a river profile.
+  !-----------------------------------------------------------------------------
+  IF ((.NOT. profiles(i)%is_river_profile) .OR. is_master_task())              &
+        CALL file_ts_close(FILE)
 
 END DO
 

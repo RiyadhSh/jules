@@ -36,14 +36,14 @@ USE read_jules_namelists_mod, ONLY:                                            &
     read_jules_rivers,             read_jules_soil,                            &
     read_jules_soil_biogeochem,    read_jules_surface,                         &
     read_jules_model_environment,  read_jules_water_resources,                 &
-    read_jules_irrigation,         read_jules_red,                             &
-    read_jules_deposition,         read_jules_deposition_species
+    read_jules_irrigation,                                                     &
+    read_jules_deposition, read_jules_deposition_species
 
 USE jules_deposition_mod, ONLY: l_deposition
 
 USE jules_rivers_mod, ONLY: l_riv_overbank
 
-USE jules_vegetation_mod, ONLY: l_triffid, l_red
+USE jules_vegetation_mod, ONLY: l_triffid
 
 USE parkind1, ONLY: jprb, jpim
 USE yomhook,  ONLY: lhook, dr_hook
@@ -86,7 +86,6 @@ IF (call_type == "UM") THEN
   CALL read_jules_nvegparm(atmoscntl_unit)
   CALL read_jules_pftparm(atmoscntl_unit)
   IF ( l_triffid ) CALL read_jules_triffid(atmoscntl_unit)
-  IF ( l_red ) CALL read_jules_red(atmoscntl_unit)
   CALL read_jules_elevate(atmoscntl_unit)
   IF (l_deposition) THEN
     CALL read_jules_deposition_species(atmoscntl_unit)

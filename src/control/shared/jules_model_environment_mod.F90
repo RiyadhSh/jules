@@ -15,7 +15,6 @@ MODULE jules_model_environment_mod
 USE missing_data_mod, ONLY: imdi
 #if !defined(UM_JULES) && !defined(LFRIC) && !defined(RIVERS_ONLY)
 USE update_mod, ONLY: l_imogen
-USE imogen_run, ONLY: l_daily_metdata_climatol
 #endif
 
 IMPLICIT NONE
@@ -45,7 +44,7 @@ LOGICAL, PUBLIC :: l_oasis_rivers  = .FALSE.
 NAMELIST  / jules_model_environment / l_jules_parent, lsm_id
 
 #if !defined(UM_JULES) && !defined(LFRIC) && !defined(RIVERS_ONLY)
-NAMELIST  / imogen_onoff_switch / l_imogen, l_daily_metdata_climatol
+NAMELIST  / imogen_onoff_switch / l_imogen
 #endif
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='JULES_MODEL_ENVIRONMENT_MOD'

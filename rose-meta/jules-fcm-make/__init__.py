@@ -1,1 +1,1 @@
-from . import versions
+import versions

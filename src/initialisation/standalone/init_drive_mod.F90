@@ -270,9 +270,8 @@ IF ( z1_tq_vary ) THEN
   IF ( LEN_TRIM(z1_tq_file) == 0 )                                             &
       CALL log_fatal(RoutineName, "No file name provided for z1_tq_file.")
   CALL fill_variables_from_file(                                               &
-    z1_tq_file, [ 'z1_tq_in' ], [ z1_tq_var_name ],                            &
-    is_climatology = [ .FALSE. ]                                               &
-    )
+    z1_tq_file, [ 'z1_tq_in' ], [ z1_tq_var_name ]                             &
+  )
 ELSE
   IF ( ABS( z1_tq_in - rmdi ) < EPSILON(1.0) ) THEN
     CALL log_fatal(RoutineName, "No value given for z1_tq_in")

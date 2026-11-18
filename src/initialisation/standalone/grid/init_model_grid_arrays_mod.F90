@@ -24,8 +24,7 @@ SUBROUTINE init_model_grid_arrays(crop_vars_data,psparms_data,top_pdm_data,    &
                           rivers_data,                                         &
                           !veg3_parm_data, &
                           !veg3_field_data, &
-                          chemvars_data, water_resources_data,                 &
-                          wtrac_jls_data                                       &
+                          chemvars_data, water_resources_data                  &
                           )
 
 USE update_mod, ONLY: l_imogen
@@ -64,7 +63,6 @@ USE jules_rivers_mod, ONLY: rivers_data_type
 ! USE veg3_field_mod, ONLY: in_dev
 USE jules_chemvars_mod, ONLY: chemvars_data_type
 USE water_resources_vars_mod, ONLY: water_resources_data_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_data_type
 
 IMPLICIT NONE
 
@@ -104,7 +102,6 @@ TYPE(rivers_data_type), INTENT(IN OUT) :: rivers_data
 !TYPE(in_dev), INTENT(IN OUT) :: veg3_field_data
 TYPE(chemvars_data_type), INTENT(IN OUT) :: chemvars_data
 TYPE(water_resources_data_type), INTENT(IN OUT) :: water_resources_data
-TYPE(jls_wtrac_data_type), INTENT(IN OUT) :: wtrac_jls_data
 
 INTEGER :: i, j, l  ! Index variables
 
@@ -134,8 +131,7 @@ CALL allocate_jules_arrays(crop_vars_data,psparms_data,top_pdm_data,           &
                           rivers_data,                                         &
                           !veg3_parm_data, &
                           !veg3_field_data, &
-                          chemvars_data, water_resources_data,                 &
-                          wtrac_jls_data                                       &
+                          chemvars_data, water_resources_data                  &
                           )
 
 CALL fill_model_grid_arrays( ainfo_data, coastal_data )

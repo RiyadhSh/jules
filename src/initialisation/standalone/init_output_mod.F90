@@ -47,13 +47,9 @@ USE output_mod, ONLY: dump_period, dump_period_unit,                           &
 
 USE init_river_out_grid_mod, ONLY: init_river_out_grid
 
-USE jules_rivers_mod, ONLY: l_outflow_per_river
-
 USE logging_mod, ONLY: log_info, log_warn, log_error, log_fatal
 
 USE errormessagelength_mod, ONLY: errormessagelength
-
-USE jules_print_mgr, ONLY: jules_message
 
 IMPLICIT NONE
 
@@ -80,9 +76,6 @@ INTEGER :: ERROR  ! Error indicator
 CHARACTER(LEN=errormessagelength) :: iomessage
 
 LOGICAL :: any_river_out  ! Indicates that river grid output is required
-
-LOGICAL :: l_outflow_per_river_check = .FALSE.
-    ! Check that both ancillary and diagnostic/send field has been specified.
 
 !-----------------------------------------------------------------------------
 ! Definition of the jules_output namelist
@@ -137,9 +130,7 @@ CHARACTER(LEN=1) :: output_type(max_var_file)
                       ! The type of output to use - this should be one of
                       ! 'S', 'A', 'M', 'N' or 'X'
 
-CHARACTER(LEN=*), PARAMETER :: RoutineName='INIT_OUTPUT'
-
-NAMELIST  /jules_output_profile/ profile_name, output_initial, output_spinup,  &
+NAMELIST  / jules_output_profile/ profile_name, output_initial, output_spinup, &
                                 output_main_run, output_start, output_end,     &
                                 output_period, sample_period, file_period,     &
                                 nvars, var, var_name, output_type, l_land_frac
@@ -160,7 +151,7 @@ OPEN(namelist_unit, FILE=(TRIM(nml_dir) // '/' // 'output.nml'),               &
                STATUS='old', POSITION='rewind', ACTION='read', IOSTAT = ERROR, &
                IOMSG = iomessage)
 IF ( ERROR /= 0 )                                                              &
-  CALL log_fatal(RoutineName,                                                  &
+  CALL log_fatal("init_output",                                                &
                  "Error opening namelist file output.nml " //                  &
                  "(IOSTAT=" // TRIM(to_string(ERROR)) // " IOMSG=" //          &
                  TRIM(iomessage) // ")")
@@ -168,10 +159,10 @@ IF ( ERROR /= 0 )                                                              &
 !-----------------------------------------------------------------------------
 ! Read the JULES_OUTPUT namelist
 !-----------------------------------------------------------------------------
-CALL log_info(RoutineName, "Reading JULES_OUTPUT namelist...")
+CALL log_info("init_output", "Reading JULES_OUTPUT namelist...")
 READ(namelist_unit, NML = jules_output, IOSTAT = ERROR, IOMSG = iomessage)
 IF ( ERROR /= 0 ) THEN
-  CALL log_fatal(RoutineName,                                                  &
+  CALL log_fatal("init_output",                                                &
                  "Error reading namelist JULES_OUTPUT " //                     &
                  "(IOSTAT=" // TRIM(to_string(ERROR)) // " IOMSG=" //          &
                  TRIM(iomessage) // ")")
@@ -181,7 +172,7 @@ END IF
 ! Process the information from the JULES_OUTPUT namelist
 !-----------------------------------------------------------------------------
 ! First check that a run_id was given
-IF ( LEN_TRIM(run_id) == 0 ) CALL log_fatal(RoutineName, "No run_id given")
+IF ( LEN_TRIM(run_id) == 0 ) CALL log_fatal("init_output", "No run_id given")
 
 ! Check that the output directory exists
 ! The Intel compiler requires a different form of the statement for directories,
@@ -192,7 +183,7 @@ INQUIRE(directory = output_dir, EXIST = dir_exists)
 INQUIRE(FILE = output_dir, EXIST = dir_exists)
 #endif
 IF ( .NOT. dir_exists ) THEN
-  CALL log_fatal(RoutineName,                                                  &
+  CALL log_fatal("init_output",                                                &
                  "Output directory does not exist - " // TRIM(output_dir))
 END IF
 
@@ -201,7 +192,8 @@ IF ( dump_period == 0 ) dump_period = 1
 
 ! If dump_period_unit not recognised, use 'Y'
 IF ( .NOT. ANY(dump_period_unit == [dump_period_year, dump_period_time]) ) THEN
-  CALL log_warn(RoutineName,                                                   &
+  CALL log_warn(                                                               &
+    "init_output",                                                             &
     "Using default dump_period_unit=" // dump_period_year //                   &
     " - as invalid value given (" // dump_period_unit // ")")
   dump_period_unit = dump_period_year
@@ -210,7 +202,7 @@ END IF
 ! Warn if no output is requested
 ! We do this after the directory check as we will always produce dumps
 IF ( nprofiles < 1 ) THEN
-  CALL log_warn(RoutineName,                                                   &
+  CALL log_warn("init_output",                                                 &
                 "No output profiles given - output will not be " //            &
                 "generated for this run")
   RETURN
@@ -234,14 +226,14 @@ DO i = 1,nprofiles
   nvars           = 0
   var(:)          = ''
   var_name(:)     = ''
-  output_type(:)  = ''
+  output_type(:)  = 'S'
 
   ! Read the namelist
-  CALL log_info(RoutineName, "Reading JULES_OUTPUT_PROFILE namelist...")
+  CALL log_info("init_output", "Reading JULES_OUTPUT_PROFILE namelist...")
   READ(namelist_unit, NML = jules_output_profile, IOSTAT = ERROR,              &
        IOMSG = iomessage)
   IF ( ERROR /= 0 ) THEN
-    CALL log_fatal(RoutineName,                                                &
+    CALL log_fatal("init_output",                                              &
                    "Error reading namelist JULES_OUTPUT_PROFILE " //           &
                    "(IOSTAT=" // TRIM(to_string(ERROR)) // " IOMSG=" //        &
                    TRIM(iomessage) // ")")
@@ -251,14 +243,13 @@ DO i = 1,nprofiles
   ! Check that the variables requested are suitable for the current
   ! configuration.
   !---------------------------------------------------------------------------
-  CALL check_output_vars( nvars, var, var_name, output_type, any_river_out,    &
-                          l_outflow_per_river_check )
+  CALL check_output_vars( nvars, var, var_name, output_type, any_river_out )
 
   !---------------------------------------------------------------------------
   ! If this profile is not providing any variables, we can skip it
   !---------------------------------------------------------------------------
   IF ( nvars < 1 ) THEN
-    CALL log_error(RoutineName,                                                &
+    CALL log_error("init_output",                                              &
                    "Profile " // TRIM(profile_name) // " is not " //           &
                    "outputting any variables - ignoring")
     CYCLE
@@ -290,16 +281,6 @@ DO i = 1,nprofiles
                                output_type(1:nvars))
 
 END DO
-! If riv_number_file specified in error reset switch as no need to output
-! rivers_outflow_rp to dump and could also probably reduce the allocation of
-! rivers%rivers_outflow_number_rp to nominal size.
-IF ( .NOT. l_outflow_per_river_check .AND. l_outflow_per_river ) THEN
-  WRITE(jules_message,*)                                                       &
-     "outflow_per_river not requested; " //                                    &
-     "river number ancillary specified in error."
-  CALL log_warn(RoutineName, jules_message)
-  l_outflow_per_river = .FALSE.
-END IF
 
 !------------------------------------------------------------------------------
 ! Initialise the river output grid if required
@@ -310,7 +291,7 @@ END IF
 
 CLOSE(namelist_unit, IOSTAT = ERROR, IOMSG = iomessage)
 IF ( ERROR /= 0 ) THEN
-  CALL log_fatal(RoutineName,                                                  &
+  CALL log_fatal("init_output",                                                &
                  "Error closing namelist file output.nml " //                  &
                  "(IOSTAT=" // TRIM(to_string(ERROR)) // " IOMSG=" //          &
                  TRIM(iomessage) // ")")
@@ -322,12 +303,9 @@ END SUBROUTINE init_output
 
 !-----------------------------------------------------------------------------
 
-SUBROUTINE check_output_vars( nvars, var, var_name, output_type,               &
-                              any_river_out, l_outflow_per_river_check )
+SUBROUTINE check_output_vars( nvars, var, var_name, output_type, any_river_out )
 
 USE ancil_info, ONLY: nsoilt
-
-USE jules_model_environment_mod, ONLY: l_oasis_rivers
 
 USE jules_snow_mod, ONLY: nsmax
 
@@ -339,31 +317,22 @@ USE jules_soil_ecosse_mod, ONLY: l_soil_N
 USE jules_surface_mod, ONLY: l_urban2t
 
 USE jules_vegetation_mod, ONLY: l_fapar_diag, l_fao_ref_evapotranspiration,    &
-    photo_acclim_model, l_sugar, stomata_model, stomata_sox
+    photo_acclim_model, l_sugar
 
-USE jules_water_resources_mod, ONLY: l_have_groundwater, l_have_renew_gwater,  &
-    l_have_surface_water, l_water_domestic, l_water_environment,               &
+USE jules_water_resources_mod, ONLY: l_water_domestic, l_water_environment,    &
     l_water_industry, l_water_irrigation, l_water_livestock,                   &
-    l_water_resources, l_water_transfers, no_model, nr_gwater_model
+    l_water_resources, l_water_transfers
 
-USE jules_rivers_mod, ONLY: l_rivers, l_riv_overbank, l_outflow_per_river,     &
-    i_river_vn, rivers_camaflood, rivers_rfm, rivers_trip
+USE jules_rivers_mod, ONLY: l_rivers, l_riv_overbank,                          &
+    i_river_vn, rivers_rfm, rivers_trip
 
 USE jules_deposition_mod, ONLY: l_deposition, l_deposition_flux
 
-USE logging_mod, ONLY: log_warn, log_info, log_fatal
-
-USE model_interface_mod, ONLY: is_river_var
+USE logging_mod, ONLY: log_error, log_warn
 
 USE sf_diags_mod, ONLY: sf_diag
 
 USE jules_urban_mod, ONLY: l_moruses
-
-USE jules_print_mgr, ONLY: jules_message
-
-USE string_utils_mod, ONLY: to_string
-
-USE parallel_mod, ONLY: is_master_task
 
 IMPLICIT NONE
 
@@ -390,10 +359,8 @@ CHARACTER(LEN=*), INTENT(IN OUT) ::                                            &
     ! The type of output for each variable.
 
 LOGICAL, INTENT(IN OUT) ::                                                     &
-  any_river_out,                                                               &
+  any_river_out
     ! Indicates if there is any river output required
-  l_outflow_per_river_check
-    ! Check that both ancillary and diagnostic/send field has been specified.
 
 !-----------------------------------------------------------------------------
 ! Local variables.
@@ -416,22 +383,6 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='CHECK_OUTPUT_VARS'
 
 !end of header
 !-----------------------------------------------------------------------------
-
-!---------------------------------------------------------------------------
-! First check output variables requiring extra ancillaries.
-!---------------------------------------------------------------------------
-IF ( is_master_task() ) THEN
-  ! Rivers is only called on the master task
-  IF ( l_outflow_per_river ) THEN
-    IF ( ANY( var(:) == 'outflow_per_river' ) .OR. l_oasis_rivers ) THEN
-      l_outflow_per_river_check = .TRUE.
-    END IF
-  ELSE IF ( ANY( var(:) == 'outflow_per_river' ) ) THEN
-    WRITE(jules_message,*)                                                     &
-       'outflow_per_river requested without a river number ancillary specified.'
-    CALL log_fatal(RoutineName, jules_message)
-  END IF
-END IF
 
 !-----------------------------------------------------------------------------
 ! Remove any variables that are not allowed for the current configuration,
@@ -594,24 +545,9 @@ DO j = 1,nvars_in
   END IF
 
   !---------------------------------------------------------------------------
-  ! Variables that depend on river routing.
+  ! Variables that are only allowed with river routing.
   !---------------------------------------------------------------------------
   IF ( l_rivers ) THEN
-
-    !-------------------------------------------------------------------------
-    ! Variables that are only allowed with CaMa-Flood
-    !-------------------------------------------------------------------------
-    IF ( i_river_vn /= rivers_camaflood ) THEN
-      SELECT CASE ( var(j) )
-
-      CASE ( 'channel_bed_elevation', 'channel_depth', 'channel_width',        &
-             'flood_flow', 'flood_storage', 'river_channel_flow',              &
-             'river_channel_storage', 'river_elevation', 'river_flow' )
-        remove_var = .TRUE.
-        message    = 'CaMa-Flood river routing not used.'
-      END SELECT
-    END IF
-
     !-------------------------------------------------------------------------
     ! Variables that are only allowed with RFM
     !-------------------------------------------------------------------------
@@ -635,45 +571,38 @@ DO j = 1,nvars_in
       END SELECT
     END IF
 
+
     !-------------------------------------------------------------------------
-    ! Detect variables that require the river output grid
+    ! Variables that require the river output grid
     !-------------------------------------------------------------------------
-    IF ( is_river_var(var(j)) ) THEN
+    SELECT CASE ( var(j) )
+    CASE ( 'rflow_rp', 'rrun_rp', 'rrun_surf_rp',                              &
+           'rrun_sub_surf_rp', 'rivers_sto_rp', 'rfm_bflowin_rp',              &
+           'rfm_flowin_rp','rfm_substore_rp', 'rfm_surfstore_rp',              &
+           'grid_area_rp' )
       any_river_out = .TRUE.
-    END IF
+    END SELECT
 
   ELSE
-
     !-------------------------------------------------------------------------
     ! Variables that are only allowed with river routing.
-    ! First we check for variables on the river output grid (which allow us to
-    ! shortern the list by omitting those), then by name for any other river
-    ! variable.<
     !-------------------------------------------------------------------------
-    IF ( is_river_var(var(j)) ) THEN
+    SELECT CASE ( var(j) )
+    CASE ( 'rflow', 'rrun', 'rflow_rp', 'rrun_rp', 'rrun_surf_rp',             &
+           'rrun_sub_surf_rp', 'rivers_sto_rp', 'rfm_bflowin_rp',              &
+           'rfm_flowin_rp','rfm_substore_rp', 'rfm_surfstore_rp',              &
+           'grid_area_rp' )
       remove_var = .TRUE.
       message    = 'River routing (l_rivers) not used.'
-    ELSE
-      SELECT CASE ( var(j) )
-      CASE ( 'rflow', 'rrun' )
-        remove_var = .TRUE.
-        message    = 'River routing (l_rivers) not used.'
-      END SELECT
-    END IF  !  is_river_var
-
-  END IF  !  l_rivers
+    END SELECT
+  END IF
 
   !---------------------------------------------------------------------------
-  ! River 2D ancillary variables (including for overbank inundation) - these
-  ! can be read in but not output (because code for 2D river grid outputs does
-  ! not exist).
+  ! River variables that currently cannot be output because required code
+  ! is not yet present.
   !---------------------------------------------------------------------------
   SELECT CASE ( var(j) )
-  CASE (  'area', 'channel_depth_grid', 'channel_width_grid',                  &
-          'direction', 'hypso_quantiles_grid', 'latitude_2d', 'logn_mean',     &
-          'logn_stdev', 'longitude_2d', 'mean_sea_level_grid',                 &
-          'river_distance_grid', 'river_elevation_grid', 'river_length_grid',  &
-          'river_manning_grid', 'river_nextx_grid', 'river_nexty_grid',        &
+  CASE (  'area', 'direction', 'latitude_2d', 'longitude_2d',                  &
           'rivers_xgrid', 'rivers_ygrid', 'sequence' )
     remove_var = .TRUE.
     message    = 'Variables on the full river grid are not available ' //      &
@@ -697,19 +626,27 @@ DO j = 1,nvars_in
   ! Water resource variables that only require l_water_resources=T.
   IF ( .NOT. l_water_resources ) THEN
     SELECT CASE ( var(j) )
-    CASE (  'conv_loss_frac', 'water_demand', 'water_demand_unmet' )
+    CASE (  'conveyance_loss', 'sfc_water_frac', 'water_demand' )
       remove_var = .TRUE.
       message    = 'Water resources (l_water_resources) not selected.'
     END SELECT
   END IF
 
-  ! Water resource variables that also require another switch.
+  ! Water resource variables that are not available for output (only for
+  ! input).
+  SELECT CASE ( var(j) )
+  CASE ( 'demand_rate_domestic', 'demand_rate_industry',                       &
+         'demand_rate_livestock', 'demand_rate_transfers' )
+    remove_var = .TRUE.
+    message    = 'Variable is only available for input.'
+  END SELECT
 
+  ! Water resource variables that also require another switch.
   ! These sector-specific switches are set to F if l_water_resources=F,
   ! so we don't need to test l_water_resources here.
   IF ( .NOT. l_water_domestic ) THEN
     SELECT CASE ( var(j) )
-    CASE (  'demand_domestic', 'demand_rate_domestic', 'domestic_unmet' )
+    CASE (  'demand_domestic' )
       remove_var = .TRUE.
       message    = 'l_water_domestic not selected.'
     END SELECT
@@ -717,7 +654,7 @@ DO j = 1,nvars_in
 
   IF ( .NOT. l_water_environment ) THEN
     SELECT CASE ( var(j) )
-    CASE (  'demand_environment', 'environment_unmet' )
+    CASE (  'demand_environment' )
       remove_var = .TRUE.
       message    = 'l_water_environment not selected.'
     END SELECT
@@ -725,7 +662,7 @@ DO j = 1,nvars_in
 
   IF ( .NOT. l_water_industry ) THEN
     SELECT CASE ( var(j) )
-    CASE (  'demand_industry', 'demand_rate_industry', 'industry_unmet' )
+    CASE (  'demand_industry' )
       remove_var = .TRUE.
       message    = 'l_water_industry not selected.'
     END SELECT
@@ -733,7 +670,7 @@ DO j = 1,nvars_in
 
   IF ( .NOT. l_water_irrigation ) THEN
     SELECT CASE ( var(j) )
-    CASE (  'demand_irrigation', 'grid_area', 'irrigation_unmet' )
+    CASE (  'demand_irrigation', 'irrig_eff', 'grid_area' )
       remove_var = .TRUE.
       message    = 'l_water_irrigation not selected.'
     END SELECT
@@ -741,7 +678,7 @@ DO j = 1,nvars_in
 
   IF ( .NOT. l_water_livestock ) THEN
     SELECT CASE ( var(j) )
-    CASE (  'demand_livestock', 'demand_rate_livestock','livestock_unmet' )
+    CASE (  'demand_livestock' )
       remove_var = .TRUE.
       message    = 'l_water_livestock not selected.'
     END SELECT
@@ -749,41 +686,9 @@ DO j = 1,nvars_in
 
   IF ( .NOT. l_water_transfers ) THEN
     SELECT CASE ( var(j) )
-    CASE (  'demand_transfers', 'transfers_unmet' )
+    CASE (  'demand_transfers' )
       remove_var = .TRUE.
       message    = 'l_water_transfers not selected.'
-    END SELECT
-  END IF
-
-  IF ( .NOT. l_have_renew_gwater ) THEN
-    SELECT CASE ( var(j) )
-    CASE (  'gw_abstracted', 'gw_avail' )
-      remove_var = .TRUE.
-      message    = 'No (renewable) groundwater is selected.'
-    END SELECT
-  END IF
-
-  IF ( nr_gwater_model == no_model ) THEN
-    SELECT CASE ( var(j) )
-    CASE (  'gw_nr_abstracted' )
-      remove_var = .TRUE.
-      message    = 'Non-renewable groundwater is represented.'
-    END SELECT
-  END IF
-
-  IF ( .NOT. l_have_surface_water ) THEN
-    SELECT CASE ( var(j) )
-    CASE (  'sw_abstracted', 'sw_avail' )
-      remove_var = .TRUE.
-      message    = 'No surface water is selected.'
-    END SELECT
-  END IF
-
-  IF ( .NOT. l_have_groundwater .OR. .NOT. l_have_surface_water ) THEN
-    SELECT CASE ( var(j) )
-    CASE (  'sfc_water_frac' )
-      remove_var = .TRUE.
-      message    = 'sfc_water_frac is not being used.'
     END SELECT
   END IF
 
@@ -796,7 +701,7 @@ DO j = 1,nvars_in
     CASE ( 'deposition_ra', 'deposition_rb', 'deposition_rc',                  &
            'deposition_rc_stom', 'deposition_rc_nonstom',                      &
            'deposition_vd', 'deposition_lossrate', 'deposition_flux',          &
-           'deposition_conc', 'level_separation', 'deposition_vd_gb')
+           'deposition_conc', 'level_separation')
       remove_var = .TRUE.
       message    = 'Atmospheric deposition is not selected.'
     END SELECT
@@ -816,9 +721,9 @@ DO j = 1,nvars_in
   ! Urban morphology
   ! These are calculated when l_urban_empirical otherwise they will be the same
   ! as the input value.
-  ! wrr   Repeating width ratio (or canyon fraction, W/R)
-  ! hwr   Height-to-width ratio (H/W)
-  ! hgt   Building height (H)
+  ! wrr 	Repeating width ratio (or canyon fraction, W/R)
+  ! hwr 	Height-to-width ratio (H/W)
+  ! hgt 	Building height (H)
   !---------------------------------------------------------------------------
   SELECT CASE ( var(j) )
   CASE (  'hwr', 'hgt' )
@@ -832,7 +737,6 @@ DO j = 1,nvars_in
       message    = 'l_urban2t not selected.'
     END IF
   END SELECT
-
   !---------------------------------------------------------------------------
   ! Variables that are only allowed when l_sugar is true
   !---------------------------------------------------------------------------
@@ -841,17 +745,6 @@ DO j = 1,nvars_in
     CASE ( 'f_nsc', 'growth_sug' )
       remove_var = .TRUE.
       message    = 'l_sugar not selected'
-    END SELECT
-  END IF
-
-  !---------------------------------------------------------------------------
-  ! Variables that only allowed when SOX is used
-  !---------------------------------------------------------------------------
-  IF ( stomata_model /= stomata_sox ) THEN
-    SELECT CASE ( var(j) )
-    CASE ( 'lwp_c' )
-      remove_var = .TRUE.
-      message    = 'SOX (stomata_model = 3) is not selected'
     END SELECT
   END IF
 

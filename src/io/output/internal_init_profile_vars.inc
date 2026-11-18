@@ -73,13 +73,9 @@ END IF
 
 DO i = 1,profile%nfields
   ! Get the number and sizes of the levels dimensions for the variable
-  ! The functionality to initialise some initial conditions from a climatology
-  ! has been added. For this purpose the input fields require a time
-  ! dimension to be added. This is not required here and hence the following
-  ! is_climatology argument must be .FALSE.
   CALL get_var_levs_dims(                                                      &
-    profile%fields(i)%var_id, is_climatology = .FALSE., ndims = var_ndims,     &
-    dim_sizes = lev_dim_sizes )
+    profile%fields(i)%var_id, ndims = var_ndims, dim_sizes = lev_dim_sizes     &
+  )
 
   ! Deallocate any existing cube first
   CALL cube_free(profile%fields(i)%field_data)

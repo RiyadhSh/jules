@@ -25,18 +25,17 @@ SUBROUTINE physiol (                                                           &
   lai_pft,pstar,qw_1,sthu_soilt,sthf_soilt,t_soil_soilt,tstar_surft,           &
   smvccl_soilt,smvcst_soilt,smvcwt_soilt,vshr,z0_surft,z1_uv_ij,o3,            &
   canhc_surft,vfrac_surft,emis_surft,l_emis_surft_set,emis_soil,flake,         &
-  g_leaf,gs,gc_surft,gc_stom_surft,gc_corr,gpp,gpp_pft,npp,npp_pft,            &
+  g_leaf,gs,gc_surft,gc_stom_surft,gc_corr,gpp,gpp_pft,el_pft,npp,npp_pft,     &
   resp_p,resp_p_pft,resp_s_soilt,resp_l_pft,                                   &
   resp_r_pft,resp_w_pft,n_leaf,                                                &
   n_root,n_stem,lai_bal,                                                       &
   smc_soilt,wt_ext_surft,fsmc_pft,                                             &
   albsoil_soilt,cos_zenith_angle,                                              &
-  can_rad_mod,ilayers,flux_o3_pft,fo3_pft,sf_diag,asteps_since_triffid,        &
+  can_rad_mod,ilayers,leaf_flux_mod,som_base_parm,                             &
+  flux_o3_pft,fo3_pft,sf_diag,asteps_since_triffid,                            &
   non_lake_frac,                                                               &
   !SUGAR variables
   f_nsc_pft, growth_sug_gb, growth_sug_pft,                                    &
-  ! SOX variables
-  psi_root_zone_pft, lwp_c_pft,                                                &
   !New arguments replacing USE statements
   !Fluxes (IN)
   t_home_gb,t_growth_gb,                                                       &
@@ -54,7 +53,10 @@ SUBROUTINE physiol (                                                           &
   !crop_vars_mod (OUT)
   gs_irr_surft, smc_irr_soilt, wt_ext_irr_surft, gc_irr_surft,                 &
   !p_s_parms (IN)
-  bexp_soilt, sathh_soilt, v_close_pft, v_open_pft,                            &
+  bexp_soilt, sathh_soilt, v_close_pft, v_open_pft,satcon_soilt,               &
+  !p_s_parms (out) JBaguley
+  soil_wp_soilt,soil_k_soilt,soil_root_k_soilt,psi_root_zone_pft,psi_leaf_pft, &
+  cica_ratio_pft,leaf_k_pft,                                                   &
   !ancil_info (IN)
   l_soil_point,                                                                &
   !jules_surface_types (IN)
@@ -62,7 +64,10 @@ SUBROUTINE physiol (                                                           &
   ! water tracers (IN)
   sthu_soilt_wtrac,                                                            &
   ! water tracers (OUT)
-  smc_soilt_wtrac)
+  smc_soilt_wtrac,  psi_soil_pd,                                                &
+  ! TEMPORARY: output variables for testing
+  carbon_gain, hydraulic_cost                                                  &
+)
 
 
 !Use in relevant subroutines
@@ -107,7 +112,7 @@ USE jules_irrig_mod, ONLY: l_irrig_dmd
 
 USE jules_hydrology_mod, ONLY: l_limit_gsoil
 
-USE pftparm, ONLY: emis_pft, fsmc_p0, rootd_ft, gsoil_f
+USE pftparm, ONLY: emis_pft, fsmc_p0, rootd_ft, gsoil_f, min_rootc_pft
 
 USE jules_radiation_mod, ONLY: l_spec_albedo, l_albedo_obs,                    &
                                l_spec_alb_bs
@@ -248,6 +253,9 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
     !Gridbox mean gross primary productivity (kg C/m2/s).
   gpp_pft(land_pts,npft),                                                      &
     !Gross primary productivity (kg C/m2/s).
+  el_pft(land_pts,npft),                                                       &
+    !Transpiration rate (mol H2O/m2/s) calculated in
+    ! stomatal optimisation code.
   npp(land_pts),                                                               &
   !Gridbox mean net primary productivity (kg C/m2/s).
   npp_pft(land_pts,npft),                                                      &
@@ -297,11 +305,8 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
     !Gridbox mean structural C growth rate (kg C/m2/s)
   growth_sug_pft(land_pts,npft),                                               &
     !Plant structural C growth rate (kg C/m2/s)
-  psi_root_zone_pft(land_pts,npft),                                            &
-    !Water potential in the root zone (Pa)
-  lwp_c_pft(land_pts,npft)
-    !Canopy leaf water potential (MPa)
-
+  psi_soil_pd(land_pts,npft)
+  !MGDK, empirical g1_stress implementation, 28 Apr, 2026 (MPa)
 
 !New arguments replacing USE statements
 !urban_param
@@ -313,11 +318,22 @@ REAL(KIND=real_jlslsm), INTENT(IN) :: hwr_gb(land_pts)
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
         albobs_scaling_surft(land_pts,ntype,rad_nband)
 
-!p_s_parms (IN)
+!p_s_parms (IN) JBaguley added satcon_soilt
 REAL(KIND=real_jlslsm), INTENT(IN) :: bexp_soilt(land_pts,nsoilt,sm_levels)
 REAL(KIND=real_jlslsm), INTENT(IN) :: sathh_soilt(land_pts,nsoilt,sm_levels)
 REAL(KIND=real_jlslsm), INTENT(IN) :: v_close_pft(land_pts,sm_levels,npft)
 REAL(KIND=real_jlslsm), INTENT(IN) :: v_open_pft(land_pts,sm_levels,npft)
+REAL(KIND=real_jlslsm), INTENT(IN) :: satcon_soilt(land_pts,nsoilt,0:sm_levels)
+
+!p_s_parms (OUT) JBaguley
+REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
+ soil_wp_soilt(land_pts,nsoilt,sm_levels)                                      &
+,soil_k_soilt(land_pts,nsoilt,sm_levels)                                       &
+,soil_root_k_soilt(land_pts,nsoilt,sm_levels)                                  &
+,psi_root_zone_pft(land_pts,npft)                                              &
+,psi_leaf_pft(land_pts,npft)                                                   &
+,cica_ratio_pft(land_pts,npft)                                                 &
+,leaf_k_pft(land_pts,npft)
 
 !crop_vars_mod (IN)
 REAL(KIND=real_jlslsm), INTENT(IN) :: rootc_cpft(land_pts,ncpft)
@@ -372,6 +388,13 @@ REAL(KIND=real_jlslsm), INTENT(OUT) :: smc_soilt_wtrac(land_pts,nsoilt,        &
                                      ! Water tracer in available moisture in
                                      ! the soil profile (kg/m2).
 
+! TEMPORARY: output variables for testing
+REAL(KIND=real_jlslsm) ::                                                      &
+ carbon_gain(land_pts,npft)                                                    &
+                            ! Carbon gain for each leaf state
+,hydraulic_cost(land_pts,npft)
+                            ! Hydraulic cost for each leaf state
+
 !Local variables
 LOGICAL ::                                                                     &
    firstcall = .TRUE.
@@ -381,7 +404,13 @@ INTEGER ::                                                                     &
 !                                !Switch for canopy radiation model
 ,ilayers                                                                       &
 !                                !No of layers in canopy radiation model
-,albpft_call = imdi              ! Flag for albpft, scaling to obs
+,leaf_flux_mod                                                                 &
+!                                !Switch for leaf flux model JBaguley
+,som_base_parm                                                                 &
+!                                !Switch for stomatal optimisation base
+!                                !  physical parameter.
+,albpft_call = imdi
+!                                !Flag for albpft, scaling to obs
 
 REAL(KIND=real_jlslsm) ::                                                      &
  alb_type_dummy(land_pts,ntype,4)                                              &
@@ -413,9 +442,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
 ,fsun(land_pts,npft,ilayers)                                                   &
 !                                 ! WORK fraction of leaves that are
 !                                 ! sunlit
-,fsun_tmp(land_pts,ilayers)                                                    &
-!                                 ! WORK temporary array for fraction of leaves
-!                                 ! that are sunlit
 ,veg_frac(land_pts)                                                            &
                                   ! WORK vegetated fraction of gridbox
 ,v_open(land_pts,sm_levels)                                                    &
@@ -443,6 +469,9 @@ REAL(KIND=real_jlslsm) ::                                                      &
 fsmc_irr(land_pts,npft)                                                        &
 !                            ! WORK Soil moisture availability
 !                                 !     factor over irrigated fraction.
+,psi_root_zone_irr(land_pts,npft)                                              &
+!                            ! WORK Root zone water potential over irrigated
+!                                 !     fraction. JBaguley
 ,sthu_nir_soilt(land_pts,nsoilt,sm_levels)                                     &
 ,sthu_surft(land_pts,nsoilt,sm_levels)                                         &
 ,wt_ext_irr_soilt(land_pts,nsoilt,sm_levels)                                   &
@@ -490,9 +519,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
 ,f_root(land_pts,sm_levels)                                                    &
                             ! WORK Fraction of roots in each soil
 !                                 !      layer.
-,f_root_tmp(sm_levels)                                                         &
-                            ! WORK Temp array for fraction of roots
-!                                 !      in each soil layer.
 ,gsoil_soilt(land_pts,nsoilt)                                                  &
                             ! WORK Bare soil conductance.
 ,gs_type(land_pts,ntype)                                                       &
@@ -514,7 +540,7 @@ REAL(KIND=real_jlslsm) ::                                                      &
 ,vf_type(land_pts,ntype)                                                       &
                             ! WORK VFRAC for surface types.
 ,wt_ext_type(land_pts,sm_levels,ntype)                                         &
-!                                 ! WORK WT_EXT for surface types.
+!                           ! WORK WT_EXT for surface types.
 ,wt_ext_soilt(land_pts,nsoilt,sm_levels)                                       &
    !Gridbox-mean wt_ext_soilt. NB This is only non-zero if l_aggregate=TRUE.
 ,fsoil(land_pts,npft)                                                          &
@@ -573,17 +599,6 @@ INTEGER :: asteps_since_triffid
 
 LOGICAL :: l_getprofile     ! Switch IN to albpft
 
-INTEGER, PARAMETER :: omp_cutoff=50   ! Cut off for loop multithreading
-                                      ! This variable was introduced to do
-                                      ! multithreasding of single level short
-                                      ! loops with not much work involved to
-                                      ! reduce degradation in their performance
-                                      ! with multithreading
-                                      ! 50 is a randomly picked up number,
-                                      ! omp_cutoff should be O(100) based on
-                                      ! using simple test cases
-LOGICAL :: l_do_omp                   ! Do OpenMP
-
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 REAL(KIND=jprb)               :: zhook_handle
@@ -597,14 +612,15 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !-----------------------------------------------------------------------
 ! Initialisations
 !-----------------------------------------------------------------------
-veg_frac(:) = 0.0
-l_do_omp    = land_pts>omp_cutoff
+veg_frac(:)           = 0.0
 
-!$OMP PARALLEL IF(l_do_omp) DEFAULT(NONE)                                      &
+!$OMP PARALLEL IF(land_pts > 1) DEFAULT(NONE)                                  &
 !$OMP PRIVATE(i, j, k, l, n, m, il, i_wt)                                      &
-!$OMP SHARED(dim_cslayer, l_do_omp)                                            &
-!$OMP SHARED(npft,land_pts,gpp_pft,npp_pft,resp_p_pft,resp_w_pft,              &
-!$OMP resp_l_pft,resp_r_pft,fsmc_pft,apar_diag_pft,isoprene_pft,terpene_pft,   &
+!$OMP SHARED(dim_cslayer)                                                      &
+!$OMP SHARED(npft,land_pts,el_pft,gpp_pft,npp_pft,resp_p_pft,resp_w_pft,       &
+!$OMP resp_l_pft,resp_r_pft,fsmc_pft,apar_diag_pft,psi_leaf_pft,cica_ratio_pft &
+!$OMP leaf_k_pft                                                               &
+!$OMP isoprene_pft,terpene_pft,                                                &
 !$OMP methanol_pft,acetone_pft, nsoilt,smc_soilt,g_leaf,fsmc_irr,root_param,   &
 !$OMP sm_levels,rib,f_root,tdims, ilayers,faparv,nsurft,gc_stom_surft,         &
 !$OMP smc_irr_soilt,ntype,alb_type_dummy,fapar_dir,fapar_dif,                  &
@@ -617,11 +633,12 @@ l_do_omp    = land_pts>omp_cutoff
 !$OMP gsoil_irr_soilt, smvccl_soilt, gs_nvg, soil, l_limit_gsoil,              &
 !$OMP sthu_irr_soilt, smvcst_soilt, gsoil_soilt, sthu_soilt,                   &
 !$OMP gc_corr, n_wtrac_jls, smc_soilt_wtrac, growth_sug_pft, growth_sug_gb,    &
-!$OMP lwp_c_pft,l_wtrac_jls)
+!$OMP psi_root_zone_pft,psi_root_zone_irr)
 
 DO n = 1,npft
 !$OMP DO SCHEDULE(STATIC)
   DO l = 1,land_pts
+    el_pft(l,n)       = 0.0
     gpp_pft(l,n)      = 0.0
     npp_pft(l,n)      = 0.0
     resp_p_pft(l,n)   = 0.0
@@ -631,6 +648,9 @@ DO n = 1,npft
     growth_sug_pft(l,n) = 0.0
     fsmc_pft(l,n)     = 0.0
     apar_diag_pft(l,n)= 0.0
+    psi_leaf_pft(l,n) = 0.0
+    cica_ratio_pft(l,n) = 0.0
+    leaf_k_pft(l,n)   = 0.0
     isoprene_pft(l,n) = 0.0
     terpene_pft(l,n)  = 0.0
     methanol_pft(l,n) = 0.0
@@ -639,7 +659,8 @@ DO n = 1,npft
     fsmc_irr(l,n)     = 0.0
     root_param(l,n)   = 0.0
     gc_corr(l,n)      = 0.0
-    lwp_c_pft(l,n)    = 0.0
+    psi_root_zone_pft(l,n) = 0.0 !JBaguley
+    psi_root_zone_irr(l,n) = 0.0 !JBaguley
   END DO
 !$OMP END DO NOWAIT
 END DO
@@ -784,14 +805,14 @@ END DO
 DO m = 1, nsoilt
 !$OMP DO SCHEDULE(STATIC)
   DO l = 1,land_pts
+    gsoil_soilt(l,m) = 0.0
     IF (smvccl_soilt(l,m,1) > 0.0 .AND. l_limit_gsoil) THEN
       gsoil_soilt(l,m) = gs_nvg(soil - npft) * MIN(1.0, (sthu_soilt(l,m,1)     &
                           * smvcst_soilt(l,m,1) / smvccl_soilt(l,m,1))**2)
     ELSE IF (smvccl_soilt(l,m,1) > 0.0) THEN
       gsoil_soilt(l,m) = gs_nvg(soil - npft) * (sthu_soilt(l,m,1)              &
                           * smvcst_soilt(l,m,1) / smvccl_soilt(l,m,1))**2
-    ELSE
-      gsoil_soilt(l,m) = 0.0
+      ! ELSE Do nothing
     END IF
   END DO
 !$OMP END DO NOWAIT
@@ -952,16 +973,16 @@ DO n = 1,npft
   END IF !nsoilt
 
   IF ( l_aggregate ) THEN
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(land_pts,       &
-!$OMP   l_do_omp,  tstar, tstar_surft, z0, z0_surft) SCHEDULE(STATIC)
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(land_pts,   &
+!$OMP              tstar, tstar_surft, z0, z0_surft) SCHEDULE(STATIC)
     DO l = 1,land_pts
       tstar(l) = tstar_surft(l,1)
       z0(l) = z0_surft(l,1)
     END DO
 !$OMP END PARALLEL DO
   ELSE
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(land_pts,       &
-!$OMP   l_do_omp,  n, tstar, tstar_surft, z0, z0_surft) SCHEDULE(STATIC)
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(land_pts,   &
+!$OMP             n, tstar, tstar_surft, z0, z0_surft) SCHEDULE(STATIC)
     DO l = 1,land_pts
       tstar(l) = tstar_surft(l,n)
       z0(l) = z0_surft(l,n)
@@ -984,13 +1005,12 @@ DO n = 1,npft
 !$OMP END PARALLEL DO
   END IF
 
-!$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) PRIVATE(i, j, f_root_tmp) &
+!$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) PRIVATE(i, j)             &
 !$OMP SHARED(surft_pts, n, sm_levels, dzsoil, root_param, f_root, surft_index) &
 !$OMP SCHEDULE(STATIC)
   DO j = 1,surft_pts(n)
     i = surft_index(j,n)
-    CALL root_frac(n,sm_levels,dzsoil,root_param(i,n),f_root_tmp)
-    f_root(i,:) = f_root_tmp(:)
+    CALL root_frac(n,sm_levels,dzsoil,root_param(i,n),f_root(i,:))
   END DO
 !$OMP END PARALLEL DO
 
@@ -999,21 +1019,17 @@ DO n = 1,npft
   ! on irrigated fraction *in this tile*
   ! However, in the irrigated fraction *in this tile*, soil moisture
   ! is the same as in the overall gridbox irrigated fraction
-!$OMP PARALLEL IF(l_do_omp) DEFAULT(NONE) PRIVATE(l, k)                        &
-!$OMP             SHARED(frac_irr_soilt, frac_irr_surft, land_pts, v_open,     &
-!$OMP             l_irrig_dmd, n, m,l_use_pft_psi, v_close, v_close_pft,       &
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l, k)                 &
+!$OMP             SHARED(frac_irr_soilt, frac_irr_surft, land_pts,             &
+!$OMP             l_irrig_dmd, n, m,                                           &
 !$OMP             sm_levels, sthu_soilt, sthu_irr_soilt, sthu_nir_soilt,       &
-!$OMP l_do_omp,    sthu_surft, v_open_pft, smvcwt_soilt, smvccl_soilt, fsmc_p0)
-  DO k = 1,sm_levels
-!$OMP DO SCHEDULE(STATIC)
-    DO l = 1,land_pts
+!$OMP             sthu_surft)                                                  &
+!$OMP             SCHEDULE(STATIC)
+  DO l = 1,land_pts
+    DO k = 1,sm_levels
       sthu_surft(l,m,k) = sthu_soilt(l,m,k)
-    END DO
-!$OMP END DO
 
-    IF ( l_irrig_dmd ) THEN
-!$OMP DO SCHEDULE(STATIC)
-      DO l = 1,land_pts
+      IF ( l_irrig_dmd ) THEN
         sthu_nir_soilt(l,m,k) = sthu_soilt(l,m,k)
         IF ( frac_irr_soilt(l,m) < 1.0 ) THEN
           sthu_nir_soilt(l,m,k) = (sthu_soilt(l,m,k) - frac_irr_soilt(l,m)     &
@@ -1024,48 +1040,43 @@ DO n = 1,npft
         END IF
         sthu_surft(l,m,k) = frac_irr_surft(l,n) * sthu_irr_soilt(l,m,k)        &
                            + (1.0 - frac_irr_surft(l,n)) * sthu_nir_soilt(l,m,k)
-      END DO
-!$OMP END DO
-    END IF
+      END IF
+    END DO
   END DO
+!$OMP END PARALLEL DO
 
   IF (l_use_pft_psi ) THEN
-    DO k = 1,sm_levels
-!$OMP DO SCHEDULE(STATIC)
-      DO l = 1,land_pts
-        v_close(l,k) = v_close_pft(l,k,n)
-        v_open(l,k)  = v_open_pft(l,k,n)
-      END DO
-!$OMP END DO
-    END DO
+    v_close(:,:) = v_close_pft(:,:,n)
+    v_open(:,:)  = v_open_pft(:,:,n)
   ELSE
-    DO k = 1,sm_levels
-!$OMP DO SCHEDULE(STATIC)
-      DO l = 1,land_pts
-        v_close(l,k) = smvcwt_soilt(l,m,k)
-        v_open(l,k)  = smvccl_soilt(l,m,k) -                                   &
-                     fsmc_p0(n) * (smvccl_soilt(l,m,k) - smvcwt_soilt(l,m,k))
-      END DO
-!$OMP END DO
-    END DO
+    v_close(:,:) = smvcwt_soilt(:,m,:)
+    v_open(:,:)  = smvccl_soilt(:,m,:) -                                       &
+                   fsmc_p0(n) * (smvccl_soilt(:,m,:) - smvcwt_soilt(:,m,:))
   END IF
-!$OMP END PARALLEL
 
+  ! JBaguley added soil_wp_soilt, sathh_soilt, soil_k_soilt, soil_root_k_soilt
+  ! psi_root_zone_pft
   CALL smc_ext (land_pts,sm_levels,surft_pts(n),surft_index(:,n), n, f_root,   &
+                satcon_soilt(:,m,:),                        &
                 sthu_surft(:,m,:),                                             &
                 v_open,smvcst_soilt(:,m,:),                                    &
                 v_close,                                                       &
                 bexp_soilt(:,m,:), sathh_soilt(:,m,:),                         &
-                wt_ext_type(:,:,n),fsmc_pft(:,n),psi_root_zone_pft(:,n))
+                soil_wp_soilt(:,m,:),soil_k_soilt(:,m,:),                      &
+                soil_root_k_soilt(:,m,:),wt_ext_type(:,:,n),fsmc_pft(:,n),     &
+                psi_root_zone_pft(:,n))
 
+  ! JBaguley added soil_wp_soilt, sathh_soilt, soil_k_soilt, soil_root_k_soilt
   IF (l_irrig_dmd) THEN
     CALL smc_ext (land_pts,sm_levels,surft_pts(n),surft_index(:,n), n, f_root, &
+                  satcon_soilt(:,n,:),                      &
                   sthu_irr_soilt(:,m,:),                                       &
                   v_open,smvcst_soilt(:,m,:),                                  &
                   v_close,                                                     &
                   bexp_soilt(:,m,:), sathh_soilt(:,m,:),                       &
-                  wt_ext_irr_type(:,:,n),fsmc_irr(:,n),                        &
-                  psi_root_zone_pft(:,n))
+                  soil_wp_soilt(:,m,:),soil_k_soilt(:,m,:),                    &
+                  soil_root_k_soilt(:,m,:),wt_ext_irr_type(:,:,n),             &
+                  fsmc_irr(:,n),psi_root_zone_irr(:,n))
   END IF
 
   CALL raero (land_pts,land_index,surft_pts(n),surft_index(:,n)                &
@@ -1120,8 +1131,6 @@ DO n = 1,npft
 
   END IF  !  can_rad_mod
 
-  fsun_tmp(:,:) = fsun(:,n,:)
-
   CALL sf_stom (land_pts,land_index                                            &
 ,               surft_pts(n),surft_index(:,n),n                                &
 ,               co2_mmr,co2_3d,co2_dim_len                                     &
@@ -1130,23 +1139,25 @@ DO n = 1,npft
 ,               ipar_land,lai_pft(:,n)                                         &
 ,               canht_pft(:,n),pstar_land                                      &
 ,               q1_land,ra,tstar,o3,t_home_gb,t_growth_gb                      &
-,               can_rad_mod,ilayers,faparv                                     &
-,               psi_root_zone_pft(:,n),lwp_c_pft(:,n)                          &
-,               gpp_pft(:,n),npp_pft(:,n),resp_p_pft(:,n)                      &
+,               psi_root_zone_pft(:,n)                                         &
+,               can_rad_mod,ilayers,leaf_flux_mod,som_base_parm,faparv         &
+,               el_pft(:,n),gpp_pft(:,n),npp_pft(:,n),resp_p_pft(:,n)          &
 ,               resp_l_pft(:,n),resp_r_pft(:,n),resp_w_pft(:,n)                &
 ,               growth_sug_pft(:,n),f_nsc_pft(:,n)                             &
 ,               n_leaf(:,n),n_root(:,n),n_stem(:,n)                            &
 ,               lai_bal(:,n)                                                   &
 ,               gs_type(:,n)                                                   &
-,               fapar_sun,fapar_shd,fsun_tmp                                   &
+,               fapar_sun,fapar_shd,fsun(:,n,:)                                &
 ,               flux_o3_pft(:,n),fo3_pft(:,n)                                  &
-,               fapar_diag_pft(:,n),apar_diag_pft(:,n)                         &
+,               fapar_diag_pft(:,n),apar_diag_pft(:,n),psi_leaf_pft(:,n)       &
+,               cica_ratio_pft(:,n),leaf_k_pft(:,n)                            &
 ,               isoprene_pft(:,n),terpene_pft(:,n)                             &
 ,               methanol_pft(:,n),acetone_pft(:,n)                             &
-,               open_index,open_pts,                                           &
+,               open_index,open_pts                                            &
+,               carbon_gain(:,n),hydraulic_cost(:,n),psi_soil_pd(:,n)          &
                     !New arguments replacing USE statements
                     !crop_vars_mod (IN)
-                    dvi_cpft,rootc_cpft)
+,                   dvi_cpft,rootc_cpft)
 
   ! Store conductance before adjustment for soil evaporation
   gc_corr(:,n) = gs_type(:,n)
@@ -1230,8 +1241,8 @@ DO n = 1,npft
                     !crop_vars_mod (IN)
                     dvi_cpft)
 
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(frac,           &
-!$OMP   l_do_omp, fsoil, fsoil_tot, land_pts, n) SCHEDULE(STATIC)
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(frac,       &
+!$OMP             fsoil, fsoil_tot, land_pts, n) SCHEDULE(STATIC)
   DO l = 1,land_pts
     fsoil_tot(l) = fsoil_tot(l) + frac(l,n) * fsoil(l,n)
   END DO
@@ -1375,21 +1386,19 @@ END IF
 
 IF ( l_moruses_emissivity ) THEN
   n = urban_canyon
-  IF (.NOT. l_emis_surft_set(n)) THEN
-    IF ( firstcall) THEN
-      CALL jules_print('physiol_jls',                                          &
+  IF ( firstcall) THEN
+    CALL jules_print('physiol_jls',                                            &
         'MORUSES canyon emissivity calculated',level = PrNorm)
-    END IF
+  END IF
 !$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) PRIVATE(l, j)             &
 !$OMP           SHARED(surft_pts, n, surft_index, hwr_gb, emisr_gb, emisw_gb, emisc) &
 !$OMP           SCHEDULE(STATIC)
-    DO j = 1, surft_pts(n)
-      l = surft_index(j,n)
-      CALL urbanemis(hwr_gb(l), emisr_gb(l), emiss, emisw_gb(l),               &
+  DO j = 1, surft_pts(n)
+    l = surft_index(j,n)
+    CALL urbanemis(hwr_gb(l), emisr_gb(l), emiss, emisw_gb(l),                 &
        emisc(l))
-    END DO
+  END DO
 !$OMP END PARALLEL DO
-  END IF
 END IF
 
 ! Calculate EMIS_surft
@@ -1397,8 +1406,8 @@ END IF
 IF ( l_aggregate ) THEN
 
   DO n = 1,nsurft
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l)                        &
-!$OMP              SHARED(land_pts, n, emis_surft, l_do_omp)                   &
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l)                    &
+!$OMP              SHARED(land_pts, n, emis_surft)                             &
 !$OMP              SCHEDULE(STATIC)
     DO l = 1,land_pts
       emis_surft(l,n) = 0.0
@@ -1506,17 +1515,15 @@ ELSE ! .NOT. L_AGGREGATE
   ! MORUSES: Overwrite EMIS_surft for urban canyon
   IF ( l_moruses_emissivity ) THEN
     n = urban_canyon
-    IF (.NOT. l_emis_surft_set(n)) THEN
 !$OMP PARALLEL DO IF(surft_pts(n) > 1) DEFAULT(NONE) PRIVATE(l, j)             &
 !$OMP             SHARED(emisc, emis_surft, n, surft_index,                    &
 !$OMP                    surft_pts) SCHEDULE(STATIC)
-      DO j = 1, surft_pts(n)
-        l = surft_index(j,n)
-        emis_surft(l,n) = emisc(l)
-      END DO
+    DO j = 1, surft_pts(n)
+      l = surft_index(j,n)
+      emis_surft(l,n) = emisc(l)
+    END DO
 !$OMP END PARALLEL DO
-      firstcall = .FALSE.
-    END IF
+    firstcall = .FALSE.
   END IF
 
 END IF ! L_AGGREGATE
@@ -1533,8 +1540,8 @@ CASE ( soil_model_1pool, soil_model_4pool )
 
   !   Set VEG_FRAC according to whether it is full or dummy field
   IF ( soil_bgc_model == soil_model_4pool ) THEN
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(frac,           &
-!$OMP             land_pts, npft, veg_frac,l_do_omp) SCHEDULE(STATIC)
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(frac,       &
+!$OMP             land_pts, npft, veg_frac) SCHEDULE(STATIC)
     DO l = 1,land_pts
       veg_frac(l) = SUM(frac(l,1:npft))
     END DO
@@ -1616,11 +1623,10 @@ IF ( l_aggregate ) THEN
     END DO
 !$OMP END PARALLEL DO
   END DO
-!$OMP PARALLEL IF(l_do_omp) DEFAULT(NONE) PRIVATE(k, l)                        &
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(k, l)                 &
 !$OMP             SHARED(canhc, canhc_surft, flake, frac, gs, gc_surft, lake,  &
-!$OMP                    land_pts, sm_levels, vfrac, vfrac_surft, l_do_omp,    &
-!$OMP                    wt_ext_soilt, m, wt_ext_surft)
-!$OMP DO SCHEDULE(STATIC)
+!$OMP                    land_pts, sm_levels, vfrac, vfrac_surft,              &
+!$OMP                    wt_ext_soilt, m, wt_ext_surft) SCHEDULE(STATIC)
   DO l = 1,land_pts
     IF ( lake > 0 ) THEN
       flake(l,1) = frac(l,lake)
@@ -1632,40 +1638,18 @@ IF ( l_aggregate ) THEN
       gc_surft(l,1) = gs(l) / (1.0 - flake(l,1))
     canhc_surft(l,1) = canhc(l)
     vfrac_surft(l,1) = vfrac(l)
-  END DO
-!$OMP END DO
-  DO k = 1,sm_levels
-!$OMP DO SCHEDULE(STATIC)
-    DO l = 1,land_pts
+    DO k = 1,sm_levels
       wt_ext_surft(l,k,1) = wt_ext_soilt(l,m,k)
     END DO
-!$OMP END DO
   END DO
-!$OMP END PARALLEL
+!$OMP END PARALLEL DO
 ELSE
-!$OMP PARALLEL IF(l_do_omp) DEFAULT(NONE) PRIVATE(k, l, n)                     &
-!$OMP             SHARED(nsurft, land_pts, gc_surft, canhc_surft, vfrac_surft, &
-!$OMP                    l_do_omp, l_irrig_dmd, gs_irr_surft)
-  DO n = 1, nsurft
-!$OMP DO SCHEDULE(STATIC)
-    DO i =1, land_pts
-      gc_surft(i,n)=0.0
-      canhc_surft(i,n)=0.0
-      vfrac_surft(i,n)=0.0
-    END DO
-!$OMP END DO NOWAIT
-  END DO
+  gc_surft(:,:)=0.0
+  canhc_surft(:,:)=0.0
+  vfrac_surft(:,:)=0.0
   IF (l_irrig_dmd) THEN
-    DO n = 1, nsurft
-!$OMP DO SCHEDULE(STATIC)
-      DO i =1, land_pts
-        gs_irr_surft(i,n)=0.0 ! irrigation
-      END DO
-!$OMP END DO NOWAIT
-    END DO
+    gs_irr_surft(:,:)=0.0 ! irrigation
   END IF
-!$OMP END PARALLEL
-
   DO n = 1,ntype
 
     !Set the current soil tile (see notice above)
@@ -1815,9 +1799,9 @@ IF (l_wtrac_jls) THEN
 
   ALLOCATE(ratio_wt(land_pts,nsoilt,sm_levels,n_wtrac_jls))
 
-!$OMP PARALLEL IF(l_do_omp) DEFAULT(NONE) PRIVATE(l,i_wt,m,k)                  &
+!$OMP PARALLEL IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l,i_wt,m,k)              &
 !$OMP SHARED(ratio_wt, land_pts, n_wtrac_jls, nsoilt, sm_levels,               &
-!$OMP        sthu_soilt, sthu_soilt_wtrac, l_do_omp)
+!$OMP        sthu_soilt, sthu_soilt_wtrac)
   DO i_wt = 1, n_wtrac_jls
     DO m = 1, nsoilt
       DO k = 1,sm_levels
@@ -1852,9 +1836,9 @@ IF (l_use_pft_psi ) THEN
     END IF !nsoilt
 
     DO k = 1,sm_levels
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,         &
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,     &
 !$OMP             land_pts, k, n, m, smc_soilt, sthu_surft, smvcst_soilt,      &
-!$OMP             v_close_pft, wt_ext_type, frac, l_do_omp)                    &
+!$OMP             v_close_pft, wt_ext_type, frac)                              &
 !$OMP             SCHEDULE(STATIC)
       DO l = 1,land_pts
         smc_soilt(l,m) = smc_soilt(l,m)                                        &
@@ -1868,11 +1852,11 @@ IF (l_use_pft_psi ) THEN
     END DO
   END DO
 ELSE
-  DO k = 1,sm_levels
-    DO m = 1, nsoilt
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,         &
+  DO m = 1, nsoilt
+    DO k = 1,sm_levels
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,     &
 !$OMP             land_pts, k, n, m, smc_soilt, sthu_soilt, smvcst_soilt,      &
-!$OMP             smvcwt_soilt, wt_ext_soilt, l_do_omp)                        &
+!$OMP             smvcwt_soilt, wt_ext_soilt)                                  &
 !$OMP             SCHEDULE(STATIC)
       DO l = 1,land_pts
         smc_soilt(l,m) = smc_soilt(l,m)                                        &
@@ -1888,10 +1872,10 @@ ELSE
   ! Water tracers - calculate water tracer content of water available for
   ! plant transpiration
   IF (l_wtrac_jls) THEN
-!$OMP PARALLEL IF(l_do_omp) DEFAULT(NONE) PRIVATE(l,i_wt,m,k)                  &
+!$OMP PARALLEL IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l,i_wt,m,k)              &
 !$OMP SHARED(dzsoil, land_pts, n_wtrac_jls, nsoilt, sm_levels, sthu_soilt,     &
 !$OMP        smvcst_soilt, smvcwt_soilt, wt_ext_soilt, smc_soilt_wtrac,        &
-!$OMP        ratio_wt, l_do_omp)
+!$OMP        ratio_wt)
     DO i_wt = 1, n_wtrac_jls
       DO m = 1, nsoilt
         DO k = 1, sm_levels
@@ -1920,8 +1904,8 @@ END IF
 
 DO m = 1, nsoilt
   ! Add available water for evaporation from bare soil
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,         &
-!$OMP  l_do_omp,  fsoil_tot, land_pts, smc_soilt, sthu_soilt, smvcst_soilt, m) &
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,     &
+!$OMP             fsoil_tot, land_pts, smc_soilt, sthu_soilt, smvcst_soilt, m) &
 !$OMP             SCHEDULE(STATIC)
   DO l = 1,land_pts
     smc_soilt(l,m) = (1.0 - fsoil_tot(l)) * smc_soilt(l,m) +                   &
@@ -1934,9 +1918,9 @@ END DO
 ! Water tracers - add available water tracer for evaporation from bare soil
 
 IF (l_wtrac_jls) THEN
-!$OMP PARALLEL IF(l_do_omp) DEFAULT(NONE) PRIVATE(l,i_wt,m)                    &
+!$OMP PARALLEL IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l,i_wt,m)                &
 !$OMP SHARED(dzsoil, fsoil_tot, land_pts, sthu_soilt, smvcst_soilt, nsoilt,    &
-!$OMP        n_wtrac_jls, smc_soilt_wtrac, ratio_wt, l_do_omp)
+!$OMP        n_wtrac_jls, smc_soilt_wtrac, ratio_wt)
 
   DO i_wt = 1, n_wtrac_jls
     DO m = 1, nsoilt
@@ -1974,9 +1958,9 @@ IF (l_irrig_dmd) THEN
       END IF !nsoilt
 
       DO k = 1,sm_levels
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,         &
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,     &
 !$OMP             land_pts, k, n, m, smc_irr_soilt, sthu_irr_soilt, frac,      &
-!$OMP             frac_irr_surft, frac_irr_soilt, l_do_omp,                    &
+!$OMP             frac_irr_surft, frac_irr_soilt,                              &
 !$OMP             smvcst_soilt, v_close_pft, wt_ext_irr_type)                  &
 !$OMP             SCHEDULE(STATIC)
         DO l = 1,land_pts
@@ -1996,11 +1980,11 @@ IF (l_irrig_dmd) THEN
     END DO
   ELSE
     ! Available water for plant transpiration in irrigated fraction.
-    DO k = 1,sm_levels
-      DO m = 1,nsoilt
-!$OMP PARALLEL DO IF(l_do_omp) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,         &
+    DO m = 1,nsoilt
+      DO k = 1,sm_levels
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,     &
 !$OMP             land_pts, k, n, smc_irr_soilt, sthu_irr_soilt, smvcst_soilt, &
-!$OMP             smvcwt_soilt,wt_ext_irr_soilt,m, l_do_omp)                   &
+!$OMP             smvcwt_soilt,wt_ext_irr_soilt,m)                             &
 !$OMP             SCHEDULE(STATIC)
         DO l = 1,land_pts
           smc_irr_soilt(l,m) = smc_irr_soilt(l,m)                              &
@@ -2017,27 +2001,20 @@ IF (l_irrig_dmd) THEN
   END IF
 
   ! Add available water for evaporation from bare soil in irrig frac.
-!$OMP PARALLEL IF(l_do_omp) DEFAULT(NONE) PRIVATE(l,m,n) SHARED(dzsoil,        &
-!$OMP             fsoil_tot, land_pts, smc_irr_soilt, sthu_irr_soilt,nsoilt,   &
-!$OMP             smvcst_soilt, gs_irr_surft,gc_irr_surft, nsurft,l_do_omp)
   DO m = 1,nsoilt
-!$OMP DO SCHEDULE(STATIC)
+!$OMP PARALLEL DO IF(land_pts > 1) DEFAULT(NONE) PRIVATE(l) SHARED(dzsoil,     &
+!$OMP             fsoil_tot, land_pts, smc_irr_soilt, sthu_irr_soilt,          &
+!$OMP             smvcst_soilt,m)                                              &
+!$OMP             SCHEDULE(STATIC)
     DO l = 1,land_pts
       smc_irr_soilt(l,m) = (1.0 - fsoil_tot(l)) * smc_irr_soilt(l,m) +         &
                            fsoil_tot(l) * rho_water * dzsoil(1) *              &
                            MAX(0.0,sthu_irr_soilt(l,m,1)) * smvcst_soilt(l,m,1)
     END DO
-!$OMP END DO
+!$OMP END PARALLEL DO
   END DO
 
-  DO n =1, nsurft
-!$OMP DO SCHEDULE(STATIC)
-    DO l = 1,land_pts
-      gc_irr_surft(l,n)=gs_irr_surft(l,n)
-    END DO
-!$OMP END DO NOWAIT
-  END DO
-!$OMP END PARALLEL
+  gc_irr_surft(:,:)=gs_irr_surft(:,:)
 
 END IF
 

@@ -63,12 +63,9 @@ SUBROUTINE deposition_jules_ddepctl(                                           &
        tile_frac, ustar_ij,                                                    &
          ! Corrected stomatal conductance
        dep_surfconc_ij,                                                        &
-         ! Parameters for Paulot et al H2 deposition scheme
-       nsurft, dim_cs1, vol_smc_sat_dep,                                       &
-       snow_depth, soil_carbon_dep, deep_soil_temp_dep, soil_sand,             &
          ! Output deposition parameters
        dep_ra_ij, dep_rb_ij, dep_rc_ij, dep_rc_stom_ij, dep_rc_nonstom_ij,     &
-       dep_vd_ij, dep_loss_rate_ij, dep_flux_ij, nlev_with_ddep, dep_vd_gb     &
+       dep_vd_ij, dep_loss_rate_ij, dep_flux_ij, nlev_with_ddep                &
      )
 
 !-------------------------------------------------------------------------------
@@ -107,7 +104,9 @@ SUBROUTINE deposition_jules_ddepctl(                                           &
 ! zdryrt                            dep_loss_rate             subroutine call
 !-------------------------------------------------------------------------------
 
-USE jules_surface_types_mod, ONLY: ntype, npft, nnvg, lake, ice, elev_ice
+USE ancil_info,              ONLY: nsurft
+
+USE jules_surface_types_mod, ONLY: ntype, npft, lake, ice
 
 USE jules_soil_mod,          ONLY: dzsoil
 
@@ -139,10 +138,6 @@ INTEGER, INTENT(IN) ::                                                         &
     ! Atmospheric timestep number.
   land_pts,                                                                    &
     ! Number of land points
-  nsurft,                                                                      &
-    ! Number of surface tiles
-  dim_cs1,                                                                     &
-    ! Number of pools for soil carbon (cs)
   row_length,                                                                  &
     ! Number of points on a row
   rows,                                                                        &
@@ -159,7 +154,6 @@ INTEGER, INTENT(IN) ::                                                         &
   surft_index(land_pts, ntype)
     ! indices of land points which include the nth surface type
 
-! Input arguments on land points
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   timestep,                                                                    &
     ! timestep length (s)
@@ -175,32 +169,14 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     ! Canopy water content
   smc_soilt(land_pts),                                                         &
     ! Soil moisture
-  vol_smc_sat_dep(land_pts),                                                   &
-    ! volumetric saturation point (m3 water / m3 of soil)
-    ! for Paulot H2 deposition scheme
-    ! equivalent to psparms%smvcst_soilt
-  snow_depth(land_pts,nsurft),                                                 &
-    ! snow depth on ground on tiles (m)
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%snowdepth_surft
-  soil_carbon_dep(land_pts,dim_cs1),                                           &
-    ! soil moisture
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%cs_pool_soilt
-  deep_soil_temp_dep(land_pts),                                                &
-    ! sub-surface temperature for surface layer (K)
-    ! for Paulot H2 deposition scheme
-    ! equivalent to progs%t_soil_soilt
   stom_con_pft(land_pts, npft),                                                &
     ! Stomatal conductance (m s-1)
   tstar_surft(land_pts, nsurft),                                               &
     ! Surface temperature by tile
   z0h_surft(land_pts, nsurft),                                                 &
     ! Tile roughness lengths for heat and moisture (m)
-  sw_surft(land_pts, nsurft),                                                  &
+  sw_surft(land_pts, nsurft)
     ! Net SW downward radiation (W m-2)
-  soil_sand(land_pts)
-   ! fraction of soil that is sand
 
 ! Input arguments on lat, lon grid
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
@@ -245,8 +221,6 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
     ! Surface resistance, Rc (s m-1): non-stomatal component
   dep_vd_ij(row_length, rows, ntype, ndry_dep_species),                        &
     ! Surface deposition velocity term (m s-1)
-  dep_vd_gb(row_length, rows, ndry_dep_species),                               &
-    ! Surface deposition velocity term (m s-1) on gridboxes (for diagnostics)
   dep_loss_rate_ij(row_length, rows, ndry_dep_species),                        &
     ! First-order loss rate (s-1) for trace gases
   dep_flux_ij(row_length, rows, ndry_dep_species)
@@ -262,9 +236,6 @@ INTEGER :: ErrorStatus
 INTEGER ::                                                                     &
   land_index_ij(row_length, rows)
     ! Identifies land points on grid and their index
-
-! Variables used to add sea ice fraction to an elevated ice tile.
-INTEGER :: i_elev_ice, n_elev_ice
 
 REAL(KIND=real_jlslsm) ::                                                      &
   seafrac,                                                                     &
@@ -307,7 +278,6 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 z0tile_ij(:,:,:)       =  0.0
 t0tile_ij(:,:,:)       =  0.0
 gsf_ij(:,:,:)          =  0.0
-dep_vd_gb(:,:,:)       =  0.0
 
 ! Regrid, with type dimension
 DO m = 1, ntype
@@ -403,30 +373,7 @@ DO j = 1, rows
     ! Adjust open water fraction for sea ice
     IF (ice_fract_ij(i,j) > 0.0) THEN
       gsf_ij(i,j,lake)  = (1.0 - ice_fract_ij(i,j)) * seafrac
-
-      ! Check that ice tile has some surface fraction before adding the
-      ! sea ice fraction and potentially making a tile active which
-      ! should be redundant.
-      IF (gsf_ij(i,j,ice) > 0.0) THEN
-        gsf_ij(i,j,ice) = gsf_ij(i,j,ice) + ice_fract_ij(i,j) * seafrac
-      ELSE
-        ! It may still be possible to add the sea ice fraction to an
-        ! elevated ice tile.
-        n_elev_ice = COUNT(elev_ice(1:nnvg) > 0)
-        IF (n_elev_ice > 0) THEN
-          i_elev_ice = 1
-          n = elev_ice(1)
-          DO WHILE ( (gsf_ij(i,j,n) == 0.0) .AND. (i_elev_ice <= n_elev_ice) )
-            i_elev_ice = i_elev_ice + 1
-            n = elev_ice(i_elev_ice)
-          END DO
-          ! Only add the fraction of sea ice if an ice tile with some surface
-          ! fraction is found.
-          IF (i_elev_ice <= n_elev_ice) THEN
-            gsf_ij(i,j,n) = gsf_ij(i,j,n) + ice_fract_ij(i,j) * seafrac
-          END IF
-        END IF
-      END IF
+      gsf_ij(i,j,ice)   = gsf_ij(i,j,ice) + ice_fract_ij(i,j) * seafrac
     END IF
 
   END DO        ! End of DO loop over row_length
@@ -475,20 +422,16 @@ CASE ( dry_dep_model_ukca )
   CALL deposition_ukca_surfddr(                                                &
     row_length, rows, land_pts, ntype, npft, land_index_ij, tundra_mask_ij,    &
     tstar_ij, pstar_ij, rh_ij, surf_wetness_ij, ustar_ij, gsf_ij, t0tile_ij,   &
-    smc_land, stom_con_pft, lai_pft, nsurft, dim_cs1, vol_smc_sat_dep,         &
-    snow_depth, soil_carbon_dep, deep_soil_temp_dep, soil_sand,                &
-    dep_vd_so4_ij, dep_rc_ij, dep_rc_stom_ij, dep_rc_nonstom_ij,               &
-    o3_stom_frac_ij)
+    smc_land, stom_con_pft, lai_pft, dep_vd_so4_ij, dep_rc_ij, dep_rc_stom_ij, &
+    dep_rc_nonstom_ij, o3_stom_frac_ij)
 
 CASE ( dry_dep_model_jules )
   ! 2. UKCA routines for use in JULES with flexible tile configuration
   CALL deposition_jules_surfddr(                                               &
     row_length, rows, land_pts, lake, land_index_ij, tundra_mask_ij,           &
     tstar_ij, pstar_ij, rh_ij, surf_wetness_ij, ustar_ij, gsf_ij, t0tile_ij,   &
-    smc_land, stom_con_pft, lai_pft, nsurft, dim_cs1, vol_smc_sat_dep,         &
-    snow_depth, soil_carbon_dep, deep_soil_temp_dep, soil_sand,                &
-    dep_vd_so4_ij, dep_rc_ij, dep_rc_stom_ij, dep_rc_nonstom_ij,               &
-    o3_stom_frac_ij)
+    smc_land, stom_con_pft, lai_pft, dep_vd_so4_ij, dep_rc_ij, dep_rc_stom_ij, &
+    dep_rc_nonstom_ij, o3_stom_frac_ij)
 
 CASE DEFAULT
   CALL ereport ("Invalid value for dry_dep_model. ", errcode,                  &
@@ -520,16 +463,6 @@ IF (l_deposition_flux) THEN
     END DO
   END DO        ! End of DO loop over deposited atmospheric species
 END IF
-
-DO j = 1, rows
-  DO i = 1, row_length
-    DO m = 1, ndry_dep_species
-      DO n = 1, ntype
-        dep_vd_gb(i,j,m) = dep_vd_gb(i,j,m) + gsf_ij(i,j,n)*dep_vd_ij(i,j,n,m)
-      END DO ! ntype
-    END DO   ! ndry_dep
-  END DO     ! row_length
-END DO       ! rows
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 

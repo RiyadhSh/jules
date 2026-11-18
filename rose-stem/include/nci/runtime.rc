@@ -8,6 +8,8 @@
         pre-script = """
            module load openmpi/4.1.4
            """
+        [[[remote]]]
+            host = gadi.nci.org.au
         [[[job]]]
             batch system = pbs
             execution time limit = PT10M
@@ -19,15 +21,13 @@
         [[[environment]]]
             OMPI_MCA_io = ompio
 
-    [[remote_init_nci]]
-        inherit = NCI
-        script = true
-
 # Family for Linux build jobs
     [[NCI_EXTRACT]]
         inherit = EXTRACT
-        #[[[job]]]
-        #    batch system = background
+        [[[remote]]]
+            host = {{ ROSE_ORIG_HOST }}
+        [[[job]]]
+            batch system = background
 
 # Family for NCI compute jobs
     [[NCI_COMPUTE]]

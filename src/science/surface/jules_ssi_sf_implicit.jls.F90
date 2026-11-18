@@ -53,13 +53,7 @@ SUBROUTINE jules_ssi_sf_implicit (                                             &
  ssi_index, sice_index, sice_index_ncat, fssi_ij, sice_frac, sice_frac_ncat,   &
  ocn_cpl_point, sice_pts_ncat, sea_index, ssi_pts, sice_pts, sea_pts,          &
  ! fluxes (IN)
- sw_sicat,                                                                     &
- ! water tracers (IN)
- fqw_sea_wtrac, fqw_sicat_wtrac,                                               &
- ! water tracers (IN OUT)
- fqw_1_wtrac, dfqw_wtrac,                                                      &
- ! water tracers (OUT)
- e_sea_wtrac, ei_sice_wtrac)
+ sw_sicat)
 
 USE csigma,                   ONLY:                                            &
  sbcon
@@ -295,42 +289,6 @@ LOGICAL, INTENT(IN) ::                                                         &
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   sw_sicat(t_i_length * t_j_length, nice_use)
 
-! Water tracers (IN)
-REAL(KIND=real_jlslsm), INTENT(IN) :: fqw_sea_wtrac(                           &
-                                               tdims%i_start:tdims%i_end,      &
-                                               tdims%j_start:tdims%j_end,      &
-                                               n_wtrac_jls)
-                            ! Water tracer surface flux over open ocean
-                            !  from explicit scheme (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(IN) :: fqw_sicat_wtrac(                         &
-                                               tdims%i_start:tdims%i_end,      &
-                                               tdims%j_start:tdims%j_end,      &
-                                               nice_use, n_wtrac_jls)
-                            ! Water tracer surface flux over sea ice
-                            !  from explicit scheme per ice cat (kg/m2/s)
-! Water tracers (INOUT)
-REAL(KIND=real_jlslsm), INTENT(IN OUT) :: fqw_1_wtrac(                         &
-                                         tdims%i_start:tdims%i_end,            &
-                                         tdims%j_start:tdims%j_end,n_wtrac_jls)
-                            ! Water tracer surface moisture flux  (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(IN OUT) :: dfqw_wtrac(                          &
-                                                   tdims%i_start:tdims%i_end,  &
-                                                   tdims%j_start:tdims%j_end,  &
-                                                   n_wtrac_jls)
-                            ! Increment to water tracer surface moisture flux
-                            !   (kg/m2/s)
-
-! Water tracers (OUT)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: e_sea_wtrac(tdims%i_start:tdims%i_end,  &
-                                         tdims%j_start:tdims%j_end,n_wtrac_jls)
-                            ! Water tracer evaporation from sea times leads
-                            !   fraction (kg/m2/s)
-REAL(KIND=real_jlslsm), INTENT(OUT) :: ei_sice_wtrac(                          &
-                                            tdims%i_start:tdims%i_end,         &
-                                            tdims%j_start:tdims%j_end,         &
-                                            nice_use,n_wtrac_jls)
-                            ! Water tracer sublimation from sea ice per
-                            !   ice category (kg/m2/s)
 
 !--------------------------------------------------------------------
 !  Workspace :-
@@ -353,16 +311,10 @@ REAL(KIND=real_jlslsm) ::                                                      &
                              ! melt calculated for each category,
                              ! but un-weighted by category fractions
 ,dei_sice_ncat(tdims%i_start:tdims%i_end,                                      &
-               tdims%j_start:tdims%j_end)                                      &
+               tdims%j_start:tdims%j_end)
                              ! Increment for ei_sice from sea-ice
                              ! melt calculated for each category,
                              ! but un-weighted by category fractions
-,snowinc_sice(tdims%i_start:tdims%i_end,                                       &
-           tdims%j_start:tdims%j_end,1)
-                             ! Snow increment on sea ice category.
-                             ! Needed for consistency with the land surface
-                             ! but not used directly, so only allocated
-                             ! with a size of 1 in the third dimension
 
 REAL(KIND=real_jlslsm), ALLOCATABLE :: tstar_sic(:,:,:)
                              !Ice category surface temperature
@@ -396,6 +348,45 @@ LOGICAL ::                                                                     &
  l_sice_new_code   ! Controls the sea ice temperature calculation
                    ! (See comments in sea ice section below)
 
+! Water tracers fields that will be INTENT(IN) when water tracers
+! are fully in JULES (currently these fields are not used as l_wtrac_jls=F)
+REAL(KIND=real_jlslsm) :: fqw_sea_wtrac(tdims%i_start:tdims%i_end,             &
+                                               tdims%j_start:tdims%j_end,      &
+                                               n_wtrac_jls)
+                            ! Water tracer surface flux over open ocean
+                            !  from explicit scheme (kg/m2/s)
+REAL(KIND=real_jlslsm) :: fqw_sicat_wtrac(tdims%i_start:tdims%i_end,           &
+                                               tdims%j_start:tdims%j_end,      &
+                                               nice_use, n_wtrac_jls)
+                            ! Water tracer surface flux over sea ice
+                            !  from explicit scheme per ice cat (kg/m2/s)
+
+
+! Water tracers fields that will be INTENT(IN OUT) when water tracers
+! are fully in JULES (currently these fields are not used as l_wtrac_jls=F)
+
+REAL(KIND=real_jlslsm) :: fqw_1_wtrac(tdims%i_start:tdims%i_end,               &
+                                         tdims%j_start:tdims%j_end,n_wtrac_jls)
+                            ! Water tracer surface moisture flux  (kg/m2/s)
+REAL(KIND=real_jlslsm) :: dfqw_wtrac(tdims%i_start:tdims%i_end,                &
+                                                    tdims%j_start:tdims%j_end, &
+                                                    n_wtrac_jls)
+                            ! Increment to water tracer surface moisture flux
+                            !   (kg/m2/s)
+
+! Water tracers fields that will be INTENT(OUT) when water tracers
+! are fully in JULES (currently these fields are not used as l_wtrac_jls=F)
+
+REAL(KIND=real_jlslsm) :: e_sea_wtrac(tdims%i_start:tdims%i_end,               &
+                                         tdims%j_start:tdims%j_end,n_wtrac_jls)
+                            ! Water tracer evaporation from sea times leads
+                            !   fraction (kg/m2/s)
+REAL(KIND=real_jlslsm) :: ei_sice_wtrac(tdims%i_start:tdims%i_end,             &
+                                            tdims%j_start:tdims%j_end,         &
+                                            nice_use,n_wtrac_jls)
+                            ! Water tracer sublimation from sea ice per
+                            !   ice category (kg/m2/s)
+
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
 REAL(KIND=jprb)               :: zhook_handle
@@ -410,6 +401,13 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
 IF ( .NOT. l_correct ) THEN
 
+  ! Temporary code to initialise water tracer fields that will be INTENT(IN)
+  ! in the future
+  fqw_sea_wtrac(:,:,:)     = 0.0
+  fqw_sicat_wtrac(:,:,:,:) = 0.0
+  fqw_1_wtrac(:,:,:)       = 0.0
+  dfqw_wtrac(:,:,:)        = 0.0
+
 !$OMP PARALLEL                                                                 &
 !$OMP DEFAULT(NONE)                                                            &
 !$OMP PRIVATE(l,n,j,i)                                                         &
@@ -423,6 +421,7 @@ IF ( .NOT. l_correct ) THEN
   END DO
 !$OMP END DO NOWAIT
 !$OMP END PARALLEL
+
 
 !$OMP PARALLEL                                                                 &
 !$OMP DEFAULT(NONE)                                                            &
@@ -539,7 +538,6 @@ IF ( .NOT. l_correct ) THEN
 !$OMP DEFAULT(NONE)                                                            &
 !$OMP PRIVATE(n,j,i)                                                           &
 !$OMP SHARED(surf_ht_flux_sice_sm,sice_melt,sea_ice_htf,ei_sice,fqw_ice,       &
-!$OMP        snowinc_sice,                                                     &
 !$OMP        tdims,nice,nice_use,sf_diag)
 
 !$OMP DO SCHEDULE(STATIC)
@@ -560,14 +558,6 @@ IF ( .NOT. l_correct ) THEN
     END DO
 !$OMP END DO NOWAIT
   END DO
-
-!$OMP DO SCHEDULE(STATIC)
-  DO j = tdims%j_start,tdims%j_end
-    DO i= tdims%i_start,tdims%i_end
-      snowinc_sice(i,j,1)       = 0.0
-    END DO
-  END DO
-!$OMP END DO NOWAIT
 
   DO n = 1, nice_use
 !$OMP DO SCHEDULE(STATIC)
@@ -657,12 +647,12 @@ IF ( .NOT. l_correct ) THEN
         ssi_pts,ssi_index,                                                     &
         sice_index_ncat(:,n),sice_pts_ncat(n),fssi_ij,                         &
         alpha1_sice(:,:,n),ashtf_prime(:,:,n),dtrdz_charney_grid_1,            &
-        array_one,array_one,rhokh_sice(:,:,n),sice_frac_ncat(:,n),timestep,    &
+        array_one,rhokh_sice(:,:,n),sice_frac_ncat(:,n),timestep,              &
         r_gamma,                                                               &
         ei_sice(:,:,n),fqw_1,ftl_1,fqw_ice(:,:,n),ftl_ice(:,:,n),              &
         tstar_sice_cat(:,:,n),array_one_e_six,                                 &
         array_one_e_six / rho_snow_const,                                      &
-        sice_melt(:,:,n),snowinc_sice(:,:,1)                                   &
+        sice_melt(:,:,n)                                                       &
         )
 
       IF (sf_diag%simlt) THEN
@@ -711,12 +701,12 @@ IF ( .NOT. l_correct ) THEN
         ssi_pts,ssi_index,                                                     &
         sice_index_ncat(:,n),sice_pts_ncat(n),fssi_ij,                         &
         alpha1_sice(:,:,1),ashtf_prime(:,:,1),dtrdz_charney_grid_1,            &
-        array_one,array_one,rhokh_sice(:,:,1),sice_frac_ncat(:,n),timestep,    &
+        array_one,rhokh_sice(:,:,1),sice_frac_ncat(:,n),timestep,              &
         r_gamma,                                                               &
         dei_sice_ncat,fqw_1,ftl_1,dfqw_sice_ncat,dftl_sice_ncat,               &
         tstar_sic(:,:,n),array_one_e_six,                                      &
         array_one_e_six / rho_snow_const,                                      &
-        sice_melt(:,:,n),snowinc_sice(:,:,1)                                   &
+        sice_melt(:,:,n)                                                       &
         )
 
 !$OMP PARALLEL DO                                                              &

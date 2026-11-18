@@ -29,16 +29,25 @@ IMPLICIT NONE
 INTEGER ::                                                                     &
   fsmc_mod_io(npft_max) = imdi
 
+LOGICAL ::                                                                     &
+  calc_rz_psi_io(npft_max) = .FALSE.
+
 REAL(KIND=real_jlslsm) ::                                                      &
   canht_ft_io(npft_max) = rmdi,                                                &
   lai_io(npft_max) = rmdi,                                                     &
+  min_gl_pft_io(npft_max) = rmdi,                                              & ! JBaguley
+  min_rootc_pft_io(npft_max) = rmdi,                                           & ! JBaguley
   psi_close_io(npft_max) = rmdi,                                               &
-  psi_open_io(npft_max) = rmdi
+  psi_open_io(npft_max) = rmdi,                                                &
+  root_psi_crit_io(npft_max) = rmdi,                                           & ! JBaguley
+  root_radi_pft_io(npft_max) = rmdi,                                           & ! JBaguley
+  rootc_density_pft_io(npft_max) = rmdi                                          ! JBaguley
 #endif
 
 INTEGER ::                                                                     &
   c3_io(npft_max) = imdi,                                                      &
-  orient_io(npft_max) = imdi
+  orient_io(npft_max) = imdi,                                                  &
+  pft_conductance_model_io(npft_max) = imdi                                      ! JBaguley
 
 REAL(KIND=real_jlslsm) ::                                                      &
   a_wl_io(npft_max) = rmdi,                                                    &
@@ -83,16 +92,9 @@ REAL(KIND=real_jlslsm) ::                                                      &
   eta_sl_io(npft_max) = rmdi,                                                  &
   f0_io(npft_max) = rmdi,                                                      &
   fef_bc_io(npft_max) = rmdi,                                                  &
-  fef_c2h4_io(npft_max) = rmdi,                                                &
-  fef_c2h6_io(npft_max) = rmdi,                                                &
-  fef_c3h8_io(npft_max) = rmdi,                                                &
   fef_ch4_io(npft_max) = rmdi,                                                 &
   fef_co_io(npft_max) = rmdi,                                                  &
   fef_co2_io(npft_max) = rmdi,                                                 &
-  fef_dms_io(npft_max) = rmdi,                                                 &
-  fef_hcho_io(npft_max) = rmdi,                                                &
-  fef_mecho_io(npft_max) = rmdi,                                               &
-  fef_nh3_io(npft_max) = rmdi,                                                 &
   fef_nox_io(npft_max) = rmdi,                                                 &
   fef_oc_io(npft_max) = rmdi,                                                  &
   fef_so2_io(npft_max) = rmdi,                                                 &
@@ -102,6 +104,7 @@ REAL(KIND=real_jlslsm) ::                                                      &
   fsmc_of_io(npft_max) = rmdi,                                                 &
   fsmc_p0_io(npft_max) = rmdi,                                                 &
   sug_g0_io(npft_max) = rmdi,                                                  &
+  g1b_stomata_io(npft_max) = rmdi,                                             &
   g1_stomata_io(npft_max) = rmdi,                                              &
   g_leaf_0_io(npft_max) = rmdi,                                                &
   glmin_io(npft_max) = rmdi,                                                   &
@@ -112,7 +115,10 @@ REAL(KIND=real_jlslsm) ::                                                      &
   ief_io(npft_max) = rmdi,                                                     &
   infil_f_io(npft_max) = rmdi,                                                 &
   jv25_ratio_io(npft_max) = rmdi,                                              &
+  kcrit_fractional_loss_io(npft_max) = rmdi,                                   & ! JBaguley
+  kcrit_io(npft_max) = rmdi,                                                   & ! JBaguley
   kext_io(npft_max) = rmdi,                                                    &
+  kmax_pft_io(npft_max) = rmdi,                                                & ! JBaguley
   kn_io(npft_max) = rmdi,                                                      &
   knl_io(npft_max) = rmdi,                                                     &
   kpar_io(npft_max) = rmdi,                                                    &
@@ -132,8 +138,11 @@ REAL(KIND=real_jlslsm) ::                                                      &
   omnir_io(npft_max) = rmdi,                                                   &
   omnirl_io(npft_max) = rmdi,                                                  &
   omniru_io(npft_max) = rmdi,                                                  &
+  p50_io(npft_max) = rmdi,                                                     & ! JBaguley
+  p88_io(npft_max) = rmdi,                                                     & ! JBaguley
   q10_leaf_io(npft_max) = rmdi,                                                &
   r_grow_io(npft_max) = rmdi,                                                  &
+  rmass_io(npft_max) = rmdi,                                                   & ! JBaguley
   rootd_ft_io(npft_max) = rmdi,                                                &
   sigl_io(npft_max) = rmdi,                                                    &
   tef_io(npft_max) = rmdi,                                                     &
@@ -143,19 +152,20 @@ REAL(KIND=real_jlslsm) ::                                                      &
   vint_io(npft_max) = rmdi,                                                    &
   vsl_io(npft_max) = rmdi,                                                     &
   sug_yg_io(npft_max) = rmdi,                                                  &
+  leaf_crit_io(npft_max) = rmdi,                                               & ! JBaguley
   z0hm_pft_io(npft_max) = rmdi,                                                &
   z0hm_classic_pft_io(npft_max) = rmdi,                                        &
-  z0v_io(npft_max) = rmdi,                                                     &
-  sox_a_io(npft_max) = rmdi,                                                   &
-  sox_p50_io(npft_max) = rmdi,                                                 &
-  sox_rp_min_io(npft_max) = rmdi
+  z0v_io(npft_max) = rmdi
+
 !---------------------------------------------------------------------
 ! Set up a namelist for reading and writing these arrays
 !---------------------------------------------------------------------
 NAMELIST  / jules_pftparm/                                                     &
 #if !defined(UM_JULES)
-  canht_ft_io,     lai_io,                                                     &
+  calc_rz_psi_io,  canht_ft_io,      lai_io,                                   & ! JBaguley
   fsmc_mod_io,     psi_close_io,     psi_open_io,                              &
+  min_gl_pft_io,   min_rootc_pft_io, root_psi_crit_io,                         & ! JBaguley
+  root_radi_pft_io,rootc_density_pft_io,                                       & ! JBaguley
 #endif
   a_wl_io,         a_ws_io,          aef_io,                                   &
   act_jmax_io,     act_vcmax_io,     albsnc_max_io,                            &
@@ -166,35 +176,36 @@ NAMELIST  / jules_pftparm/                                                     &
   avg_ba_io,       b_wl_io,          c3_io,                                    &
   can_struct_a_io, catch0_io,        ccleaf_max_io,                            &
   ccleaf_min_io,   ccwood_max_io,    ccwood_min_io,                            &
-  ci_st_io,        dcatch_dlai_io,   deact_jmax_io,                            &
-  deact_vcmax_io,  dfp_dcuo_io,      dgl_dm_io,                                &
-  dgl_dt_io,       dqcrit_io,        ds_jmax_io,                               &
-  ds_vcmax_io,     dust_veg_scj_io,  dz0v_dh_io,                               &
-  emis_pft_io,     eta_sl_io,        f0_io,                                    &
-  fef_bc_io,       fef_ch4_io,       fef_co_io,                                &
-  fef_co2_io,      fef_nox_io,       fef_oc_io,                                &
-  fef_c2h4_io,     fef_c2h6_io,      fef_c3h8_io,                              &
-  fef_hcho_io,     fef_mecho_io,                                               &
-  fef_nh3_io,      fef_dms_io,                                                 &
-  fef_so2_io,      fd_io,            fire_mort_io,                             &
-  fl_o3_ct_io,     fsmc_of_io,       fsmc_p0_io,                               &
-  sug_g0_io,       g1_stomata_io,    g_leaf_0_io,                              &
-  glmin_io,        gpp_st_io,        sug_grec_io,                              &
-  gsoil_f_io,      hw_sw_io,         ief_io,                                   &
-  infil_f_io,      jv25_ratio_io,    kext_io,                                  &
-  kn_io,           knl_io,           kpar_io,                                  &
-  lai_alb_lim_io,  lma_io,           mef_io,                                   &
-  neff_io,         nl0_io,           nmass_io,                                 &
-  nr_io,           nr_nl_io,         ns_nl_io,                                 &
-  nsw_io,          omega_io,         omegal_io,                                &
-  omegau_io,       omnir_io,         omnirl_io,                                &
-  omniru_io,       orient_io,        q10_leaf_io,                              &
-  r_grow_io,       rootd_ft_io,      sigl_io,                                  &
+  ci_st_io,        pft_conductance_model_io,                                   & ! JBaguley
+  dcatch_dlai_io,  deact_jmax_io,    deact_vcmax_io,                           &
+  dfp_dcuo_io,     dgl_dm_io,        dgl_dt_io,                                &
+  dqcrit_io,       ds_jmax_io,       ds_vcmax_io,                              &
+  dust_veg_scj_io, dz0v_dh_io,       emis_pft_io,                              &
+  eta_sl_io,       f0_io,            fef_bc_io,                                &
+  fef_ch4_io,      fef_co_io,        fef_co2_io,                               &
+  fef_nox_io,      fef_oc_io,        fef_so2_io,                               &
+  fd_io,           fire_mort_io,     fl_o3_ct_io,                              &
+  fsmc_of_io,      fsmc_p0_io,       sug_g0_io,                                &
+  g1b_stomata_io, g1_stomata_io,   g_leaf_0_io,      glmin_io,                                 &
+  gpp_st_io,       sug_grec_io,      gsoil_f_io,                               &
+  hw_sw_io,        ief_io,           infil_f_io,                               &
+  jv25_ratio_io,   kcrit_fractional_loss_io,                                   & ! JBaguley
+  kext_io,         kmax_pft_io,                                                & ! JBaguley
+  kn_io,                                    &
+  knl_io,          kpar_io,          lai_alb_lim_io,                           &
+  lma_io,          mef_io,           neff_io,                                  &
+  nl0_io,          nmass_io,         nr_io,                                    &
+  nr_nl_io,        ns_nl_io,         nsw_io,                                   &
+  omega_io,        omegal_io,        omegau_io,                                &
+  omnir_io,        omnirl_io,        omniru_io,                                &
+  orient_io,       p50_io,           p88_io,                                   & ! JBaguley
+  q10_leaf_io,      r_grow_io,                                &
+  rmass_io,        rootd_ft_io,      sigl_io,                                  & !JBaguley
   tef_io,          tleaf_of_io,      tlow_io,                                  &
   tupp_io,         vint_io,          vsl_io,                                   &
-  sug_yg_io,       z0hm_pft_io,      z0hm_classic_pft_io,                      &
-  z0v_io,          sox_a_io,         sox_p50_io,                               &
-  sox_rp_min_io
+  sug_yg_io,       leaf_crit_io,     z0hm_pft_io,                              & !JBaguley
+  z0hm_classic_pft_io,               z0v_io
+
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='PFTPARM_IO'
 
@@ -209,11 +220,23 @@ CALL jules_print('pftparm_io',                                                 &
     'Contents of namelist jules_pftparm')
 
 #if !defined(UM_JULES)
+WRITE(lineBuffer,*)' calc_rz_psi_io = ',calc_rz_psi_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
 WRITE(lineBuffer,*)' canht_ft_io = ',canht_ft_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' lai_io = ',lai_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' fsmc_mod_io = ',fsmc_mod_io
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
+WRITE(lineBuffer,*)' min_gl_pft_io = ',min_gl_pft_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
+WRITE(lineBuffer,*)' min_rootc_pft_io = ',min_rootc_pft_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
+WRITE(lineBuffer, *)' root_psi_crit_io = ',root_psi_crit_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
+WRITE(lineBuffer,*)' root_radi_pft_io = ',root_radi_pft_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
+WRITE(lineBuffer,*)' rootc_density_pft_io = ',rootc_density_pft_io ! JBaguley
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' psi_close_io = ',psi_close_io
 CALL jules_print('pftparm_io',lineBuffer)
@@ -266,6 +289,8 @@ WRITE(lineBuffer,*)' ccwood_min_io = ',ccwood_min_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' ci_st_io = ',ci_st_io
 CALL jules_print('pftparm_io',lineBuffer)
+WRITE(lineBuffer,*)' pft_conductance_model_io = ',pft_conductance_model_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' dcatch_dlai_io = ',dcatch_dlai_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' deact_vcmax_io = ',deact_jmax_io
@@ -310,20 +335,6 @@ WRITE(lineBuffer,*)' fef_oc_io = ',fef_oc_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' fef_so2_io = ',fef_so2_io
 CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' fef_c2h4_io = ',fef_c2h4_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' fef_c2h6_io = ',fef_c2h6_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' fef_c3h8_io = ',fef_c3h8_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' fef_hcho_io = ',fef_hcho_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' fef_mecho_io = ',fef_mecho_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' fef_nh3_io = ',fef_nh3_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' fef_dms_io = ',fef_dms_io
-CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' fire_mort_io = ',fire_mort_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' fl_o3_ct_io = ',fl_o3_ct_io
@@ -335,6 +346,8 @@ CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' sug_g0_io = ',sug_g0_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' g1_stomata_io = ',g1_stomata_io
+CALL jules_print('pftparm_io',lineBuffer)
+WRITE(lineBuffer,*)' g1b_stomata_io = ',g1b_stomata_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' g_leaf_0_io = ',g_leaf_0_io
 CALL jules_print('pftparm_io',lineBuffer)
@@ -354,7 +367,11 @@ WRITE(lineBuffer,*)' infil_f_io = ',infil_f_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' jv25_ratio_io = ',jv25_ratio_io
 CALL jules_print('pftparm_io',lineBuffer)
+WRITE(lineBuffer,*)' kcrit_fractional_loss_io = ',kcrit_fractional_loss_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
 WRITE(lineBuffer,*)' kext_io = ',kext_io
+CALL jules_print('pftparm_io',lineBuffer)
+WRITE(lineBuffer,*)' kmax_pft_io = ', kmax_pft_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' kn_io = ',kn_io
 CALL jules_print('pftparm_io',lineBuffer)
@@ -388,10 +405,16 @@ WRITE(lineBuffer,*)' omnir_io = ',omnir_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' orient_io = ',orient_io
 CALL jules_print('pftparm_io',lineBuffer)
+WRITE(lineBuffer,*)' p50_io = ',p50_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
+WRITE(lineBuffer,*)' p88_io = ',p88_io ! JBaguley
+CALL jules_print('pftparm_io',lineBuffer) ! JBaguley
 WRITE(lineBuffer,*)' q10_leaf_io = ',q10_leaf_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' r_grow_io = ',r_grow_io
 CALL jules_print('pftparm_io',lineBuffer)
+WRITE(lineBuffer,*)' rmass_io = ',rmass_io ! JBaguley
+CALL jules_print('ptfparm_io',lineBuffer) ! JBaguley
 WRITE(lineBuffer,*)' rootd_ft_io = ',rootd_ft_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' sigl_io = ',sigl_io
@@ -410,15 +433,11 @@ WRITE(lineBuffer,*)' vsl_io = ',vsl_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' sug_yg_io = ',sug_yg_io
 CALL jules_print('pftparm_io',lineBuffer)
+WRITE(lineBuffer,*)' leaf_crit_io = ',leaf_crit_io
+CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' z0hm_pft_io = ',z0hm_pft_io
 CALL jules_print('pftparm_io',lineBuffer)
 WRITE(lineBuffer,*)' z0v_io = ',z0v_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' sox_a_io = ',sox_a_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' sox_p50_io = ',sox_p50_io
-CALL jules_print('pftparm_io',lineBuffer)
-WRITE(lineBuffer,*)' sox_rp_min_io = ',sox_rp_min_io
 CALL jules_print('pftparm_io',lineBuffer)
 
 CALL jules_print('pftparm_io',                                                 &
@@ -455,13 +474,14 @@ CHARACTER(LEN=errormessagelength) :: iomessage
 
 ! set number of each type of variable in my_namelist type
 INTEGER, PARAMETER :: no_of_types = 2
-INTEGER, PARAMETER :: n_int = 2 * npft_max
-INTEGER, PARAMETER :: n_real = 108 * npft_max
+INTEGER, PARAMETER :: n_int = 3 * npft_max ! JBaguley was 2
+INTEGER, PARAMETER :: n_real = 103 * npft_max ! JBaguley was 98
 
 TYPE :: my_namelist
   SEQUENCE
   INTEGER :: c3_io(npft_max)
   INTEGER :: orient_io(npft_max)
+  INTEGER :: pft_conductance_model_io(npft_max) ! JBaguley
   REAL(KIND=real_jlslsm) :: a_wl_io(npft_max)
   REAL(KIND=real_jlslsm) :: a_ws_io(npft_max)
   REAL(KIND=real_jlslsm) :: act_jmax_io(npft_max)
@@ -511,19 +531,13 @@ TYPE :: my_namelist
   REAL(KIND=real_jlslsm) :: fef_nox_io(npft_max)
   REAL(KIND=real_jlslsm) :: fef_oc_io(npft_max)
   REAL(KIND=real_jlslsm) :: fef_so2_io(npft_max)
-  REAL(KIND=real_jlslsm) :: fef_c2h4_io(npft_max)
-  REAL(KIND=real_jlslsm) :: fef_c2h6_io(npft_max)
-  REAL(KIND=real_jlslsm) :: fef_c3h8_io(npft_max)
-  REAL(KIND=real_jlslsm) :: fef_hcho_io(npft_max)
-  REAL(KIND=real_jlslsm) :: fef_mecho_io(npft_max)
-  REAL(KIND=real_jlslsm) :: fef_nh3_io(npft_max)
-  REAL(KIND=real_jlslsm) :: fef_dms_io(npft_max)
   REAL(KIND=real_jlslsm) :: fire_mort_io(npft_max)
   REAL(KIND=real_jlslsm) :: fl_o3_ct_io(npft_max)
   REAL(KIND=real_jlslsm) :: fsmc_of_io(npft_max)
   REAL(KIND=real_jlslsm) :: fsmc_p0_io(npft_max)
   REAL(KIND=real_jlslsm) :: sug_g0_io(npft_max)
   REAL(KIND=real_jlslsm) :: g1_stomata_io(npft_max)
+  REAL(KIND=real_jlslsm) :: g1b_stomata_io(npft_max)
   REAL(KIND=real_jlslsm) :: g_leaf_0_io(npft_max)
   REAL(KIND=real_jlslsm) :: glmin_io(npft_max)
   REAL(KIND=real_jlslsm) :: gpp_st_io(npft_max)
@@ -533,7 +547,9 @@ TYPE :: my_namelist
   REAL(KIND=real_jlslsm) :: ief_io(npft_max)
   REAL(KIND=real_jlslsm) :: infil_f_io(npft_max)
   REAL(KIND=real_jlslsm) :: jv25_ratio_io(npft_max)
+  REAL(KIND=real_jlslsm) :: kcrit_fractional_loss_io(npft_max) ! JBaguley
   REAL(KIND=real_jlslsm) :: kext_io(npft_max)
+  REAL(KIND=real_jlslsm) :: kmax_pft_io(npft_max) ! JBaguley
   REAL(KIND=real_jlslsm) :: kn_io(npft_max)
   REAL(KIND=real_jlslsm) :: knl_io(npft_max)
   REAL(KIND=real_jlslsm) :: kpar_io(npft_max)
@@ -553,8 +569,11 @@ TYPE :: my_namelist
   REAL(KIND=real_jlslsm) :: omnir_io(npft_max)
   REAL(KIND=real_jlslsm) :: omnirl_io(npft_max)
   REAL(KIND=real_jlslsm) :: omniru_io(npft_max)
+  REAL(KIND=real_jlslsm) :: p50_io(npft_max) ! JBaguley
+  REAL(KIND=real_jlslsm) :: p88_io(npft_max) ! JBaguley
   REAL(KIND=real_jlslsm) :: q10_leaf_io(npft_max)
   REAL(KIND=real_jlslsm) :: r_grow_io(npft_max)
+  REAL(KIND=real_jlslsm) :: rmass_io(npft_max) ! JBaguley
   REAL(KIND=real_jlslsm) :: rootd_ft_io(npft_max)
   REAL(KIND=real_jlslsm) :: sigl_io(npft_max)
   REAL(KIND=real_jlslsm) :: tef_io(npft_max)
@@ -564,12 +583,10 @@ TYPE :: my_namelist
   REAL(KIND=real_jlslsm) :: vint_io(npft_max)
   REAL(KIND=real_jlslsm) :: vsl_io(npft_max)
   REAL(KIND=real_jlslsm) :: sug_yg_io(npft_max)
+  REAL(KIND=real_jlslsm) :: leaf_crit_io(npft_max) ! JBaguley
   REAL(KIND=real_jlslsm) :: z0hm_pft_io(npft_max)
   REAL(KIND=real_jlslsm) :: z0hm_classic_pft_io(npft_max)
   REAL(KIND=real_jlslsm) :: z0v_io(npft_max)
-  REAL(KIND=real_jlslsm) :: sox_a_io(npft_max)
-  REAL(KIND=real_jlslsm) :: sox_p50_io(npft_max)
-  REAL(KIND=real_jlslsm) :: sox_rp_min_io(npft_max)
 END TYPE my_namelist
 
 TYPE (my_namelist) :: my_nml
@@ -616,6 +633,7 @@ IF (mype == 0) THEN
   my_nml % ccwood_min_io  = ccwood_min_io
   my_nml % ccwood_max_io  = ccwood_max_io
   my_nml % ci_st_io       = ci_st_io
+  my_nml % pft_conductance_model_io = pft_conductance_model_io ! JBaguley
   my_nml % dcatch_dlai_io = dcatch_dlai_io
   my_nml % deact_jmax_io  = deact_jmax_io
   my_nml % deact_vcmax_io = deact_vcmax_io
@@ -638,18 +656,12 @@ IF (mype == 0) THEN
   my_nml % fef_nox_io     = fef_nox_io
   my_nml % fef_oc_io      = fef_oc_io
   my_nml % fef_so2_io     = fef_so2_io
-  my_nml % fef_c2h4_io    = fef_c2h4_io
-  my_nml % fef_c2h6_io    = fef_c2h6_io
-  my_nml % fef_c3h8_io    = fef_c3h8_io
-  my_nml % fef_hcho_io    = fef_hcho_io
-  my_nml % fef_mecho_io   = fef_mecho_io
-  my_nml % fef_nh3_io     = fef_nh3_io
-  my_nml % fef_dms_io     = fef_dms_io
   my_nml % fire_mort_io   = fire_mort_io
   my_nml % fl_o3_ct_io    = fl_o3_ct_io
   my_nml % fsmc_of_io     = fsmc_of_io
   my_nml % fsmc_p0_io     = fsmc_p0_io
   my_nml % sug_g0_io      = sug_g0_io
+  my_nml % g1b_stomata_io = g1b_stomata_io
   my_nml % g1_stomata_io  = g1_stomata_io
   my_nml % g_leaf_0_io    = g_leaf_0_io
   my_nml % glmin_io       = glmin_io
@@ -660,7 +672,9 @@ IF (mype == 0) THEN
   my_nml % ief_io         = ief_io
   my_nml % infil_f_io     = infil_f_io
   my_nml % jv25_ratio_io  = jv25_ratio_io
+  my_nml % kcrit_fractional_loss_io = kcrit_fractional_loss_io ! JBaguley
   my_nml % kext_io        = kext_io
+  my_nml % kmax_pft_io    = kmax_pft_io ! JBaguley
   my_nml % kn_io          = kn_io
   my_nml % knl_io         = knl_io
   my_nml % kpar_io        = kpar_io
@@ -681,8 +695,11 @@ IF (mype == 0) THEN
   my_nml % omnirl_io      = omnirl_io
   my_nml % omniru_io      = omniru_io
   my_nml % orient_io      = orient_io
+  my_nml % p50_io         = p50_io ! JBaguley
+  my_nml % p88_io         = p88_io ! JBaguley
   my_nml % q10_leaf_io    = q10_leaf_io
   my_nml % r_grow_io      = r_grow_io
+  my_nml % rmass_io       = rmass_io ! JBaguley
   my_nml % rootd_ft_io    = rootd_ft_io
   my_nml % sigl_io        = sigl_io
   my_nml % tef_io         = tef_io
@@ -692,12 +709,10 @@ IF (mype == 0) THEN
   my_nml % vint_io        = vint_io
   my_nml % vsl_io         = vsl_io
   my_nml % sug_yg_io      = sug_yg_io
+  my_nml % leaf_crit_io   = leaf_crit_io
   my_nml % z0hm_pft_io    = z0hm_pft_io
   my_nml % z0hm_classic_pft_io = z0hm_classic_pft_io
   my_nml % z0v_io         = z0v_io
-  my_nml % sox_a_io       = sox_a_io
-  my_nml % sox_p50_io     = sox_p50_io
-  my_nml % sox_rp_min_io  = sox_rp_min_io
 END IF
 
 CALL mpl_bcast(my_nml,1,mpl_nml_type,0,my_comm,icode)
@@ -732,6 +747,7 @@ IF (mype /= 0) THEN
   ccwood_min_io   = my_nml % ccwood_min_io
   ccwood_max_io   = my_nml % ccwood_max_io
   ci_st_io        = my_nml % ci_st_io
+  pft_conductance_model_io = my_nml % pft_conductance_model_io ! JBaguley
   dcatch_dlai_io  = my_nml % dcatch_dlai_io
   deact_jmax_io   = my_nml % deact_jmax_io
   deact_vcmax_io  = my_nml % deact_vcmax_io
@@ -754,17 +770,11 @@ IF (mype /= 0) THEN
   fef_nox_io      = my_nml % fef_nox_io
   fef_oc_io       = my_nml % fef_oc_io
   fef_so2_io      = my_nml % fef_so2_io
-  fef_c2h4_io     = my_nml % fef_c2h4_io
-  fef_c2h6_io     = my_nml % fef_c2h6_io
-  fef_c3h8_io     = my_nml % fef_c3h8_io
-  fef_hcho_io     = my_nml % fef_hcho_io
-  fef_mecho_io    = my_nml % fef_mecho_io
-  fef_nh3_io      = my_nml % fef_nh3_io
-  fef_dms_io      = my_nml % fef_dms_io
   fire_mort_io    = my_nml % fire_mort_io
   fl_o3_ct_io     = my_nml % fl_o3_ct_io
   fsmc_of_io      = my_nml % fsmc_of_io
   fsmc_p0_io      = my_nml % fsmc_p0_io
+  g1b_stomata_io  = my_nml % g1b_stomata_io
   g1_stomata_io   = my_nml % g1_stomata_io
   sug_g0_io       = my_nml % sug_g0_io
   g_leaf_0_io     = my_nml % g_leaf_0_io
@@ -776,7 +786,9 @@ IF (mype /= 0) THEN
   ief_io          = my_nml % ief_io
   infil_f_io      = my_nml % infil_f_io
   jv25_ratio_io   = my_nml % jv25_ratio_io
+  kcrit_fractional_loss_io = my_nml % kcrit_fractional_loss_io ! JBaguley
   kext_io         = my_nml % kext_io
+  kmax_pft_io     = my_nml % kmax_pft_io ! JBaguley
   kn_io           = my_nml % kn_io
   knl_io          = my_nml % knl_io
   kpar_io         = my_nml % kpar_io
@@ -797,8 +809,11 @@ IF (mype /= 0) THEN
   omnirl_io       = my_nml % omnirl_io
   omniru_io       = my_nml % omniru_io
   orient_io       = my_nml % orient_io
+  p50_io          = my_nml % p50_io ! JBaguley
+  p88_io          = my_nml % p88_io ! JBaguley
   q10_leaf_io     = my_nml % q10_leaf_io
   r_grow_io       = my_nml % r_grow_io
+  rmass_io        = my_nml % rmass_io ! JBaguley
   rootd_ft_io     = my_nml % rootd_ft_io
   sigl_io         = my_nml % sigl_io
   tef_io          = my_nml % tef_io
@@ -808,12 +823,10 @@ IF (mype /= 0) THEN
   vint_io         = my_nml % vint_io
   vsl_io          = my_nml % vsl_io
   sug_yg_io       = my_nml % sug_yg_io
+  leaf_crit_io    = my_nml % leaf_crit_io
   z0hm_pft_io     = my_nml % z0hm_pft_io
   z0hm_classic_pft_io = my_nml % z0hm_classic_pft_io
   z0v_io          = my_nml % z0v_io
-  sox_a_io        = my_nml % sox_a_io
-  sox_p50_io      = my_nml % sox_p50_io
-  sox_rp_min_io   = my_nml % sox_rp_min_io
 END IF
 
 CALL mpl_type_free(mpl_nml_type,icode)
@@ -827,13 +840,16 @@ END SUBROUTINE read_nml_jules_pftparm
 SUBROUTINE init_pftparm_allocated()
 
 !No USE statements other than Dr Hook
+USE ereport_mod, ONLY: ereport
 USE parkind1,    ONLY: jprb, jpim
 USE yomhook,     ONLY: lhook, dr_hook
 
 USE pftparm, ONLY:                                                             &
 ! namelist variables:
 #if !defined(UM_JULES)
-  fsmc_mod,        psi_close,        psi_open,                                 &
+  calc_rz_psi,     fsmc_mod,         psi_close,                                & ! JBaguley
+  psi_open,        min_rootc_pft,    root_psi_crit,                            & ! JBaguley
+  root_radi_pft,   rootc_density_pft, min_gl_pft,                              & ! JBaguley
 #endif
   a_wl,            a_ws,             aef,                                      &
   act_jmax,        act_vcmax,        albsnc_max,                               &
@@ -844,40 +860,47 @@ USE pftparm, ONLY:                                                             &
   avg_ba,          b_wl,             c3,                                       &
   can_struct_a,    catch0,           ccleaf_max,                               &
   ccleaf_min,      ccwood_max,       ccwood_min,                               &
-  ci_st,           dcatch_dlai,      deact_jmax,                               &
-  deact_vcmax,     dfp_dcuo,         dgl_dm,                                   &
-  dgl_dt,          dqcrit,           ds_jmax,                                  &
-  ds_vcmax,        dust_veg_scj,     dz0v_dh,                                  &
-  emis_pft,        eta_sl,           f0,                                       &
-  fd,              fef_bc,           fef_ch4,                                  &
-  fef_co,          fef_co2,          fef_nox,                                  &
-  fef_oc,          fef_so2,          fef_c2h4,                                 &
-  fef_c2h6,        fef_c3h8,         fef_hcho,                                 &
-  fef_mecho,       fef_nh3,                                                    &
-  fef_dms,         fire_mort,                                                  &
-  fl_o3_ct,        fsmc_of,          fsmc_p0,                                  &
-  sug_g0,          g1_stomata,       g_leaf_0,                                 &
-  glmin,           gpp_st,           sug_grec,                                 &
-  gsoil_f,         hw_sw,            ief,                                      &
-  infil_f,         jv25_ratio,       kext,                                     &
-  kn,              knl,              kpar,                                     &
-  lai_alb_lim,     lma,              mef,                                      &
-  neff,            nl0,              nmass,                                    &
-  nr,              nr_nl,            ns_nl,                                    &
-  nsw,             omega,            omegal,                                   &
-  omegau,          omnir,            omnirl,                                   &
-  omniru,          orient,           q10_leaf,                                 &
-  r_grow,          rootd_ft,         sigl,                                     &
-  tef,             tleaf_of,         tlow,                                     &
-  tupp,            vint,             vsl,                                      &
-  sug_yg,          z0v,              sox_a,                                    &
-  sox_p50,         sox_rp_min
+  ci_st,           pft_conductance_model,                                      & ! JBaguley
+  conductance_b,   conductance_c,                                              & ! JBaguley
+  dcatch_dlai,                                                                 &
+  deact_jmax,      deact_vcmax,      dfp_dcuo,                                 &
+  dgl_dm,          dgl_dt,           dqcrit,                                   &
+  ds_jmax,         ds_vcmax,         dust_veg_scj,                             &
+  dz0v_dh,         emis_pft,         eta_sl,                                   &
+  f0,              fd,               fef_bc,                                   &
+  fef_ch4,         fef_co,           fef_co2,                                  &
+  fef_nox,         fef_oc,           fef_so2,                                  &
+  fire_mort,       fl_o3_ct,         fsmc_of,                                  &
+  fsmc_p0,         sug_g0,           g1b_stomata,  g1_stomata,                               &
+  g_leaf_0,        glmin,            gpp_st,                                   &
+  sug_grec,        gsoil_f,          hw_sw,                                    &
+  ief,             infil_f,          jv25_ratio,                               &
+  kcrit_fractional_loss,             kcrit,                                    & ! JBaguley
+  kext,            kmax_pft,                                                   & ! JBaguley
+  kn,               knl,                                                       &
+  kpar,            lai_alb_lim,      lma,                                      &
+  mef,             neff,             nl0,                                      &
+  nmass,           nr,               nr_nl,                                    &
+  ns_nl,           nsw,              omega,                                    &
+  omegal,          omegau,           omnir,                                    &
+  omnirl,          omniru,           orient,                                   &
+  P50,             P88,                                                        & ! JBaguley
+  q10_leaf,        r_grow,           rmass,                                    &
+  rootd_ft,        sigl,             tef,                                      & !JBaguley
+  tleaf_of,        tlow,             tupp,                                     &
+  vint,            vsl,              sug_yg,                                   &
+  leaf_crit,       z0v                                                           !JBaguley
+
+
 
 USE c_z0h_z0m, ONLY: z0h_z0m,  z0h_z0m_classic
 
 USE jules_surface_types_mod, ONLY: npft
 
 IMPLICIT NONE
+
+INTEGER(KIND=jpim) :: i = 0
+INTEGER :: errcode
 
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
 INTEGER(KIND=jpim), PARAMETER :: zhook_out = 1
@@ -926,6 +949,7 @@ ds_jmax(:)    = ds_jmax_io(1:npft)
 ds_vcmax(:)   = ds_vcmax_io(1:npft)
 f0(:)           = f0_io(1:npft)
 fd(:)           = fd_io(1:npft)
+g1b_stomata(:) = g1b_stomata_io(1:npft)
 g1_stomata(:) = g1_stomata_io(1:npft)
 jv25_ratio(:) = jv25_ratio_io(1:npft)
 kn(:)           = kn_io(1:npft)
@@ -945,6 +969,7 @@ nmass(:)        = nmass_io(1:npft)
 nr(:)           = nr_io(1:npft)
 nsw(:)          = nsw_io(1:npft)
 q10_leaf(:)     = q10_leaf_io(1:npft)
+rmass(:)        = rmass_io(1:npft) ! JBaguley
 vint(:)         = vint_io(1:npft)
 vsl(:)          = vsl_io(1:npft)
 
@@ -964,9 +989,15 @@ tleaf_of(:)     = tleaf_of_io(1:npft)
 
 ! Hydrological, thermal and other "physical" characteristics.
 #if !defined(UM_JULES)
-fsmc_mod(:)     = fsmc_mod_io(1:npft)
-psi_close(:)    = psi_close_io(1:npft)
-psi_open(:)     = psi_open_io(1:npft)
+calc_rz_psi(:)      = calc_rz_psi_io(1:npft) ! JBaguley
+fsmc_mod(:)         = fsmc_mod_io(1:npft)
+min_gl_pft(:)       = min_gl_pft_io(1:npft) ! JBaguley
+min_rootc_pft(:)    = min_rootc_pft_io(1:npft) ! JBaguley
+psi_close(:)        = psi_close_io(1:npft)
+psi_open(:)         = psi_open_io(1:npft)
+root_psi_crit(:)    = root_psi_crit_io(1:npft) ! JBaguley
+root_radi_pft(:)    = root_radi_pft_io(1:npft) ! JBaguley
+rootc_density_pft(:)= rootc_density_pft_io(1:npft) ! JBaguley
 #endif
 catch0(:)       = catch0_io(1:npft)
 dcatch_dlai(:)  = dcatch_dlai_io(1:npft)
@@ -1011,24 +1042,87 @@ fef_co2(:)      = fef_co2_io(1:npft)
 fef_nox(:)      = fef_nox_io(1:npft)
 fef_oc(:)       = fef_oc_io(1:npft)
 fef_so2(:)      = fef_so2_io(1:npft)
-fef_c2h4(:)     = fef_c2h4_io(1:npft)
-fef_c2h6(:)     = fef_c2h6_io(1:npft)
-fef_c3h8(:)     = fef_c3h8_io(1:npft)
-fef_hcho(:)     = fef_hcho_io(1:npft)
-fef_mecho(:)    = fef_mecho_io(1:npft)
-fef_nh3(:)      = fef_nh3_io(1:npft)
-fef_dms(:)      = fef_dms_io(1:npft)
 
 ! SUGAR parameters
 sug_g0(:)       = sug_g0_io(1:npft)
 sug_grec(:)     = sug_grec_io(1:npft)
 sug_yg(:)       = sug_yg_io(1:npft)
 
-! SOX parameters
-sox_a(:)        = sox_a_io(1:npft)
-sox_p50(:)      = sox_p50_io(1:npft)
-sox_rp_min(:)   = sox_rp_min_io(1:npft)
+! stomatal optimisation model JBaguley
+leaf_crit(:)    = leaf_crit_io(1:npft)
+pft_conductance_model(:) = pft_conductance_model_io(1:npft)
+kcrit_fractional_loss(:) = kcrit_fractional_loss_io(1:npft)
+kmax_pft(:)     = kmax_pft_io(1:npft)
+P50(:)          = p50_io(1:npft)
+P88(:)          = p88_io(1:npft)
 
+! ---------------------------------------------------------------------
+! The conductance model parameters and critical conductane while not
+!  input by the user are constant through out the simulation. To save
+!  repeated calculations they are calculated here.
+! ---------------------------------------------------------------------
+DO i = 1, npft
+
+  ! Calculate critical conductance
+  kcrit(i) = (1-kcrit_fractional_loss(i))*kmax_pft(i)
+
+  ! First check that the input values of P50 and P88 are valid if a
+  ! conductance model has been chosen (pft_conductance_model = 1 or 2).
+  ! The values of P50 and P88 must satisfy the following condition:
+  !   0.0 > P50 > P88
+  SELECT CASE (pft_conductance_model(i))
+  CASE (1,2)
+    ! Raise error if P50 is not less than zero.
+    IF (0.0 <= P50(i)) THEN
+      errcode = 101  !  a hard error
+      CALL ereport(RoutineName, errcode,                                       &
+               'P50 must be less than zero.')
+    ! Raise error if P88 is not less than P50.
+    ELSE IF (P50(i) <= P88(i)) THEN
+      errcode = 101  !  a hard error
+      CALL ereport(RoutineName, errcode,                                       &
+               'P88 must be less than P50 (and zero).')
+    END IF
+  CASE DEFAULT
+    ! No conductance model selected so no nead to test parameters.
+  END SELECT
+
+  SELECT CASE (pft_conductance_model(i))
+  CASE (1) ! Cumulative Weibul xylem conductance model
+    ! Model equation:
+    !   k(psi) = kmax * exp(-(psi/b)^c)
+
+    ! Equation for the shape parameter c:
+    !      ln(ln(1-0.5)/ln(1-0.88))      -0.78135
+    ! c = -------------------------- = -------------
+    !          (ln(P50/P88))            ln(P50/P88)
+    conductance_c(i) = -0.78135/LOG( P50(i)/P88(i) )
+
+    ! Equation for the sensetivity parameter b:
+    !             P50                 P50
+    ! b = ------------------ = -----------------
+    !      (-ln(0.5))^(1/c)     (0.69315)^(1/c)
+    conductance_b(i) = P50(i)/( 0.69315**(1/conductance_c(i)) )
+
+  CASE (2) ! SOX xylem conductance model
+    ! Model equation:
+    !   k(psi) = kmax / (1 + (psi/P50)^c)
+
+    ! By the definition of the conductance model used by SOX, the
+    !  sensitivity parameter b is equal to the P50 parameter.
+    conductance_b(i) = P50(i)
+
+    ! Equation for the shape parameter c:
+    !      ln(1/0.22 - 1)        1.2657
+    ! c = ---------------- = -------------
+    !       ln(P88/P50)       ln(P88/P50)
+    conductance_c(i) = 1.2657/LOG( P88(i)/P50(i) )
+
+
+  CASE DEFAULT
+    ! No conductance model selected so leave the parameters set to 0.0.
+  END SELECT
+ENDDO
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

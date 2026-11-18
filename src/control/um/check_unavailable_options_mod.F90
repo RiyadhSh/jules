@@ -18,20 +18,16 @@ USE ereport_mod, ONLY: ereport
 USE jules_print_mgr, ONLY:                                                     &
     jules_message, jules_print, PrNorm, newline
 USE jules_vegetation_mod, ONLY: l_gleaf_fix, l_o3_damage, l_use_pft_psi,       &
-    fsmc_shape, l_prescsow, l_croprotate, l_trif_biocrop, l_ag_expand,         &
-    l_sugar, stomata_model, l_red
+    fsmc_shape, l_prescsow, l_croprotate, l_trif_biocrop, l_ag_expand, l_sugar
 USE jules_irrig_mod, ONLY: l_irrig_limit
 USE jules_urban_mod, ONLY: l_urban_empirical
-USE jules_rivers_mod, ONLY: l_riv_overbank, l_rivers, i_river_vn,              &
-    rivers_um_trip, rivers_rfm
+USE jules_rivers_mod, ONLY: l_riv_overbank, i_river_vn, rivers_trip
 USE jules_soil_biogeochem_mod, ONLY: l_ch4_microbe, l_label_frac_cs
 USE jules_soil_mod, ONLY: l_tile_soil, l_bedrock
 USE jules_surface_types_mod, ONLY: ncpft
 USE jules_water_resources_mod, ONLY: l_water_resources
-USE jules_deposition_mod, ONLY: l_deposition_from_ukca, l_deposition_gc_corr,  &
-    dep_h2_soil_scheme, dep_h2_scheme_conrad
+USE jules_deposition_mod, ONLY: l_deposition_from_ukca, l_deposition_gc_corr
 USE jules_model_environment_mod, ONLY: lsm_id, cable
-USE missing_data_mod, ONLY: imdi
 
 IMPLICIT NONE
 
@@ -60,14 +56,12 @@ IF ( l_urban_empirical ) THEN
 END IF
 
 ! jules_rivers
-IF ( l_rivers ) THEN
-  IF ( i_river_vn /= rivers_um_trip .AND. i_river_vn /= rivers_rfm ) THEN
-    error_sum = error_sum + 1
-    WRITE(jules_message,'(I0,A,I0)') error_sum,                                &
-       ": Only Rivers UM trip (1) or RFM (2) can be run in UM-JULES. " //      &
-       "i_river_vn = ", i_river_vn
-    CALL jules_print(RoutineName, jules_message, level = PrNorm)
-  END IF
+IF ( i_river_vn == rivers_trip ) THEN
+  error_sum = error_sum + 1
+  WRITE(jules_message,'(I0,A,I0)') error_sum,                                  &
+     ": Rivers trip can only be run in standalone mode. i_river_vn = ",        &
+     rivers_trip
+  CALL jules_print(RoutineName, jules_message, level = PrNorm)
 END IF
 
 ! jules_soil_biogeochem_mod
@@ -132,15 +126,6 @@ IF ( l_sugar ) THEN
   CALL jules_print(RoutineName, jules_message, level = PrNorm)
 END IF
 
-! jules_vegetation
-IF ( l_red ) THEN
-  error_sum = error_sum + 1
-  WRITE(jules_message,'(I0,A,L1)') error_sum,                                  &
-     ": RED only available standalone " //                                     &
-     "l_red= ", l_red
-  CALL jules_print(RoutineName, jules_message, level = PrNorm)
-END IF
-
 IF ( l_irrig_limit ) THEN
   error_sum = error_sum + 1
   WRITE(jules_message,'(I0,A,L1)') error_sum,                                  &
@@ -198,14 +183,6 @@ IF ( l_riv_overbank ) THEN
   CALL jules_print(RoutineName, jules_message, level = PrNorm)
 END IF
 
-IF ( stomata_model == 3 ) THEN
-  error_sum = error_sum + 1
-  WRITE(jules_message,'(I0,A,I0)') error_sum,                                  &
-     ": SOX stomata model is not currently available in the um " //            &
-     "stomata_model= ", stomata_model
-  CALL jules_print(RoutineName, jules_message, level = PrNorm)
-END IF
-
 ! jules_water_resources
 IF ( l_water_resources ) THEN
   error_sum = error_sum + 1
@@ -247,17 +224,6 @@ IF ( l_deposition_gc_corr ) THEN
      ": Stomatal conductance corrected for bare soil evaporation is not " //   &
      "available in the UKCA. l_deposition_gc_corr = ", l_deposition_gc_corr
   CALL jules_print(RoutineName, jules_message, level = PrNorm)
-END IF
-
-IF ( dep_h2_soil_scheme /= imdi ) THEN
-  IF ( dep_h2_soil_scheme /= dep_h2_scheme_conrad ) THEN
-    error_sum = error_sum + 1
-    WRITE(jules_message,'(I0,A,I0)') error_sum,                                &
-       ": Only the Conrad & Seiler (1, original) H2 soil deposition " //       &
-       "scheme is available to the UM. dep_h2_soil_scheme = ",                 &
-       dep_h2_soil_scheme
-    CALL jules_print(RoutineName, jules_message, level = PrNorm)
-  END IF
 END IF
 
 IF ( error_sum > 0 ) THEN

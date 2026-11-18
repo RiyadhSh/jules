@@ -128,8 +128,7 @@ IF ( .NOT. ANY(l_elev_absolute_height) ) THEN
     IF ( LEN_TRIM(FILE) == 0 )                                                 &
       CALL log_fatal("init_surf_hgt", "No file name provided")
 
-    CALL fill_variables_from_file(FILE, [ 'surf_hgt' ], [ surf_hgt_name ],     &
-       is_climatology = [ .FALSE. ] )
+    CALL fill_variables_from_file(FILE, [ 'surf_hgt' ], [ surf_hgt_name ])
 
   ELSE
     !-------------------------------------------------------------------------

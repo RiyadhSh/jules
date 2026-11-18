@@ -12,13 +12,11 @@ SUBROUTINE init(nml_dir,                                                       &
                 progs, progs_data,                                             &
                 coastal_data, coast,                                           &
                 fluxes_data, fluxes,                                           &
-                rivers_data, rivers,                                           &
-                wtrac_jls_data, wtrac_jls)
+                rivers_data, rivers)
 
 USE model_interface_mod,            ONLY: check_variable_metadata
 USE time_varying_input_mod,         ONLY: seek_all_to_current_datetime
 USE init_grid_mod,                  ONLY: init_grid
-USE init_ic_mod,                    ONLY: init_ic
 USE init_ancillaries_mod,           ONLY: init_ancillaries
 USE write_dump_mod,                 ONLY: write_dump
 USE logging_mod,                    ONLY: log_info, init_prnt_control
@@ -57,9 +55,6 @@ USE fluxes_mod,                   ONLY: fluxes_data_type,                      &
 USE jules_rivers_mod,             ONLY: rivers_data_type,                      &
                                         rivers_type,                           &
                                         rivers_assoc
-USE jules_wtrac_type_mod,         ONLY: jls_wtrac_data_type,                   &
-                                        jls_wtrac_type,                        &
-                                        wtrac_jls_assoc
 
 IMPLICIT NONE
 
@@ -80,22 +75,20 @@ CHARACTER(LEN=*), INTENT(IN) :: nml_dir  ! The directory containing the
                                          ! namelists
 
 !TYPES containing the data passed down to be allocated when possible
-TYPE(psparms_data_type),   INTENT(IN OUT) :: psparms_data
-TYPE(ainfo_data_type),     INTENT(IN OUT) :: ainfo_data
-TYPE(progs_data_type),     INTENT(IN OUT) :: progs_data
-TYPE(coastal_data_type),   INTENT(IN OUT) :: coastal_data
-TYPE(fluxes_data_type),    INTENT(IN OUT) :: fluxes_data
-TYPE(rivers_data_type),    INTENT(IN OUT) :: rivers_data
-TYPE(jls_wtrac_data_type), INTENT(IN OUT) :: wtrac_jls_data
+TYPE(psparms_data_type), INTENT(IN OUT) :: psparms_data
+TYPE(ainfo_data_type),   INTENT(IN OUT) :: ainfo_data
+TYPE(progs_data_type),   INTENT(IN OUT) :: progs_data
+TYPE(coastal_data_type), INTENT(IN OUT) :: coastal_data
+TYPE(fluxes_data_type),  INTENT(IN OUT) :: fluxes_data
+TYPE(rivers_data_type),  INTENT(IN OUT) :: rivers_data
 
 !TYPES pointing to data
-TYPE(psparms_type),   INTENT(IN OUT) :: psparms
-TYPE(ainfo_type),     INTENT(IN OUT) :: ainfo
-TYPE(progs_type),     INTENT(IN OUT) :: progs
-TYPE(coastal_type),   INTENT(IN OUT) :: coast
-TYPE(fluxes_type),    INTENT(IN OUT) :: fluxes
-TYPE(rivers_type),    INTENT(IN OUT) :: rivers
-TYPE(jls_wtrac_type), INTENT(IN OUT) :: wtrac_jls
+TYPE(psparms_type), INTENT(IN OUT) :: psparms
+TYPE(ainfo_type),   INTENT(IN OUT) :: ainfo
+TYPE(progs_type),   INTENT(IN OUT) :: progs
+TYPE(coastal_type), INTENT(IN OUT) :: coast
+TYPE(fluxes_type),  INTENT(IN OUT) :: fluxes
+TYPE(rivers_type),  INTENT(IN OUT) :: rivers
 
 CHARACTER(LEN=*), PARAMETER :: RoutineName='INIT'
 
@@ -128,8 +121,7 @@ CALL init_science_fixes(nml_dir)
 CALL init_grid(nml_dir, psparms_data, ainfo_data, progs_data,                  &
                coastal_data,                                                   &
                fluxes_data,                                                    &
-               rivers_data,                                                    &
-               wtrac_jls_data)
+               rivers_data)
 
 !Associate the data and pointer types
 CALL psparms_assoc(psparms,psparms_data)
@@ -138,7 +130,6 @@ CALL prognostics_assoc(progs,progs_data)
 CALL coastal_assoc(coast,coastal_data)
 CALL fluxes_assoc(fluxes,fluxes_data)
 CALL rivers_assoc(rivers,rivers_data)
-CALL wtrac_jls_assoc(wtrac_jls,wtrac_jls_data)
 
 ! Initialise the model ancils
 CALL init_ancillaries(nml_dir, rivers, rivers_data)
@@ -155,9 +146,6 @@ ELSE
   CALL init_drive(nml_dir,ainfo,progs_data)
 END IF
 
-! Initialise the model prognostics
-CALL init_ic(nml_dir, rivers)
-
 ! Initialise output
 CALL init_output(nml_dir)
 
@@ -172,7 +160,8 @@ CALL check_compatible_options()
 CALL seek_all_to_current_datetime()
 
 ! Write an initial dump
-CALL write_dump()
+! Standalone Rivers: Ignore dumps for now
+! CALL write_dump()
 
 CALL log_info("init", "Initialisation is complete")
 

@@ -25,7 +25,7 @@ CONTAINS
 SUBROUTINE sf_evap (                                                           &
  land_pts,nsurft,                                                              &
  land_index,surft_index,surft_pts,sm_levels,fland,                             &
- ashtf_prime_surft,canopy,dtrdz_1,flake,fracaero_t,fracaero_s,snow_surft,resfs,&
+ ashtf_prime_surft,canopy,dtrdz_1,flake,fraca,snow_surft,resfs,                &
  resft,rhokh_1,tile_frac,smc_soilt,wt_ext_surft,timestep,r_gamma,              &
  fqw_1,fqw_surft,ftl_1,ftl_surft,tstar_surft,                                  &
  ecan,ecan_surft,elake_surft,esoil_soilt,esoil_surft,ei_surft,ext_soilt,       &
@@ -50,8 +50,6 @@ USE jules_irrig_mod, ONLY: l_irrig_dmd
 
 USE jules_surface_mod, ONLY: l_flake_model
 USE jules_surface_types_mod, ONLY: lake
-
-USE jules_science_fixes_mod, ONLY: l_fix_neg_snow
 
 USE sf_diags_mod, ONLY: strnewsfdiag
 
@@ -85,24 +83,19 @@ REAL(KIND=real_jlslsm) ::                                                      &
 !                            ! IN -g.dt/dp for surface layer
 ,flake(land_pts,nsurft)                                                        &
                        ! IN Lake fraction.
-,fracaero_t(land_pts,nsurft)                                                   &
-                       ! IN Total fractions of surface moisture flux
+,fraca(land_pts,nsurft)                                                        &
+                       ! IN Fraction of surface moisture flux
 !                            !    with only aerodynamic resistance
-!                            !    for land tiles
-,fracaero_s(land_pts,nsurft)                                                   &
-                       ! IN Fractions of surface moisture flux
-!                            !    with only aerodynamic resistance
-!                            !    for land tiles from the frozen part of the
-!                            !    surface alone
+!                            !    for land tiles.
 ,snow_surft(land_pts,nsurft)                                                   &
 !                            ! IN Lying snow amount on tiles (kg/m2).
 ,resfs(land_pts,nsurft)                                                        &
                        ! IN Combined soil, stomatal and aerodynam.
-!                            !    resistance factor for fraction 1-fracaero_t
+!                            !    resistance factor for fraction 1-FRACA
 !                            !    of land tiles.
 ,resft(land_pts,nsurft)                                                        &
                        ! IN Total resistance factor
-!                            !    fracaero_t+(1-fracaero_t)*resfs.
+!                            !    FRACA+(1-FRACA)*RESFS.
 ,rhokh_1(land_pts,nsurft)                                                      &
 !                            ! IN Surface exchange coefficients.
 ,tile_frac(land_pts,nsurft)                                                    &
@@ -240,6 +233,20 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
 DO n = 1,nsurft
 !$OMP DO SCHEDULE(STATIC)
+  DO k = 1,surft_pts(n)
+    l = surft_index(k,n)
+    e_surft_old(l,n) = fqw_surft(l,n)
+    IF (snow_surft(l,n)  >   0.0) THEN
+      le_surft_old(l,n) = (lc + lf) * fqw_surft(l,n)
+    ELSE
+      le_surft_old(l,n) = lc * fqw_surft(l,n)
+    END IF
+  END DO
+!$OMP END DO
+END DO
+
+DO n = 1,nsurft
+!$OMP DO SCHEDULE(STATIC)
   DO l = 1,land_pts
     ecan_surft(l,n) = 0.0
     esoil_surft(l,n) = 0.0
@@ -256,38 +263,6 @@ DO n = 1,nsurft
 !$OMP END DO
 END DO
 
-DO n = 1,nsurft
-!$OMP DO SCHEDULE(STATIC)
-  DO k = 1,surft_pts(n)
-    l = surft_index(k,n)
-    e_surft_old(l,n) = fqw_surft(l,n)
-    IF (l_fix_neg_snow) THEN
-      ! Calculate the sublimation or deposition on the snow fraction
-      ! consistently with the assumed resistance network. The canopy
-      ! evaporation must be set here to allow it to be modified to
-      ! account for exhaustion of the snow store.
-      IF (resft(l,n) > 0.0) ecan_surft(l,n) =                                  &
-                          (1.0 - flake(l,n)) *                                 &
-                          (fracaero_t(l,n) - fracaero_s(l,n)) *                &
-                          fqw_surft(l,n) / resft(l,n)
-      le_surft_old(l,n) = lc * fqw_surft(l,n)
-      IF (snow_surft(l,n)  >   0.0) THEN
-        ei_surft(l,n) = (1.0 - flake(l,n)) * fracaero_s(l,n) *                 &
-                        fqw_surft(l,n) / resft(l,n)
-        le_surft_old(l,n) = le_surft_old(l,n) + lf * ei_surft(l,n)
-
-      END IF
-    ELSE
-      IF (snow_surft(l,n)  >   0.0) THEN
-        le_surft_old(l,n) = (lc + lf) * fqw_surft(l,n)
-      ELSE
-        le_surft_old(l,n) = lc * fqw_surft(l,n)
-      END IF
-    END IF
-  END DO
-!$OMP END DO
-END DO
-
 !-----------------------------------------------------------------------
 ! Sublimation from snow-covered land tiles
 !-----------------------------------------------------------------------
@@ -296,36 +271,11 @@ DO n = 1,nsurft
   DO k = 1,surft_pts(n)
     l = surft_index(k,n)
     IF (snow_surft(l,n)  >   0.0) THEN
-      IF (l_fix_neg_snow) THEN
-        IF (fqw_surft(l,n) < 0.0) THEN
-          IF (tstar_surft(l,n) < tm) THEN
-            ! Deposit all moisture on the snow.
-            ei_surft(l,n)   = fqw_surft(l,n)
-            ecan_surft(l,n) = 0.0
-          ELSE
-            ! Partition the downward flux between the lake and canopy
-            ! fractions. Actual fluxes are used directly rather than
-            ! fluxes deduced from the potential evaporation to follow
-            ! previous functionality for this case.
-            ecan_surft(l,n)  = (1.0 - flake(l,n)) * fqw_surft(l,n)
-            elake_surft(l,n) = flake(l,n) * fqw_surft(l,n)
-            ei_surft(l,n)    = 0.0
-          END IF
-        ELSE
-          edt = ei_surft(l,n) * timestep
-          IF ( edt  >   snow_surft(l,n) ) THEN
-            ecan_surft(l,n) = ecan_surft(l,n) + ei_surft(l,n) -                &
-                              snow_surft(l,n) / timestep
-            ei_surft(l,n) = snow_surft(l,n) / timestep
-          END IF
-        END IF
-      ELSE
-        ei_surft(l,n) =  fqw_surft(l,n)
-        edt = ei_surft(l,n) * timestep
-        IF ( edt  >   snow_surft(l,n) )                                        &
-          ei_surft(l,n) = snow_surft(l,n) / timestep
-        fqw_surft(l,n) = fqw_surft(l,n) -  ei_surft(l,n)
-      END IF
+      ei_surft(l,n) =  fqw_surft(l,n)
+      edt = ei_surft(l,n) * timestep
+      IF ( edt  >   snow_surft(l,n) )                                          &
+        ei_surft(l,n) = snow_surft(l,n) / timestep
+      fqw_surft(l,n) = fqw_surft(l,n) -  ei_surft(l,n)
     END IF
   END DO
 !$OMP END DO
@@ -393,44 +343,27 @@ DO n = 1,nsurft
     j=(land_index(l) - 1) / t_i_length + 1
     i = land_index(l) - (j-1) * t_i_length
     IF ( fqw_surft(l,n)  >   0.0 ) THEN
+      ecan_surft(l,n) = (1.0 - flake(l,n)) *                                   &
+                       fraca(l,n) * fqw_surft(l,n) / resft(l,n)
       esoil_surft(l,n) = (1.0 - flake(l,n)) *                                  &
-                         (1.0 - fracaero_t(l,n)) * resfs(l,n) * fqw_surft(l,n) &
+                         (1.0 - fraca(l,n)) * resfs(l,n) * fqw_surft(l,n)      &
                                                            / resft(l,n)
       IF (sf_diag%l_et_stom .OR. sf_diag%l_et_stom_surft) THEN
-        sf_diag%et_stom_surft(l,n) = (1.0 - flake(l,n)) *                      &
-                                     (1.0 - fracaero_t(l,n))                   &
+        sf_diag%et_stom_surft(l,n) = (1.0 - flake(l,n)) * (1.0 - fraca(l,n))   &
                                      *sf_diag%resfs_stom(l,n)                  &
                                      *fqw_surft(l,n) / resft(l,n)
       END IF
       elake_surft(l,n) = flake(l,n) * fqw_surft(l,n) / resft(l,n)
-      ! With the fix, this has already been calculated and adjusted for
-      ! exhaustion of the snow store.
-      IF ( .NOT. l_fix_neg_snow)                                               &
-        ecan_surft(l,n) = (1.0 - flake(l,n)) *                                 &
-                          fracaero_t(l,n) * fqw_surft(l,n) / resft(l,n)
       edt = ecan_surft(l,n) * timestep
       IF ( edt  >   canopy(l,n) ) THEN
-        IF (l_fix_neg_snow) THEN
-          esoil_surft(l,n) = esoil_surft(l,n) + resfs(l,n) *                   &
-                             (ecan_surft(l,n) - canopy(l,n) / timestep)
-          IF (sf_diag%l_et_stom .OR. sf_diag%l_et_stom_surft) THEN
-            !           Check that we can use ecan_surft here.
-            sf_diag%et_stom_surft(l,n) = sf_diag%et_stom_surft(l,n) +          &
-                                         sf_diag%resfs_stom(l,n) *             &
-                                         (ecan_surft(l,n) -                    &
-                                          canopy(l,n) / edt)
-          END IF
-        ELSE
-          esoil_surft(l,n) = (1.0 - flake(l,n)) *                              &
-                             (1.0 - fracaero_t(l,n) * canopy(l,n) / edt) *     &
-                                 resfs(l,n) * fqw_surft(l,n) / resft(l,n)
-          IF (sf_diag%l_et_stom .OR. sf_diag%l_et_stom_surft) THEN
-            sf_diag%et_stom_surft(l,n) = (1.0 - flake(l,n)) *                  &
-                                         (1.0 - fracaero_t(l,n) *              &
-                                          canopy(l,n) / edt) *                 &
-                                          sf_diag%resfs_stom(l,n) *            &
-                                          fqw_surft(l,n) / resft(l,n)
-          END IF
+        esoil_surft(l,n) = (1.0 - flake(l,n)) *                                &
+                           (1.0 - fraca(l,n) * canopy(l,n) / edt) *            &
+                               resfs(l,n) * fqw_surft(l,n) / resft(l,n)
+        IF (sf_diag%l_et_stom .OR. sf_diag%l_et_stom_surft) THEN
+          sf_diag%et_stom_surft(l,n) = (1.0 - flake(l,n)) * (1.0 - fraca(l,n)  &
+                                        *canopy(l,n) / edt) *                  &
+                                        sf_diag%resfs_stom(l,n) *              &
+                                        fqw_surft(l,n) / resft(l,n)
         END IF
         ecan_surft(l,n) = canopy(l,n) / timestep
       END IF
@@ -440,10 +373,6 @@ DO n = 1,nsurft
         elake_surft(l,n) = flake(l,n) * fqw_surft(l,n)
       ELSE
         ei_surft(l,n) =  fqw_surft(l,n)
-        ! With the fix, ecan_surft will have been initialized and must be
-        ! zeroed.
-        IF (l_fix_neg_snow)                                                    &
-          ecan_surft(l,n) = 0.0
       END IF
     END IF
     ecan(i,j) = ecan(i,j) + tile_frac(l,n) * ecan_surft(l,n)

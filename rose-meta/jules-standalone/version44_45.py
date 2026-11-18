@@ -1,11 +1,7 @@
-import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
+import rose.upgrade
 
 
-class vn44_t155(MacroUpgrade):
+class vn44_t155(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eddy Robertson"""
 
@@ -23,7 +19,7 @@ class vn44_t155(MacroUpgrade):
         return config, self.reports
 
 
-class vn44_202(MacroUpgrade):
+class vn44_202(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for JULES ticket #202 by Nic Gedney"""
 
@@ -32,43 +28,43 @@ class vn44_202(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-
+        
         # Just add the new compulsory namelist item with its default value
         self.add_setting(config, ["namelist:jules_hydrology", "nfita"], "20")
-
+                
         return config, self.reports
 
 
-class vn44_t136(MacroUpgrade):
+class vn44_t136(rose.upgrade.MacroUpgrade):
 
    """Upgrade macro for JULES ticket #136 (INFERNO) by Stephane Mangeon"""
-
+   
    BEFORE_TAG = "vn4.4_t202"
    AFTER_TAG = "vn4.4_t136"
-
+   
    def upgrade(self, config, meta_config=None):
 
        """Upgrade a JULES vegetation configuration"""
        self.remove_setting(config,  ["namelist:jules_vegetation", "l_inferno"])
        self.add_setting(config, ["namelist:jules_vegetation", "l_inferno"], ".false.")
-
+       
        self.remove_setting(config,  ["namelist:jules_vegetation", "ignition_method"])
        self.add_setting(config, ["namelist:jules_vegetation", "ignition_method"], "1")
 
        """Upgrade the JULES pft parameters"""
        RMDI = str(-2**30)
-
+        
        npft = int(self.get_setting_value(config, ["namelist:jules_surface_types", "npft"]))
-
+       
        ncpft_in = self.get_setting_value(config, ["namelist:jules_surface_types", "ncpft"])
        if ncpft_in:
            ncpft = int(ncpft_in)
-       else:
+       else:    
            ncpft = 0
-
+            
        if npft == 5:
-          # Add sensible values for 5 pfts
-          fef_co2_io = ["1631", "1576", "1576", "1654", "1576"]
+          # Add sensible values for 5 pfts    
+          fef_co2_io = ["1631", "1576", "1576", "1654", "1576"]  
           fef_co_io = ["100", "106", "106", "64", "106"]
           fef_ch4_io = ["6.8", "4.8", "4.8", "2.4", "4.8"]
           fef_nox_io = ["2.55", "3.24", "3.24", "2.49", "3.24"]
@@ -80,9 +76,9 @@ class vn44_t136(MacroUpgrade):
           ccwood_min_io = ["0.0", "0.0", "0.0", "0.0", "0.0"]
           ccwood_max_io = ["0.4", "0.4", "0.4", "0.4", "0.4"]
           avg_ba_io = ["0.6E6","0.6E6","1.4E6","1.4E6","1.2E6"]
-
+          
        if npft == 9:
-          # Add sensible values for 9 pfts
+          # Add sensible values for 9 pfts   
           if ncpft == 0:
               fef_co2_io = ["1643","1637","1643","1637","1489","1637","1686","1637","1489"]
               fef_co_io = ["93","89","93","89","127","89","63","89","127"]
@@ -97,7 +93,7 @@ class vn44_t136(MacroUpgrade):
               ccwood_max_io = ["0.4","0.4","0.4","0.4","0.4","0.4","0.4","0.4","0.4"]
               avg_ba_io = ["0.6E6","0.6E6","0.6E6","0.6E6","0.6E6","1.4E6","1.4E6","1.2E6","1.2E6"]
           elif ncpft == 4:
-              fef_co2_io = ["1631", "1576", "1576", "1654", "1576","1576","1576","1654","1576"]
+              fef_co2_io = ["1631", "1576", "1576", "1654", "1576","1576","1576","1654","1576"]  
               fef_co_io = ["100", "106", "106", "64", "106","106","106","64","106"]
               fef_ch4_io = ["6.8", "4.8", "4.8", "2.4", "4.8","4.8","4.8","2.4","4.8"]
               fef_nox_io = ["2.55", "3.24", "3.24", "2.49", "3.24","3.24","3.24","2.49","3.24"]
@@ -109,47 +105,47 @@ class vn44_t136(MacroUpgrade):
               ccwood_min_io = ["0.0","0.0","0.0","0.0","0.0","0.0","0.0","0.0","0.0"]
               ccwood_max_io = ["0.4","0.4","0.4","0.4","0.4","0.4","0.4","0.4","0.4"]
               avg_ba_io = ["0.6E6","0.6E6","1.4E6","1.4E6","1.2E6","1.4E6","1.4E6","1.4E6","1.4E6"]
-
+       
        # Now attribute these to jules_pftpar according to npft
-       self.remove_setting(config, ["namelist:jules_pftparm", "fef_co2_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "fef_co2_io"])   
        self.add_setting(config, ["namelist:jules_pftparm", "fef_co2_io"], ", ".join(fef_co2_io[:npft]))
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "fef_co_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "fef_co_io"])     
        self.add_setting(config, ["namelist:jules_pftparm", "fef_co_io"], ", ".join(fef_co_io[:npft]))
+              
+       self.remove_setting(config, ["namelist:jules_pftparm", "fef_ch4_io"])    
+       self.add_setting(config, ["namelist:jules_pftparm", "fef_ch4_io"], ", ".join(fef_ch4_io[:npft]))       
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "fef_ch4_io"])
-       self.add_setting(config, ["namelist:jules_pftparm", "fef_ch4_io"], ", ".join(fef_ch4_io[:npft]))
-
-       self.remove_setting(config, ["namelist:jules_pftparm", "fef_nox_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "fef_nox_io"])    
        self.add_setting(config, ["namelist:jules_pftparm", "fef_nox_io"], ", ".join(fef_nox_io[:npft]))
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "fef_so2_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "fef_so2_io"])     
        self.add_setting(config, ["namelist:jules_pftparm", "fef_so2_io"], ", ".join(fef_so2_io[:npft]))
-
-       self.remove_setting(config, ["namelist:jules_pftparm", "fef_oc_io"])
+       
+       self.remove_setting(config, ["namelist:jules_pftparm", "fef_oc_io"])     
        self.add_setting(config, ["namelist:jules_pftparm", "fef_oc_io"], ", ".join(fef_oc_io[:npft]))
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "fef_bc_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "fef_bc_io"])     
        self.add_setting(config, ["namelist:jules_pftparm", "fef_bc_io"], ", ".join(fef_bc_io[:npft]))
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "ccleaf_min_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "ccleaf_min_io"])     
        self.add_setting(config, ["namelist:jules_pftparm", "ccleaf_min_io"], ", ".join(ccleaf_min_io[:npft]))
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "ccleaf_max_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "ccleaf_max_io"])     
        self.add_setting(config, ["namelist:jules_pftparm", "ccleaf_max_io"], ", ".join(ccleaf_max_io[:npft]))
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "ccwood_min_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "ccwood_min_io"])     
        self.add_setting(config, ["namelist:jules_pftparm", "ccwood_min_io"], ", ".join(ccwood_min_io[:npft]))
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "ccwood_max_io"])
+       self.remove_setting(config, ["namelist:jules_pftparm", "ccwood_max_io"])     
        self.add_setting(config, ["namelist:jules_pftparm", "ccwood_max_io"], ", ".join(ccwood_max_io[:npft]))
 
-       self.remove_setting(config, ["namelist:jules_pftparm", "avg_ba_io"])
-       self.add_setting(config, ["namelist:jules_pftparm", "avg_ba_io"], ", ".join(avg_ba_io[:npft]))
-
+       self.remove_setting(config, ["namelist:jules_pftparm", "avg_ba_io"])     
+       self.add_setting(config, ["namelist:jules_pftparm", "avg_ba_io"], ", ".join(avg_ba_io[:npft])) 
+                                 
        return config, self.reports
 
-class vn45_t132(MacroUpgrade):
+class vn45_t132(rose.upgrade.MacroUpgrade):
     """Upgrade macro for JULES #132 - Anna Harper """
 
     BEFORE_TAG = "vn4.4_t136"
@@ -189,7 +185,7 @@ class vn45_t132(MacroUpgrade):
         return config, self.reports
 
 
-class vn44_t158(MacroUpgrade):
+class vn44_t158(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Eddy Robertson"""
 
@@ -198,13 +194,13 @@ class vn44_t158(MacroUpgrade):
 
     def upgrade(self, config, meta_config=None):
         """Upgrade a JULES runtime app configuration."""
-        self.add_setting(config,
+        self.add_setting(config, 
             ["namelist:jules_vegetation", "l_trif_crop"],".false.")
-        self.add_setting(config,
+        self.add_setting(config, 
             ["namelist:jules_agric", "zero_past"],".true.")
         return config, self.reports
 
-class vn44_t173(MacroUpgrade):
+class vn44_t173(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro for ticket 173 by Andy Wiltshire."""
 
@@ -216,12 +212,12 @@ class vn44_t173(MacroUpgrade):
         self.add_setting(config, ["namelist:jules_vegetation", "l_soil_resp_lev2"], ".false.")
         return config, self.reports
 
-class vn44_vn45(MacroUpgrade):
+class vn44_vn45(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn4.4_t173"
     AFTER_TAG = "vn4.5"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

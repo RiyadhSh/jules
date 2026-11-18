@@ -29,12 +29,11 @@ SUBROUTINE update_smc (dz_soil)
 USE freeze_soil_mod, ONLY: freeze_soil
 
 !USE in JULES modules
-USE jules_soil_mod, ONLY: sm_levels
 
 !USE in UM modules (check!)
 USE atm_fields_mod, ONLY: clapp_horn, sat_soilw_suction, smcl,                 &
                           deep_soil_temp, vol_smc_sat, sthu, sthf
-USE nlsizes_namelist_mod, ONLY: land_field
+USE nlsizes_namelist_mod, ONLY: land_field,sm_levels
 
 USE umPrintMgr, ONLY: umPrint, umMessage
 USE yomhook,    ONLY: lhook, dr_hook

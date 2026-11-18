@@ -23,13 +23,14 @@ SUBROUTINE init_rivers(nml_dir)
 !   Language: Fortran 90.
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
+USE io_constants, ONLY: namelist_unit
 
-USE jules_rivers_mod, ONLY: read_nml_jules_rivers, print_nlist_jules_rivers,   &
-                            check_jules_rivers, l_riv_overbank
+USE string_utils_mod, ONLY: to_string
 
-USE overbank_inundation_mod, ONLY: read_nml_jules_overbank,                    &
-                                   print_nlist_jules_overbank,                 &
-                                   check_jules_overbank
+USE jules_rivers_mod, ONLY: jules_rivers, check_jules_rivers,                  &
+                            l_rivers, l_riv_overbank, i_river_vn, nstep_rivers
+USE logging_mod, ONLY: log_info, log_fatal
+USE overbank_inundation_mod, ONLY: check_jules_overbank, jules_overbank
 
 IMPLICIT NONE
 
@@ -38,13 +39,67 @@ IMPLICIT NONE
 CHARACTER(LEN=*), INTENT(IN) :: nml_dir  ! The directory containing the
                                          ! namelists
 
-CALL read_nml_jules_rivers(nml_dir)
-CALL print_nlist_jules_rivers()
+! Work variables
+INTEGER :: ERROR  ! Error indicator
+
+!-----------------------------------------------------------------------------
+! Read river routing namelist
+!----------------------------------------------------------------------------
+CALL log_info("init_rivers", "Reading JULES_RIVERS namelist...")
+
+! Open the river routing parameters namelist file
+OPEN(namelist_unit, FILE=(TRIM(nml_dir) // '/' // 'jules_rivers.nml'),         &
+               STATUS='old', POSITION='rewind', ACTION='read', IOSTAT = ERROR)
+IF ( ERROR /= 0 ) THEN
+  CALL log_fatal("init_rivers",                                                &
+                 "Error opening namelist file jules_rivers.nml " //            &
+                 "(IOSTAT=" // TRIM(to_string(ERROR)) // ")")
+END IF
+
+READ(namelist_unit, NML = jules_rivers, IOSTAT = ERROR)
+IF ( ERROR /= 0 ) THEN
+  CALL log_fatal("init_rivers",                                                &
+                 "Error reading namelist JULES_RIVERS " //                     &
+                 "(IOSTAT=" // TRIM(to_string(ERROR)) // ")")
+END IF
+
+IF (l_riv_overbank) THEN
+  ! Read the jules_overbank namelist.
+  CALL log_info("init_rivers", "Reading JULES_OVERBANK namelist...")
+  READ(namelist_unit, NML = jules_overbank, IOSTAT = ERROR)
+  IF ( ERROR /= 0 ) THEN
+    CALL log_fatal("init_overbank",                                            &
+                   "Error reading namelist JULES_OVERBANK " //                 &
+                   "(IOSTAT=" // TRIM(to_string(ERROR)) // ")")
+  END IF
+END IF
+
+! Close the namelist file
+CLOSE(namelist_unit, IOSTAT = ERROR)
+IF ( ERROR /= 0 ) THEN
+  CALL log_fatal("init_rivers",                                                &
+                 "Error closing namelist file jules_rivers.nml " //            &
+                 "(IOSTAT=" // TRIM(to_string(ERROR)) // ")")
+END IF
+
+! Check namelist values.
 CALL check_jules_rivers()
-IF ( l_riv_overbank ) THEN
-  CALL read_nml_jules_overbank(nml_dir)
-  CALL print_nlist_jules_overbank()
-  CALL check_jules_overbank()
+CALL check_jules_overbank()
+
+! Print some information.
+IF (l_rivers) THEN
+  CALL log_info("init_rivers",                                                 &
+                "river routing model #" // TRIM(to_string(i_river_vn)) //      &
+                " has been selected")
+  CALL log_info("init_rivers",                                                 &
+                "Integer river routing timestep = " //                         &
+                 TRIM(to_string(nstep_rivers)))
+ELSE
+  CALL log_info("init_rivers", "No river routing selected")
+END IF
+
+IF (l_riv_overbank) THEN
+  CALL log_info("init_rivers", "overbank inundation has been selected")
 END IF
 
 END SUBROUTINE init_rivers

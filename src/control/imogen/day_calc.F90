@@ -9,21 +9,17 @@
 ! [Met Office Ref SC0237]
 !******************************COPYRIGHT**************************************
 SUBROUTINE day_calc(                                                           &
-  land_pts, swdown_daily, precip_daily, tl1_daily, diurnal_tl1_daily,          &
-  lwdown_daily, pstar_daily, wind_daily, ql1_daily, swdown_subdaily,           &
-  tl1_subdaily, lwdown_subdaily, conv_rain_subdaily, ls_rain_subdaily,         &
-  ls_snow_subdaily, pstar_subdaily, wind_subdaily, ql1_subdaily,               &
-  imonth, iday, nsdmax, seed_rain)
+  land_pts,swdown_daily,precip_daily,tl1_daily,diurnal_tl1_daily,              &
+  lwdown_daily, pstar_daily,wind_daily,rh1p5m_daily,swdown_subdaily,           &
+  tl1_subdaily, lwdown_subdaily,conv_rain_subdaily,ls_rain_subdaily,           &
+  ls_snow_subdaily, pstar_subdaily,wind_subdaily,ql1_subdaily,                 &
+  imonth,iday, lat,lon,nsdmax,seed_rain)
 
 USE conversions_mod, ONLY: rhour_per_day, rsec_per_hour, pi
-USE update_mod, ONLY: dur_ls_rain, dur_conv_rain, dur_ls_snow
-! ejb these above are fixed in init_drive and not read in
+USE update_mod, ONLY: dur_ls_rain,dur_conv_rain,dur_ls_snow
 USE datetime_mod, ONLY: secs_in_hour, secs_in_day, l_360, l_leap
 USE model_time_mod, ONLY: current_time, timesteps_in_day
 USE datetime_utils_mod, ONLY: day_of_year, days_in_year
-USE model_grid_mod, ONLY: latitude, longitude
-USE theta_field_sizes, ONLY: t_i_length, t_j_length
-USE jules_fields_mod, ONLY: ainfo
 ! USE update_mod, ONLY: t_for_snow, t_for_con_rain
 ! ejb add trap in imogen nml to ensure they are read
 ! not activated in #1322 because metadata is a nightmare
@@ -77,8 +73,8 @@ REAL, INTENT(IN) ::                                                            &
           ! Daily values of pressure at level 1 (Pa).
   wind_daily(land_pts),                                                        &
           ! Daily values of wind speed (m/s)
-  ql1_daily(land_pts)
-          ! Daily values of specific humidity (kg/kg)
+  rh1p5m_daily(land_pts)
+          ! Relative humidity (%)
 
 !-----------------------------------------------------------------------
 ! Single disaggregated day arrays of variables above, but for up to hourly
@@ -98,13 +94,19 @@ REAL, INTENT(OUT) ::                                                           &
   wind_subdaily(land_pts,nsdmax),                                              &
           ! Sub-daily values of wind speed (m/s)
   ql1_subdaily(land_pts,nsdmax),                                               &
-          ! Sub_daily humidity calculated from rhl1 (kg/kg)
+          ! Sub_daily humidity calculated from rh1p5m (kg/kg)
   conv_rain_subdaily(land_pts,nsdmax),                                         &
           ! Sub-daily convective rain (mm/day or kg/m2/day)
   ls_rain_subdaily(land_pts,nsdmax),                                           &
           ! Sub-daily large scale rain (mm/day or kg/m2/day)
   ls_snow_subdaily(land_pts,nsdmax)
           ! Sub-daily large scale snow (mm/day or kg/m2/day)
+
+REAL, INTENT(IN) ::                                                            &
+  lat(land_pts),                                                               &
+          ! Latitude (degrees)
+  lon(land_pts)
+          ! Longitude (degrees)
 
 INTEGER ::                                                                     &
   n_tally,                                                                     &
@@ -118,12 +120,8 @@ INTEGER ::                                                                     &
 REAL ::                                                                        &
   prec_loc(nsdmax),                                                            &
           ! Temporary value of rainfall for each gridbox.
-  rhl1_daily(land_pts),                                                        &
-          ! Relative humidity (%)
-  qs_subdaily(land_pts),                                                       &
+  qs_subdaily(land_pts)
           ! Saturated humidity from tl1_subdaily and pstar_subdaily
-  qs_daily(land_pts)
-          ! Saturated humidity from tl1_daily and pstar_daily
 
 INTEGER ::                                                                     &
   istep,                                                                       &
@@ -219,21 +217,9 @@ IF (timesteps_in_day >= 2) THEN
   daynumber = NINT( REAL(daynumber) * 360.0                                    &
                 / REAL(days_in_year(current_time%year, l_360, l_leap)))
 
-  CALL sunny(daynumber, timesteps_in_day, t_i_length * t_j_length,             &
-                    current_time%year,                                         &
-                    RESHAPE(latitude(:,:),  [ t_i_length * t_j_length ]),      &
-                    RESHAPE(longitude(:,:), [ t_i_length * t_j_length ]),      &
-                    sun, time_max)
-
-  !-----------------------------------------------------------------------
-  ! derive daily relative humidity and check it is between 0 and 100 %
-  !-----------------------------------------------------------------------
-  CALL qsat(qs_daily, tl1_daily, pstar_daily, land_pts)
-  rhl1_daily = ql1_daily / qs_daily * 100.0
-  DO l = 1,land_pts
-    rhl1_daily(l) = MIN(rhl1_daily(l), 100.0)
-    rhl1_daily(l) = MAX(rhl1_daily(l), 0.0)
-  END DO
+  CALL sunny(                                                                  &
+    daynumber,timesteps_in_day,land_pts,current_time%year,lat,lon,             &
+    sun,time_max)
 
   !-----------------------------------------------------------------------
   ! Loop over timesteps
@@ -264,15 +250,14 @@ IF (timesteps_in_day >= 2) THEN
     END DO
 
     !-----------------------------------------------------------------------
-    ! Get subdaily humidity from daily relative humidity and subdaily
-    ! saturated specific humidity
+    ! Check that humidity value is not greater than qsat
+    ! Otherwise, ql1 is not split up into diurnal behaviour.
     !-----------------------------------------------------------------------
     CALL qsat(qs_subdaily, tl1_subdaily(:,istep),                              &
                                             pstar_subdaily(:,istep), land_pts)
 
     DO l = 1,land_pts
-      ! same rhl1_daily all day
-      ql1_subdaily(l,istep) = 0.01 * rhl1_daily(l) * qs_subdaily(l)
+      ql1_subdaily(l,istep) = 0.01 * rh1p5m_daily(l) * qs_subdaily(l)
     END DO
 
   END DO   ! End of timestep loop within the individual days.
@@ -448,10 +433,13 @@ ELSE           ! Now case where no subdaily variation (timesteps_in_day=1)
     lwdown_subdaily(l,1) = lwdown_daily(l)
     pstar_subdaily(l,1) = pstar_daily(l)
     wind_subdaily(l,1) = wind_daily(l)
-    ql1_subdaily(l,1) = ql1_daily(l)
   END DO
 
+  CALL qsat(qs_subdaily, tl1_subdaily(:,1), pstar_subdaily(:,1), land_pts)
+
   DO l = 1,land_pts
+    ql1_subdaily(l,1) = 0.01 * rh1p5m_daily(l) * qs_subdaily(l)
+
     IF (tl1_daily(l) >= temp_conv) THEN
       conv_rain_subdaily(l,1) = precip_daily(l)
     ELSE IF (tl1_daily(l) < temp_conv .AND. tl1_daily(l) >= temp_snow)         &

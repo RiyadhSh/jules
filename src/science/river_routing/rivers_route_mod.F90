@@ -34,20 +34,16 @@ SUBROUTINE rivers_route_rp(rivers)
 !
 ! Description:
 !   Perform the routing of surface and sub-surface runoff defined on riverpts
-!   This passes the total runoff in the river grid to the appropriate routines
-!   to be routed.
+!
+!   This passes the total surface runoff in the river grid to the RFM or TRIP
+!   routines to be routed.
 !
 !------------------------------------------------------------------------------
 ! Modules used:
 
 USE jules_rivers_mod, ONLY:                                                    &
 !  imported scalars with intent(in)
-     i_river_vn, rivers_camaflood, rivers_rfm, rivers_trip, np_rivers,         &
-     rivers_type
-
-USE rivers_route_camaflood_mod, ONLY:                                          &
-!  imported procedures
-     rivers_route_camaflood
+     i_river_vn, rivers_rfm, rivers_trip, np_rivers, rivers_type
 
 USE rivers_route_rfm_mod, ONLY:                                                &
 !  imported procedures
@@ -80,37 +76,19 @@ REAL(KIND=real_jlslsm) :: baseflow(np_rivers)
                              !  rate of channel base flow leaving
                              !  gridbox (kg m-2 s-1)
 
-!end of header
-
-!------------------------------------------------------------------------------
-! Calculate total runoff diagnostic.
-!------------------------------------------------------------------------------
-DO ip = 1, np_rivers
-  rivers%rrun_rp(ip) = rivers%rrun_surf_rp(ip) + rivers%rrun_sub_surf_rp(ip)
-END DO
-
 !------------------------------------------------------------------------------
 ! Call the routing science routine.
 !------------------------------------------------------------------------------
 SELECT CASE ( i_river_vn )
 
-CASE ( rivers_camaflood )
-  CALL rivers_route_camaflood( rivers%rivers_next_rp, rivers%mean_sea_level,   &
-                               rivers%rivers_boxareas_rp,                      &
-                               rivers%river_elevation, rivers%sea_level,       &
-                               rivers%rrun_sub_surf_rp, rivers%rrun_surf_rp,   &
-                               rivers%flood_flow, rivers%rflow_rp,             &
-                               rivers%river_channel_flow, rivers%river_depth,  &
-                               rivers%rivers_outflow_rp )
-
 CASE ( rivers_rfm )
   CALL rivers_route_rfm( rivers%rrun_surf_rp, rivers%rrun_sub_surf_rp,         &
-                         rivers%rflow_rp, baseflow,                            &
+                         rivers%rflow_rp, baseflow, rivers%riverout_rp,        &
                         !  imported river arrays
                          rivers)
 CASE ( rivers_trip )
   CALL rivers_route_trip( rivers%rrun_surf_rp, rivers%rrun_sub_surf_rp,        &
-                          rivers%rflow_rp, baseflow, rivers%rivers_outflow_rp, &
+                          rivers%rflow_rp, baseflow, rivers%riverout_rp,       &
                           rivers%rivers_next_rp, rivers%rivers_seq_rp,         &
                           rivers%rivers_sto_rp,rivers%rivers_boxareas_rp,      &
                           rivers%rivers_lat_rp, rivers%rivers_lon_rp  )
@@ -118,8 +96,19 @@ CASE DEFAULT
   WRITE(jules_message,*) 'ERROR: rivers_drive: ' //                            &
                          'do not recognise i_river_vn=', i_river_vn
   CALL jules_print('rivers_route_drive',jules_message)
-
 END SELECT
+
+!------------------------------------------------------------------------------
+!   Update diagnostics
+!------------------------------------------------------------------------------
+! Sum the surface and subsurface runoffs
+DO ip = 1, np_rivers
+  rivers%rrun_rp(ip) = rivers%rrun_surf_rp(ip) + rivers%rrun_sub_surf_rp(ip)
+END DO
+
+! Compute river storage per m2 (used with irrigation scheme)
+!rivers_sto_per_m2_rgrid(:) = rivers%rivers_sto_rp(:)  /                      &
+!                                rivers%rivers_boxareas_rp(:)
 
 END SUBROUTINE rivers_route_rp
 
@@ -226,8 +215,7 @@ END IF
 
 !------------------------------------------------------------------------------
 ! Scatter land variable onto separate processors
-CALL scatter_land_field(global_rivers_var_on_landpts, var_land,                &
-                        rivers%global_land_index)
+CALL scatter_land_field(global_rivers_var_on_landpts, var_land)
 
 DEALLOCATE(global_rivers_var_on_landpts)
 
@@ -296,8 +284,7 @@ ELSE
   ALLOCATE(global_rivers_adj_on_landpts(1))
 END IF
 
-CALL gather_land_field(rivers_adj_on_landpts, global_rivers_adj_on_landpts,    &
-                       rivers%global_land_index)
+CALL gather_land_field(rivers_adj_on_landpts, global_rivers_adj_on_landpts)
 
 IF ( is_master_task() ) THEN
 

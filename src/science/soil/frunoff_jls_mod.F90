@@ -18,19 +18,15 @@ CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='FRUNOFF_MOD'
 
 CONTAINS
 
-SUBROUTINE frunoff ( npnts, surft_pts, curr_surft, nsurft, n_wtrac_jls,        &
-                     timestep, surft_index,                                    &
-                     area, can_cpy, can_wcnt, infil, r, r_wtrac, frac,         &
-                     surf_roff, surf_roff_surft, surf_roff_wtrac,              &
-                     surf_roff_surft_wtrac)
+SUBROUTINE frunoff ( npnts, surft_pts, curr_surft, timestep, surft_index,      &
+                     area, can_cpy, can_wcnt, infil, r, frac,                  &
+                     surf_roff, surf_roff_surft)
 
 USE yomhook, ONLY: lhook, dr_hook
 USE parkind1, ONLY: jprb, jpim
 
 USE jules_surface_mod, ONLY: l_flake_model
 USE jules_surface_types_mod, ONLY: lake
-
-USE jules_water_tracers_mod, ONLY: l_wtrac_jls
 
 USE um_types, ONLY: real_jlslsm
 
@@ -44,12 +40,8 @@ INTEGER, INTENT(IN) ::                                                         &
     ! Total number of land points.
   surft_pts,                                                                   &
     ! Number of tile points.
-  curr_surft,                                                                  &
+  curr_surft
     ! Current surface tile
-  nsurft,                                                                      &
-    ! Number of surface tiles (used by water tracers)
-  n_wtrac_jls
-    ! Number of water tracers
 
 REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   timestep
@@ -73,8 +65,6 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
     ! Infiltration rate (kg/m2/s).
   r(npnts),                                                                    &
     ! Water fall rate (kg/m2/s).
-  r_wtrac(npnts,n_wtrac_jls),                                                  &
-    ! Water tracer fall rate for all tiles (kg/m2/s).
   frac(npnts)
     ! Tile fraction.
 
@@ -84,19 +74,14 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
   surf_roff(npnts),                                                            &
     ! Cumulative surface runoff (kg/m2/s).
-  surf_roff_surft(npnts),                                                      &
+  surf_roff_surft(npnts)
     ! Surface runoff contributions for this tile (kg/m2/s).
-  surf_roff_wtrac(npnts,n_wtrac_jls),                                          &
-    ! Cummulative water tracer surface runoff (kg/m2/s).
-  surf_roff_surft_wtrac(npnts,nsurft,n_wtrac_jls)
-    ! Water tracer surface runoff contributions for all tiles (kg/m2/s).
-    ! (Note, unlike the water equivalent, this is the full field containing
-    !  all tiles)
+
 !-----------------------------------------------------------------------------
 !Local variables
 !-----------------------------------------------------------------------------
 INTEGER ::                                                                     &
-  i, j, i_wt
+  i, j
 
 REAL(KIND=real_jlslsm) ::                                                      &
   aexp,                                                                        &
@@ -108,10 +93,8 @@ REAL(KIND=real_jlslsm) ::                                                      &
     ! (CAN_CPY - CAN_WCNT)/TIMESTEP
   can_ratio,                                                                   &
     ! CAN_WCNT / CAN_CPY
-  runoff(npnts),                                                               &
+  runoff,                                                                      &
     ! Local runoff.
-  runoff_wtrac,                                                                &
-    ! Local water tracer runoff.
   smallestp
     ! Smallest +ve number that can be represented.
 
@@ -127,15 +110,15 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 smallestp = TINY(1.0)
 
 !$OMP PARALLEL DO DEFAULT(NONE)                                                &
-!$OMP PRIVATE(i, j, aexp, aexp1, aexp2, can_ratio, cm)                         &
+!$OMP PRIVATE(i, runoff, aexp, aexp1, aexp2, can_ratio, cm)                    &
 !$OMP SHARED(surft_pts, surft_index, r, infil, timestep, can_wcnt, can_cpy,    &
 !$OMP        area, smallestp, surf_roff, frac, surf_roff_surft, l_flake_model, &
-!$OMP        curr_surft, lake, runoff )                                        &
+!$OMP        curr_surft, lake )                                                &
 !$OMP        SCHEDULE(STATIC)
 !CDIR NODEP
 DO j = 1,surft_pts
   i = surft_index(j)
-  runoff(i) = 0.0
+  runoff = 0.0
   IF ( r(i) > EPSILON(r(i)) ) THEN
     IF ( infil(i) * timestep <= can_wcnt(i)                                    &
          .AND. can_cpy(i) >  0.0 ) THEN
@@ -149,7 +132,7 @@ DO j = 1,surft_pts
       aexp2     = EXP( -aexp / timestep)
       can_ratio = can_wcnt(i) / can_cpy(i)
       can_ratio = MIN(can_ratio,1.0)
-      runoff(i) = r(i) * ( can_ratio * aexp1 + (1.0 - can_ratio) * aexp2 )
+      runoff    = r(i) * ( can_ratio * aexp1 + (1.0 - can_ratio) * aexp2 )
       !                                                        ... P252.14A
     ELSE
       ! Infiltration in timestep > canopy water content
@@ -161,49 +144,18 @@ DO j = 1,surft_pts
       ELSE
         aexp = 0.0
       END IF
-      runoff(i) = r(i) * aexp                    !     ... P252.14B
+      runoff = r(i) * aexp                    !     ... P252.14B
     END IF
   END IF
 
   !Increment the tile runoff for this precip type
-  surf_roff_surft(i) = surf_roff_surft(i) + runoff(i)
+  surf_roff_surft(i) = surf_roff_surft(i) + runoff
 
   IF ( .NOT. ((l_flake_model) .AND. (curr_surft == lake)) ) THEN
-    surf_roff(i)       = surf_roff(i)       + frac(i) * runoff(i)
+    surf_roff(i)       = surf_roff(i)       + frac(i) * runoff
   END IF
 END DO
 !$OMP END PARALLEL DO
-
-! Water tracers
-IF (l_wtrac_jls) THEN
-!$OMP PARALLEL DEFAULT(NONE)                                                   &
-!$OMP PRIVATE(i, j, i_wt, runoff_wtrac)                                        &
-!$OMP SHARED(surft_pts, surft_index, r, r_wtrac, runoff, surf_roff_wtrac,      &
-!$OMP        surf_roff_surft_wtrac, frac, l_flake_model, n_wtrac_jls,          &
-!$OMP        curr_surft, lake)
-  DO i_wt = 1, n_wtrac_jls
-!$OMP DO SCHEDULE(STATIC)
-    DO j = 1,surft_pts
-      i = surft_index(j)
-      runoff_wtrac = 0.0
-      IF ( r(i) > EPSILON(r(i)) ) THEN
-        runoff_wtrac = (r_wtrac(i,i_wt)/r(i)) * runoff(i)
-      END IF
-
-      surf_roff_surft_wtrac(i,curr_surft,i_wt) =                               &
-                               surf_roff_surft_wtrac(i,curr_surft,i_wt) +      &
-                                      runoff_wtrac
-
-      IF ( .NOT. ((l_flake_model) .AND. (curr_surft == lake)) ) THEN
-        surf_roff_wtrac(i,i_wt) = surf_roff_wtrac(i,i_wt) + frac(i) *          &
-                                  runoff_wtrac
-      END IF
-    END DO
-!$OMP END DO
-  END DO
-!$OMP END PARALLEL
-
-END IF    ! l_wtrac_jls
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

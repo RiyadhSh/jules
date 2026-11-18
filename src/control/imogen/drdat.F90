@@ -9,18 +9,24 @@
 ! [Met Office Ref SC0237]
 !******************************COPYRIGHT**************************************
 
-SUBROUTINE drdat(iyear)
+SUBROUTINE drdat(                                                              &
+  iyear,land_pts,dir_anom,                                                     &
+  longmin_dat,latmin_dat,longmax_dat,latmax_dat,mm,drive_month,                &
+  imgn_drive, ainfo)
 
-USE fill_variables_from_file_mod, ONLY: fill_variables_from_file
-USE imogen_anlg_vals, ONLY: file_base_anom
-USE io_constants, ONLY: max_file_name_len
+USE io_constants, ONLY: imogen_unit, max_file_name_len
+USE imogen_map, ONLY: sgindinv
+USE imogen_constants, ONLY: n_imogen_land
+USE imgn_drive_mod, ONLY: imgn_drive_type
+USE ancil_info, ONLY: ainfo_type
+USE theta_field_sizes, ONLY: t_i_length
 
 IMPLICIT NONE
 
 !-----------------------------------------------------------------------------
 ! Description:
 !   Reads anomalies of driving data for the IMOGEN simulations
-!   For l_change_metdata = .true. and change_metdata_method = 2
+!   If anom=.true. and anlg=.false.
 !
 ! Code Owner: Please refer to ModuleLeaders.txt
 !             This file belongs in IMOGEN
@@ -30,54 +36,101 @@ IMPLICIT NONE
 !
 !-----------------------------------------------------------------------------
 
-INTEGER, INTENT(IN) ::                                                         &
-  iyear
-              ! Year of interest.
+TYPE(imgn_drive_type), INTENT(IN OUT) :: imgn_drive
+TYPE(ainfo_type), INTENT(IN) :: ainfo
 
-INTEGER, PARAMETER :: nvars = 8
-INTEGER :: i ! Loop counter
+INTEGER, INTENT(IN) ::                                                         &
+  iyear,                                                                       &
+              ! Year of interest.
+  land_pts,                                                                    &
+              ! IN Number of land points.
+  mm
+              ! IN Number months in year.
+
+REAL, INTENT(OUT) ::                                                           &
+  latmin_dat,latmax_dat,                                                       &
+             ! Latitudinal limits of the area
+  longmin_dat,longmax_dat
+             ! Longitudinal limits of the area
+
+REAL ::                                                                        &
+  lat(land_pts),                                                               &
+             ! Latitude (degrees).
+  lon(land_pts)
+             ! Longitude (degrees).
+
 
 CHARACTER(LEN=4) ::                                                            &
-  drive_year
-              ! Label for year of driving data.
-CHARACTER(LEN=max_file_name_len) ::                                            &
-  file_year
-              ! File containing anomalies for the year of interest.
+  drive_year,                                                                  &
+              ! IN Label for year of driving data.
+  drive_month(12)
+              ! Labels for month of driving data.
 
-CHARACTER(LEN=24), DIMENSION(nvars) ::                                         &
-  imgn_name = ['tl1_ij_anom_imgn        ',                                     &
-               'ql1_ij_anom_imgn        ',                                     &
-               'wind_ij_anom_imgn       ',                                     &
-               'lwdown_ij_anom_imgn     ',                                     &
-               'swdown_ij_anom_imgn     ',                                     &
-               'precip_ij_anom_imgn     ',                                     &
-               'pstar_ij_anom_imgn      ',                                     &
-               'diurnal_tl1_ij_anom_imgn']
+CHARACTER(LEN=max_file_name_len), INTENT(IN OUT) ::                            &
+  dir_anom
+              ! Directory containing anomalies.
+CHARACTER(LEN=180) ::                                                          &
+  driver_anom
+              ! Base filename containing anomalies.
 
-CHARACTER(LEN=14), DIMENSION(nvars) ::                                         &
-  nc_name = ['tl1_anom      ',                                                 &
-             'ql1_anom      ',                                                 &
-             'wind_anom     ',                                                 &
-             'lwdown_anom   ',                                                 &
-             'swdown_anom   ',                                                 &
-             'precip_anom   ',                                                 &
-             'pstar_anom    ',                                                 &
-             'range_tl1_anom' ]
+!-----------------------------------------------------------------------
+! Climatological forcing variables.
+!-----------------------------------------------------------------------
+REAL ::                                                                        &
+  blank_imogen_anomaly_input,                                                  &
+  rainfall_anom_dat(land_pts,mm),                                              &
+             ! WORK Rainfall rate (mm/day).
+  snowfall_anom_dat(land_pts,mm)
+             ! WORK Snowfall rate (mm/day).
+
+!-----------------------------------------------------------------------
+! Loop counters.
+!-----------------------------------------------------------------------
+INTEGER :: l, i, j, im, ijk ! Loop counters
 
 !-----------------------------------------------------------------------
 ! Convert year to string.
 !-----------------------------------------------------------------------
 WRITE(drive_year,'(I4)') iyear
 
-file_year = TRIM(file_base_anom) // "_" // drive_year //".nc"
-! curently need to be as a separate netcdf file for each year
+DO im = 1,mm
+  driver_anom = TRIM(dir_anom) // drive_year // drive_month(im)
 
-! In the following call, is_climatology adds a 12-month time dimension to the
-! size of the input variable in order to interpolate to the appropriate start
-! time for initial conditions. It is therefore .FALSE. in this call.
-CALL fill_variables_from_file(                                                 &
-   file_year, imgn_name, nc_name, is_climatology = [ (.FALSE., i=1, nvars) ]   &
-   )
+  OPEN(imogen_unit, FILE=driver_anom,                                          &
+                    STATUS='old', POSITION='rewind', ACTION='read')
+
+  READ(imogen_unit,*) longmin_dat,latmin_dat,longmax_dat,latmax_dat
+  DO ijk = 1,n_imogen_land
+    ! index of grid locations with index from get_imogen_map (see also gcm_anlg)
+    IF (sgindinv(ijk) > 0) THEN
+      l = sgindinv(ijk)
+
+      j = (ainfo%land_index(l) - 1) / t_i_length + 1
+      i = ainfo%land_index(l) - (j-1) * t_i_length
+
+      READ(imogen_unit,*) lon(l), lat(l),                                      &
+                        imgn_drive%tl1_ij_anom(i,j,im),                        &
+                        imgn_drive%rh1p5m_ij_anom(i,j,im),                     &
+                        imgn_drive%uwind_ij_anom(i,j,im),                      &
+                        imgn_drive%vwind_ij_anom(i,j,im),                      &
+                        imgn_drive%lwdown_ij_anom(i,j,im),                     &
+                        imgn_drive%swdown_ij_anom(i,j,im),                     &
+                        imgn_drive%diurnal_tl1_ij_anom(i,j,im),                &
+                        rainfall_anom_dat(l,im),                               &
+                        snowfall_anom_dat(l,im),                               &
+                        imgn_drive%pstar_ij_anom(i,j,im),                      &
+                        blank_imogen_anomaly_input
+
+
+      imgn_drive%precip_ij_anom(i,j,im) = rainfall_anom_dat(l,im) +            &
+                                          snowfall_anom_dat(l,im)
+
+    ELSE
+      READ(imogen_unit,*)
+    END IF
+  END DO
+END DO
+CLOSE(imogen_unit)
 
 RETURN
 

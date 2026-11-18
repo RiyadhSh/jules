@@ -37,8 +37,7 @@ SUBROUTINE soilcarb_layers (land_pts, trif_pts, trif_index, forw, r_gamma,     &
 
 
 USE jules_surface_types_mod, ONLY: npft
-USE jules_soil_biogeochem_mod, ONLY: bio_hum_cn, tau_lit, l_label_frac_cs,     &
-                                     z_burn_max
+USE jules_soil_biogeochem_mod, ONLY: bio_hum_cn, tau_lit, l_label_frac_cs
 USE soilcarb_tracer_age_mod, ONLY: soilcarb_tracer_age
 
 USE jules_vegetation_mod, ONLY: l_nitrogen
@@ -63,7 +62,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------
 ! Arguments with INTENT(IN).
 !-----------------------------------------------------------------------------
-INTEGER, INTENT(IN) ::                                                         &
+INTEGER, INTENT(IN)::                                                          &
   land_pts,                                                                    &
     ! Total number of land points.
   trif_pts
@@ -73,13 +72,13 @@ INTEGER, INTENT(IN) ::                                                         &
   trif_index(land_pts)
     ! Indices of land points on which TRIFFID may operate.
 
-REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
+REAL(KIND=real_jlslsm), INTENT(IN)::                                           &
   forw,                                                                        &
     ! Forward timestep weighting.
   r_gamma
     ! Inverse timestep (/360days).
 
-REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
+REAL(KIND=real_jlslsm), INTENT(IN)::                                           &
   lit_c(land_pts,npft),                                                        &
     ! Carbon Litter (kg C/m2/360days).
   lit_c_t(land_pts),                                                           &
@@ -92,7 +91,7 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 !-----------------------------------------------------------------------------
 ! Arguments with INTENT(INOUT).
 !-----------------------------------------------------------------------------
-REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
+REAL(KIND=real_jlslsm), INTENT(IN OUT)::                                       &
   resp_s_pot(land_pts,dim_cslayer,5),                                          &
     ! Soil respiration (kg C/m2/360days).
   cs(land_pts,dim_cslayer,4),                                                  &
@@ -108,7 +107,7 @@ REAL(KIND=real_jlslsm), INTENT(IN OUT) ::                                      &
 !-----------------------------------------------------------------------------
 ! Arguments with INTENT(OUT).
 !-----------------------------------------------------------------------------
-REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
+REAL(KIND=real_jlslsm), INTENT(OUT)::                                          &
   ns_gb(land_pts,dim_cslayer),                                                 &
     ! Total Soil N (kg N/m2).
   neg_n(land_pts),                                                             &
@@ -124,7 +123,7 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
 REAL(KIND=real_jlslsm), INTENT(IN OUT) :: ns_pool_gb(land_pts,dim_cslayer,dim_cs1)
 REAL(KIND=real_jlslsm), INTENT(IN OUT) :: n_inorg_soilt_lyrs(land_pts,nsoilt,dim_cslayer)
 REAL(KIND=real_jlslsm), INTENT(IN OUT) :: n_inorg_avail_pft(land_pts,npft,dim_cslayer)
-REAL(KIND=real_jlslsm), INTENT(IN) :: t_soil_soilt_acc(land_pts,nsoilt,sm_levels)
+REAL(KIND=real_jlslsm), INTENT(IN):: t_soil_soilt_acc(land_pts,nsoilt,sm_levels)
 
 !trif_vars_mod
 REAL(KIND=real_jlslsm), INTENT(IN OUT) :: burnt_carbon_dpm(land_pts)
@@ -152,15 +151,15 @@ REAL(KIND=real_jlslsm), PARAMETER :: lit_cn    = 300.0
 REAL(KIND=real_jlslsm), PARAMETER :: nminl_gas = 0.01
     ! Fraction of net mineralisation of N that is lost as gas.
 
-REAL(KIND=real_jlslsm), PARAMETER ::                                           &
+REAL(KIND=real_jlslsm) , PARAMETER ::                                          &
   ccdpm_min = 0.8,                                                             &
   ccdpm_max = 1.0,                                                             &
-    ! Decomposable Plant Material burns between 80 to 100 %
+    ! Decomposable Plant Material burns between 80 to 100 %.
   ccrpm_min = 0.0,                                                             &
   ccrpm_max = 0.2
-    ! Resistant Plant Material burns between 0 to 20 %
+    ! Resistant Plant Material burns between 0 to 20 %.
     ! These values are also set in inferno_mod to calculate emitted_carbon_DPM
-    ! and emitted_carbon_RPM, and are also set in soilcarb
+    ! and emitted_carbon_RPM, and are also set in soilcarb.
 
 !-----------------------------------------------------------------------------
 ! Local variables.
@@ -198,7 +197,7 @@ REAL(KIND=real_jlslsm) ::                                                      &
     ! Diffusion rate (m^2/360days).
   resp_s(land_pts,dim_cslayer,5),                                              &
     ! Soil respiration (kg C/m2/360days).
-  f_root_pft(dim_cslayer),                                                     &
+  f_root_pft(npft,dim_cslayer),                                                &
     ! Root fraction in each soil layer.
   f_root_pft_dz(npft,dim_cslayer),                                             &
     ! Exponential root fraction in each soil layer.
@@ -208,19 +207,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
     ! cs_min/bio_hum_cn: speeding up calculations
   mix_term(land_pts,dim_cslayer,4)
     ! Mixing term for calculating mixing (kg/m^2/360days)
-
-! l_trif_fire calculations for proportion of cs burnt
-REAL(KIND=real_jlslsm) ::                                                      &
-  z2,                                                                          &
-   ! depth of bottom of soil layer for soil C burnt calculation
-  z1,                                                                          &
-   ! depth of top of soil layer for soil C burnt calculation
-  prop_cs_burnt,                                                               &
-   ! proportion of soil carbon burnt
-  burnt_carbon_layer_dpm(land_pts, dim_cslayer),                               &
-   ! DPM burnt carbon in each soil layer due to fire (kg m-2 per 360days)
-  burnt_carbon_layer_rpm(land_pts, dim_cslayer)
-   ! RPM burnt carbon in each soil layer due to fire (kg m-2 per 360days)
 
 ! Dr Hook variables
 INTEGER(KIND=jpim), PARAMETER :: zhook_in  = 0
@@ -242,8 +228,6 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 ! Initialisation.
 !-----------------------------------------------------------------------------
 burnt_soil(:)     = 0.0
-burnt_carbon_layer_dpm(:,:) = 0.0
-burnt_carbon_layer_rpm(:,:) = 0.0
 fn_gb(:,:)        = 1.0
 n_gas_gb(:,:)     = 0.0
 
@@ -253,9 +237,9 @@ cs_min_bio_hum_cn = cs_min / bio_hum_cn
 
 !Calculate root profiles for updating plant available N
 DO i = 1,npft
-  CALL root_frac(i, dim_cslayer, dzsoil, rootd_ft(i), f_root_pft)
-  f_root_pft_dz(i,:) = f_root_pft(:) / dzsoil(:) /                             &
-                       (f_root_pft(1) / dzsoil(1))
+  CALL root_frac(i, dim_cslayer, dzsoil, rootd_ft(i), f_root_pft(i,:))
+  f_root_pft_dz(i,:) = f_root_pft(i,:) / dzsoil(:) /                           &
+                       (f_root_pft(i,1) / dzsoil(1))
 END DO
 
 DO t = 1,trif_pts
@@ -271,7 +255,7 @@ DO t = 1,trif_pts
                       + resp_s_pot(l,n,3) + resp_s_pot(l,n,4)
 
     cn(l,n,1) = cs(l,n,1) / ns_pool_gb(l,n,1) ! C:N ratio of DPM - Prognostic
-    cn(l,n,2) = cs(l,n,2) / ns_pool_gb(l,n,2) ! C:N ratio of RPM - Prognostic
+    cn(l,n,2) = cs(l,n,2) / ns_pool_gb(l,n,2) ! C:N ratio of DPM - Prognostic
     cn(l,n,3) = bio_hum_cn                    ! C:N ratio of BIO - Fixed
     cn(l,n,4) = bio_hum_cn                    ! C:N ratio of HUM - Fixed
 
@@ -504,40 +488,25 @@ DO t = 1,trif_pts
 END DO ! trif_pts
 
 !-----------------------------------------------------------------------------
-! Remove burnt litter down to z_burn_max
+! Remove burnt litter from top soil layer only
 !-----------------------------------------------------------------------------
 IF (l_trif_fire) THEN
   DO t = 1,trif_pts
     l = trif_index(t)
-    z2 = 0.0
-    DO n=1,dim_cslayer
-      z1 = z2
-      z2 = z2 + dzsoil(n)
-      prop_cs_burnt = 0.0
-      IF ( z2 <  z_burn_max ) THEN
-        prop_cs_burnt = 1.0  ! combustibility of 1
-      ELSE IF ( z2 >= z_burn_max .AND. z1 <  z_burn_max ) THEN
-        prop_cs_burnt = (z_burn_max - z1) / (z2 - z1)
-      END IF
-
-      burnt_carbon_layer_dpm(l,n) = prop_cs_burnt * g_burn_gb(l) *             &
-                          (cs(l,n,1) * (ccdpm_min + (ccdpm_max - ccdpm_min)    &
-                          * (1.0 - (sthu_soilt(l,1,n)))))
-      burnt_carbon_layer_rpm(l,n) = prop_cs_burnt * g_burn_gb(l) *             &
-                          (cs(l,n,2) * (ccrpm_min + (ccrpm_max - ccrpm_min)    &
-                          * (1.0 - (sthu_soilt(l,1,n)))))
-      ! Need to introduce a check because it is updated before updating soil C
-      burnt_carbon_layer_dpm(l,n) = MAX(MIN(burnt_carbon_layer_dpm(l,n),       &
-                          cs(l,n,1) +  pc(l,n,1) / r_gamma - cs_min), 0.0)
-      burnt_carbon_layer_rpm(l,n) = MAX(MIN(burnt_carbon_layer_rpm(l,n),       &
-                          cs(l,n,2) + pc(l,n,2) / r_gamma - cs_min), 0.0)
-      pc(l,n,1)     = pc(l,n,1) - burnt_carbon_layer_dpm(l,n)
-      pc(l,n,2)     = pc(l,n,2) - burnt_carbon_layer_rpm(l,n)
-    END DO
-    burnt_soil(l) = SUM(burnt_carbon_layer_dpm(l,:)) +                         &
-                    SUM(burnt_carbon_layer_rpm(l,:))
-    burnt_carbon_dpm(l) = SUM(burnt_carbon_layer_dpm(l,:))
-    burnt_carbon_rpm(l) = SUM(burnt_carbon_layer_rpm(l,:))
+    burnt_carbon_dpm(l) = g_burn_gb(l) *                                       &
+                          (cs(l,1,1) * (ccdpm_min + (ccdpm_max - ccdpm_min)    &
+                          * (1.0 - (sthu_soilt(l,1,1)))))
+    burnt_carbon_rpm(l) = (g_burn_gb(l) *                                      &
+                          (cs(l,1,2) * (ccrpm_min + (ccrpm_max - ccrpm_min)    &
+                          * (1.0 - (sthu_soilt(l,1,1))))))
+    ! Need to introduce a check because it is updated before updating soil C
+    burnt_carbon_dpm(l) = MAX(MIN(burnt_carbon_dpm(l), cs(l,1,1) +             &
+                          pc(l,1,1) / r_gamma - cs_min), 0.0)
+    burnt_carbon_rpm(l) = MAX(MIN(burnt_carbon_rpm(l), cs(l,1,1) +             &
+                          pc(l,1,1) / r_gamma - cs_min), 0.0)
+    pc(l,1,1)     = pc(l,1,1) - burnt_carbon_dpm(l)
+    pc(l,1,2)     = pc(l,1,2) - burnt_carbon_rpm(l)
+    burnt_soil(l) = burnt_carbon_dpm(l) + burnt_carbon_rpm(l)
   END DO
 END IF
 

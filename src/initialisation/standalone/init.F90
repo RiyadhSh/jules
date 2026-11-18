@@ -29,7 +29,6 @@ SUBROUTINE init(nml_dir, crop_vars_data, crop_vars,                            &
                    chemvars_data, chemvars,                                    &
                    rivers_data, rivers,                                        &
                    water_resources_data, water_resources,                      &
-                   wtrac_jls_data, wtrac_jls,                                  &
                    !CABLE: progs, working vars
                    progs_cbl_vars_data, progs_cbl_vars,                        &
                    work_cbl_data, work_cbl                                     &
@@ -45,7 +44,7 @@ USE model_time_mod,               ONLY: is_spinup
 USE init_grid_mod,                ONLY: init_grid
 USE init_ancillaries_mod,         ONLY: init_ancillaries
 USE init_params_mod,              ONLY: init_params
-USE init_ic_mod,                  ONLY: init_ic
+USE initial_conditions_mod,       ONLY: init_ic
 USE spinup_init_mod,              ONLY: spinup_init
 USE write_dump_mod,               ONLY: write_dump
 USE logging_mod,                  ONLY: log_info, init_prnt_control
@@ -157,10 +156,6 @@ USE work_vars_mod_cbl,            ONLY: work_vars_type,                        &
 USE init_cable_progs_mod,         ONLY: init_cable_progs
 USE init_cable_work_mod,          ONLY: init_cable_work
 
-USE jules_wtrac_type_mod,         ONLY: jls_wtrac_type,                        &
-                                        jls_wtrac_data_type,                   &
-                                        wtrac_jls_assoc
-
 IMPLICIT NONE
 
 !-----------------------------------------------------------------------------
@@ -203,7 +198,6 @@ TYPE(rivers_data_type), INTENT(IN OUT) :: rivers_data
 !TYPE(in_dev), INTENT(IN OUT) :: veg3_field_(data)
 TYPE(chemvars_data_type), INTENT(IN OUT) :: chemvars_data
 TYPE(water_resources_data_type), INTENT(IN OUT) :: water_resources_data
-TYPE(jls_wtrac_data_type), INTENT(IN OUT)      :: wtrac_jls_data
 TYPE(progs_cbl_vars_data_type), INTENT(IN OUT) :: progs_cbl_vars_data
 TYPE(work_vars_data_type), INTENT(IN OUT)      :: work_cbl_data
 
@@ -231,10 +225,8 @@ TYPE(rivers_type), INTENT(IN OUT) :: rivers
 !TYPE(in_dev), INTENT(IN OUT) :: veg3_field_(data)
 TYPE(chemvars_type), INTENT(IN OUT) :: chemvars
 TYPE(water_resources_type), INTENT(IN OUT) :: water_resources
-TYPE(jls_wtrac_type), INTENT(IN OUT)      :: wtrac_jls
 TYPE(progs_cbl_vars_type), INTENT(IN OUT) :: progs_cbl_vars
 TYPE(work_vars_type), INTENT(IN OUT)      :: work_cbl
-
 !-----------------------------------------------------------------------------
 
 ! Check that the metadata for variables is acceptable.
@@ -316,8 +308,7 @@ CALL init_grid(nml_dir, crop_vars_data,psparms_data,top_pdm_data,              &
                rivers_data,                                                    &
                !veg3_parm_(data), &
                !veg3_field_(data), &
-               chemvars_data, water_resources_data,                            &
-               wtrac_jls_data                                                  &
+               chemvars_data, water_resources_data                             &
                )
 
 !Associate the data and pointer types
@@ -344,7 +335,6 @@ CALL rivers_assoc(rivers,rivers_data)
 !CALL veg3_field_assoc(in_dev)
 CALL chemvars_assoc(chemvars,chemvars_data)
 CALL water_resources_assoc(water_resources,water_resources_data)
-CALL wtrac_jls_assoc(wtrac_jls,wtrac_jls_data)
 
 ! Initialise the model ancils
 CALL init_ancillaries(nml_dir, crop_vars, ainfo, trif_vars, urban_param,       &
@@ -358,7 +348,7 @@ IF ( lsm_id == cable ) THEN
 END IF
 
 ! Initialise model parameters
-CALL init_params(nml_dir,progs,land_pts,nsurft,nnpft,npft,nmasst)
+CALL init_params(nml_dir,progs)
 
 ! Initialise fire module
 CALL init_fire(nml_dir,ainfo%land_index)
@@ -372,8 +362,7 @@ CALL init_drive(nml_dir,ainfo,progs_data)
 ! Initialise IMOGEN
 ! Contains allocation of progs_data%seed_rain - hence passing in the data type
 IF ( l_imogen ) THEN
-  CALL init_imogen(nml_dir,progs_data, trifctltype, imgn_drive, imgn_vars,     &
-                   ainfo)
+  CALL init_imogen(nml_dir,progs_data, trifctltype, imgn_drive, imgn_vars, ainfo)
 END IF
 
 ! Associate the data and pointer types again after the extra allocation
@@ -411,6 +400,7 @@ CALL init_vars_tmp(crop_vars,psparms,toppdm,ainfo,trif_vars, aerotype,         &
 CALL init_parms(psparms,ainfo,urban_param,progs,coast,jules_vars,fluxes)
 
 ! Setup and initialise veg3
+CALL veg3_parm_init(land_pts,nsurft,nnpft,npft,nmasst)
 CALL veg3_field_init(land_pts,nsurft,nnpft,npft,nmasst,ainfo,progs)
 
 ! Seek the input files to the start of the run

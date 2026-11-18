@@ -22,32 +22,33 @@ MODULE jules_water_tracers_mod
 !   Language: Fortran 90.
 !-------------------------------------------------------------------------------
 
-USE missing_data_mod,        ONLY: imdi, rmdi
-USE um_types,                ONLY: real_jlslsm
-USE free_tracers_inputs_mod, ONLY: max_wtrac
+USE missing_data_mod, ONLY: imdi, rmdi
+USE um_types, ONLY: real_jlslsm
 
 IMPLICIT NONE
 
-! Switch to control water tracers in JULES.
-! If UM_JULES, this is set in wtrac_setup_jls based on user input.
-! If standalone JULES, water tracers are currently turned off.
+! Switch to control water tracers and set the number of water tracers in JULES
 
-LOGICAL :: l_wtrac_jls = .FALSE.
+! Note, water tracers are not available in standalone JULES.
+! Also, the number of water tracers used in JULES can be a subset of the
+! number used in UM.
+! The first water tracer is always the normal water tracer.
 
-! Number of water tracers used in JULES.
-! If UM_JULES, this is set in wtrac_setup_jls based on user input. (Note,
-!   the number of water tracers used in JULES can be a subset of those used
-!   in the UM.)
-! If standalone JULES, water tracers are turned off, but n_wtrac_jls must be
-!   set to 1 as it sets the size of arrays.
-
-INTEGER :: n_wtrac_jls = 1
+#if defined(UM_JULES)
+! **In the future, these will be passed in to JULES from the UM.
+LOGICAL, PARAMETER :: l_wtrac_jls = .FALSE.
+INTEGER, PARAMETER :: n_wtrac_jls = 1
+#else
+! Water tracers are just dummy fields in standalone JULES
+LOGICAL, PARAMETER :: l_wtrac_jls = .FALSE.
+INTEGER, PARAMETER :: n_wtrac_jls = 1
+#endif
 
 ! Logical to control the water tracer calculations on the implicit scheme
 ! (Water tracers only need to be updated on the final dynamics loop in
 !  UMJULES)
-! This is passed into JULES in the call to surf_couple_implicit
-
+! **In the future, this logical will be passed into JULES from the UM in
+!   the call to surf_couple_implicit
 LOGICAL :: l_wtrac_imp_jls = .FALSE.
 
 ! Number of evaporative sources modelled:
@@ -62,18 +63,13 @@ INTEGER, PARAMETER :: evap_srce_cano = 2
 INTEGER, PARAMETER :: evap_srce_soil = 3
 INTEGER, PARAMETER :: evap_srce_lake = 4
 
+! Fields that will be set in a namelist in the future:
+
 ! Standard ratio for water tracers
-! If UM_JULES, these are set in wtrac_init_jls
-REAL(KIND=real_jlslsm) :: standard_ratio_wtrac(max_wtrac) = 1.0
+REAL(KIND=real_jlslsm), PARAMETER :: standard_ratio_wtrac(n_wtrac_jls) = 1.0
 
 ! Water tracer fixed ratio for lakes
-! If UM_JULES, these are set in wtrac_init_jls
-REAL(KIND=real_jlslsm) :: wtrac_lake_fixed_ratio(max_wtrac) = 1.0
-
-! Set these here for now but possibly put in namelist when isotope code
-! is fully developed.
-REAL(KIND=real_jlslsm), PARAMETER :: h218o_lake_ratio = 1.0
-REAL(KIND=real_jlslsm), PARAMETER :: hdo_lake_ratio   = 1.0
+REAL(KIND=real_jlslsm), PARAMETER :: wtrac_lake_fixed_ratio = 1.0
 
 ! Minimum water value used to calculate water tracer ratios
 REAL(KIND=real_jlslsm), PARAMETER :: min_q_ratio = 1.0e-18
@@ -115,7 +111,7 @@ ELSE
   q_ratio = q_ratio_std
 END IF
 
-! Yet to be decided if it's best to block negative ratios or not.
+! Yet to be decided if it's best to block negative ratios of not.
 !IF (q_ratio < 0.0) q_ratio = q_ratio_std
 
 wtrac_calc_ratio_fn_jules = q_ratio

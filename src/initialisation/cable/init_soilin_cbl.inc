@@ -1,9 +1,9 @@
 #if !defined(UM_JULES)
-!-----------------------------------------------------------------------------
+! *****************************COPYRIGHT**************************************
 ! (C) Crown copyright Met Office. All rights reserved.
-! The file LICENCE, distributed with this code, contains details of the terms
-! under which the code may be used.
-!-----------------------------------------------------------------------------
+! For further details please refer to the file COPYRIGHT.txt
+! which you should have received as part of this distribution.
+! *****************************COPYRIGHT**************************************
 
 SUBROUTINE init_soilin_cbl(nml_dir)
 
@@ -28,6 +28,7 @@ USE io_constants, ONLY: namelist_unit
 USE string_utils_mod, ONLY: to_string
 USE errormessagelength_mod, ONLY: errormessagelength
 
+USE grid_constants_mod_cbl, ONLY: nsoil_max   ! # of soil types [9]
 USE cable_fields_mod,       ONLY: pars_io_data_cbl
 
 IMPLICIT NONE
@@ -35,11 +36,6 @@ IMPLICIT NONE
 ! Arguments
 CHARACTER(LEN=*), INTENT(IN) :: nml_dir  ! The directory containing the
                                          ! namelists
-
-! CABLE constant, to be replaced once compilation with CABLE
-! library works. ccc25
-INTEGER, PARAMETER :: nsoil_max = 9 ! # of soil types
-
 ! Work variables
 INTEGER :: ERROR  ! Error indicator
 CHARACTER(LEN=errormessagelength) :: iomessage

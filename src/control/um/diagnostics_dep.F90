@@ -35,12 +35,12 @@ CONTAINS
 !-------------------------------------------------------------------------------
 SUBROUTINE diagnostics_dep(                                                    &
   row_length, rows, bl_levels,                                                 &
-  dep_vd_ij, dep_vd_gb, dep_loss_rate_ij,                                      &
+  dep_vd_ij, dep_loss_rate_ij,                                                 &
   stashwork                                                                    &
   )
 !-------------------------------------------------------------------------------
 
-USE jules_deposition_mod,    ONLY: ndry_dep_species, dep_h2_soil_scheme
+USE jules_deposition_mod,    ONLY: ndry_dep_species
 
 USE deposition_species_mod,  ONLY: dep_species_name
 
@@ -65,8 +65,6 @@ IMPLICIT NONE
 INTEGER, INTENT(IN)  :: row_length, rows, bl_levels
 
 REAL, INTENT(IN)     :: dep_vd_ij(row_length, rows, ntype, ndry_dep_species)
-                             ! Surface deposition velocity term (m s-1)
-REAL, INTENT(IN)     :: dep_vd_gb(row_length, rows, ndry_dep_species)
                              ! Surface deposition velocity term (m s-1)
 REAL, INTENT(IN)     :: dep_loss_rate_ij(row_length, rows, ndry_dep_species)
                              ! First-order loss rate (s-1) for trace gases
@@ -101,9 +99,6 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 
 ! (2) dry deposition rate (1/s) for entire gridbox
 ! for CH4 (m1s50i435), O3 (m1s50i436) and HONO2 (m1s50i437)
-
-! (3) grid=box mean dry deposition velocities
-! for H2 (m1s50i500) - NOT SET-UP YET.
 
 ! These diagnostics are mainly for the purpose of model debugging.
 
@@ -189,20 +184,6 @@ DO n = 1, ndry_dep_species
         dep_loss_rate_ij(:,:,n),                                               &
         row_length,rows)
     END IF
-
-  ELSE IF (dep_species_name(n) == 'H2        '                                 &
-    .AND.  dep_h2_soil_scheme == 2) THEN
-    ! Item 500: deposition velocity (m s-1) on gridbox for H2
-    ! For use Paulot et al. scheme for soil H2 uptake
-    ! dep_h2_soil_scheme = 2
-    ! NOT YET AVAILABLE
-    IF (sf(500,50)) THEN
-      CALL copydiag (                                                          &
-        stashwork(si(500,50,1):si_last(500,50,1)),                             &
-        dep_vd_gb(:,:,n),                                                      &
-        row_length,rows)
-    END IF
-
   END IF
 
 END DO            ! End of loop over deposited species

@@ -150,7 +150,7 @@ IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_in,zhook_handle)
 !$OMP SHARED(surft_pts,surft_index,i_wt,snow_surft_wtrac,snow_surft,           &
 !$OMP        smc_soilt_wtrac,smc_soilt,canopy_wtrac,canopy,alpha1,             &
 !$OMP        rhokh_1,qstar,q_elev_wtrac,resf_wtrac,fqw_evapsrce_wtrac,         &
-!$OMP        dtstar,fqw_1_wtrac,evap_srce_frac,wtrac_lake_fixed_ratio)
+!$OMP        dtstar,fqw_1_wtrac,evap_srce_frac)
 DO k = 1,surft_pts
   l = surft_index(k)
 
@@ -197,7 +197,7 @@ DO k = 1,surft_pts
       eqm_factor = 1.0
 
       ! Set ratio of water tracer to water for source
-      r_wtrac = wtrac_lake_fixed_ratio(i_wt)
+      r_wtrac = wtrac_lake_fixed_ratio
 
     END SELECT
 
@@ -216,12 +216,10 @@ DO k = 1,surft_pts
                                     + resf_wtrac(l,n_evap)                     &
                                       * rhokh_1(l) * alpha1_wtrac * dtstar(l)
 
-    ! Scale surface flux by evaporative source fraction to get tile mean value
-    fqw_evapsrce_wtrac(l,n_evap) =  fqw_evapsrce_wtrac(l,n_evap)               &
+    ! Calculate total tile flux
+    fqw_1_wtrac(l) = fqw_1_wtrac(l) + fqw_evapsrce_wtrac(l,n_evap)             &
                                         * evap_srce_frac(l,n_evap)
 
-    ! Calculate total tile flux
-    fqw_1_wtrac(l) = fqw_1_wtrac(l) + fqw_evapsrce_wtrac(l,n_evap)
 
   END DO  ! evaporation sources
 
@@ -237,7 +235,7 @@ END SUBROUTINE sf_flux_land_wtrac
 
 SUBROUTINE sf_flux_land_check_wtrac (                                          &
  land_pts, nsurft, land_index, tile_frac, flandg,                              &
- snowdep_surft, canopy, flake, dq, fracaero, resfs, resft,                     &
+ snowdep_surft, canopy, flake, dq, fraca, resfs, resft,                        &
  resf_wtrac, evap_srce_frac,                                                   &
  fqw_surft, fqw_1, fqw_surft_wtrac, fqw_1_wtrac, fqw_evapsrce_wtrac )
 
@@ -284,17 +282,16 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
 ,dq(land_pts,nsurft)                                                           &
                        ! IN Specific humidity difference between
                        !    surface and lowest atmospheric lev
-,fracaero(land_pts,nsurft)                                                     &
+,fraca(land_pts,nsurft)                                                        &
                        ! IN Fraction of surface moisture flux with only
                        !    aerodynamic resistance for snow-free land tiles.
 ,resfs(land_pts,nsurft)                                                        &
                        ! IN Combined soil, stomatal and aerodynamic resistance
-                       !     factor for fraction (1-fracaero) of snow-free land
+                       !     factor for fraction (1-FRACA) of snow-free land
                        !     tiles.
 ,resft(land_pts,nsurft)                                                        &
                        ! IN Total resistance factor.
-                       !  fracaero+(1-fracaero)*resfs for snow-free land,
-                       !  1 for snow.
+                       !  FRACA+(1-FRACA)*RESFS for snow-free land, 1 for snow.
 ,resf_wtrac(land_pts,n_evap_srce,nsurft)                                       &
                        ! IN Resitance factor for water tracers for individual
                        !     evaporative source types
@@ -363,7 +360,7 @@ END DO
 
 IF (ABS(largest_error) > max_diff_warning) THEN
 
-  WRITE(jules_message,'(a,3g20.12,a,2(i0,1x),e14.6)')                          &
+  WRITE(jules_message,'(a,3g20.12,a,2(i0,1x),e12.6)')                          &
   newline// '*********WATER TRACER PROBLEM*********' //newline//               &
   'Large difference between tracer and water for explicit fqw_1 in JULES'      &
   //newline// 'after land calculations' //newline//                            &
@@ -390,9 +387,9 @@ IF (ABS(largest_error) > max_diff_warning) THEN
       CALL jules_print(RoutineName, jules_message)
 
       WRITE(jules_message,'(A,7e20.12)')                                       &
-       'snow,canopy,flake,fracaero,dq,resft,resfs = ',                         &
+       'snow,canopy,flake,fraca,dq,resft,resfs = ',                            &
         snowdep_surft(lmax,n), canopy(lmax,n),                                 &
-        flake(lmax,n),fracaero(lmax,n),dq(lmax,n),resfs(lmax,n),resft(lmax,n)
+        flake(lmax,n),fraca(lmax,n),dq(lmax,n),resfs(lmax,n),resft(lmax,n)
       CALL jules_print(RoutineName, jules_message)
 
       WRITE(jules_message,'(A,4e20.12)')                                       &

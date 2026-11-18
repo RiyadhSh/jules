@@ -6,7 +6,7 @@
 ! *****************************COPYRIGHT**************************************
 
 
-SUBROUTINE init_params(nml_dir,progs,land_pts,nsurft,nnpft,npft,nmasst)
+SUBROUTINE init_params(nml_dir,progs)
 
 !Module imports
 USE jules_model_environment_mod,           ONLY: lsm_id, jules, cable
@@ -32,8 +32,6 @@ IMPLICIT NONE
 !   This code is written to JULES coding standards v1.
 !-----------------------------------------------------------------------------
 ! Arguments
-INTEGER, INTENT(IN) :: land_pts, nnpft, npft, nsurft, nmasst
-
 CHARACTER(LEN=*), INTENT(IN) :: nml_dir  ! The directory containing the
                                          ! namelists
 CHARACTER(LEN=*), PARAMETER :: RoutineName='INIT_PARAMS'
@@ -73,9 +71,6 @@ CALL init_cropparm(nml_dir)
 
 ! Process TRIFFID parameters
 CALL init_triffid(nml_dir)
-
-! Process RED parameters
-CALL init_red(nml_dir,land_pts,nsurft,nnpft,npft,nmasst)
 
 ! Process atmospheric deposition species.
 CALL init_deposition_species(nml_dir)

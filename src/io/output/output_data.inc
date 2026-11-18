@@ -23,7 +23,7 @@ USE parallel_mod, ONLY: is_master_task
 
 IMPLICIT NONE
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Description:
 !   For each profile, decide if we need to output data at this timestep, and
 !   output it if we do
@@ -34,7 +34,7 @@ IMPLICIT NONE
 ! Code Description:
 !   Language: Fortran 90.
 !   This code is written to JULES coding standards v1.
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Work variables
 TYPE(datetime) :: next_time  ! The time at the next timestep
 
@@ -42,39 +42,29 @@ TYPE(data_cube) :: data_for_output  ! The data cube to output
 
 INTEGER :: i,j  ! Loop counter
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
 
 next_time = datetime_advance(current_time, timestep_len)
 
 DO i = 1,nprofiles
+  !-----------------------------------------------------------------------------
+  ! First check if the profile is currently active
+  !-----------------------------------------------------------------------------
+  IF ( is_spinup .AND. .NOT. profiles(i)%output_spinup )                       &
+  ! If we are in spinup but profile is not outputting, we don't need to do anything
+        CYCLE
 
-  !----------------------------------------------------------------------------
-  ! River profiles are only output from the master task.
-  !----------------------------------------------------------------------------
-  IF ( profiles(i)%is_river_profile .AND. .NOT. is_master_task() ) THEN
-    CYCLE
-  END IF
+  IF ( .NOT. is_spinup .AND. ( .NOT. profiles(i)%output_main_run .OR.          &
+       ( current_time < profiles(i)%output_start .OR.                          &
+         profiles(i)%output_end < current_time ) ) )                           &
+  ! If we are in the main run but either not outputting any of the main run or
+  ! the time is out of the range of times the profile is outputting, we don't
+  ! need to do anything
+        CYCLE
 
-  !----------------------------------------------------------------------------
-  ! Check if the profile is currently active
-  !----------------------------------------------------------------------------
-  IF ( is_spinup .AND. .NOT. profiles(i)%output_spinup ) THEN
-    ! If we are in spinup but profile is not outputting, we don't need to do
-    ! anything
-    CYCLE
-  END IF
 
-  IF ( .NOT. is_spinup .AND.                                                   &
-       ( .NOT. profiles(i)%output_main_run .OR.                                &
-         ( current_time < profiles(i)%output_start .OR.                        &
-           profiles(i)%output_end < current_time ) ) ) THEN
-    ! If we are in the main run but either not outputting any of the main run
-    ! or the time is out of the range of times the profile is outputting, we
-    ! don't need to do anything
-    CYCLE
-  END IF
-
-  !----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Open the next output file for the profile, if required
   !
   ! This is the case if:
@@ -86,16 +76,15 @@ DO i = 1,nprofiles
   !     timestep in the main run when output starts
   !
   ! We do this check in two stages for readability
-  !----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   IF ( is_spinup .AND. profiles(i)%output_spinup .AND.                         &
-       current_time == spinup_start ) THEN
+       current_time == spinup_start )                                          &
     CALL internal_next_output_file(profiles(i))
-  END IF
 
   IF ( .NOT. is_spinup .AND. profiles(i)%output_main_run .AND.                 &
-       current_time == profiles(i)%output_start ) THEN
+       current_time == profiles(i)%output_start )                              &
     CALL internal_next_output_file(profiles(i))
-  END IF
+
 
   !-----------------------------------------------------------------------------
   ! If we are in the last timestep of an output period (i.e. the time at the
@@ -107,7 +96,6 @@ DO i = 1,nprofiles
     DO j = 1,profiles(i)%nfields
 
       SELECT CASE ( profiles(i)%fields(j)%field_type )
-
       CASE ( output_snapshot, output_min, output_max )
         ! For snapshot, min or max variables, just copy the data array
         CALL cube_safe_copy(data_for_output,                                   &
@@ -116,22 +104,22 @@ DO i = 1,nprofiles
         profiles(i)%fields(j)%field_data%values(:) = mdi
 
       CASE ( output_accum )
-        ! In the case of an accumulation, we output the accumulated value
-        ! multiplied by the number of timesteps in a sample period. This
-        ! adjusts the accumulation for any intermittent sampling and is
-        ! designed so that the time accumulation of a flux (e.g. kg s-1) can
-        ! easily be converted to a total (e.g. kg) by subsequently multiplying
-        ! by the model timestep length during post processing.
+        ! In the case of an accumulation, we output the accumulated value multiplied
+        ! by the number of timesteps in a sample period. This adjusts the accumulation
+        ! for any intermittent sampling and is designed so that the time accumulation
+        ! of a flux (e.g. kg s-1) can easily be converted to a total (e.g. kg) by
+        ! subsequently multiplying by the model timestep length during post
+        ! processing.
         ! Note that we don't have to worry about using cube_safe_copy since the
-        ! multiplication creates a new cube.
+        ! multiplication creates a new cube
         data_for_output = profiles(i)%fields(j)%field_data                     &
                 * ( REAL(profiles(i)%sample_period) / REAL(timestep_len) )
 
       CASE ( output_mean )
-        ! In the case of a mean, divide the accumulated value by the number of
-        ! samples taken.
+        ! In the case of a mean, divide the accumulated value by the number of samples
+        ! taken
         ! Note that we don't have to worry about using cube_safe_copy since the
-        ! division creates a new cube.
+        ! division creates a new cube
         data_for_output = profiles(i)%fields(j)%field_data                     &
                         / REAL(profiles(i)%samples_in_period)
         ! Zero the field's data property and start gathering again
@@ -140,44 +128,50 @@ DO i = 1,nprofiles
 
       ! Write the data to file
       IF ( profiles(i)%is_river_profile ) THEN
-        CALL file_ts_write_var(                                                &
-               profiles(i)%fh, profiles(i)%fields(j)%file_id, data_for_output, &
-               ! No subgrid used for river variables
-              .FALSE. )
+        ! River profiles are written by the master task only
+        IF ( is_master_task() ) THEN
+          CALL file_ts_write_var(                                              &
+            profiles(i)%fh, profiles(i)%fields(j)%file_id, data_for_output,    &
+          ! No subgrid used for river variables
+            .FALSE.                                                            &
+            )
+        END IF
       ELSE
         ! All other variables are written in parallel
         CALL file_ts_write_var(                                                &
-               profiles(i)%fh, profiles(i)%fields(j)%file_id, data_for_output, &
-               ! Subgrid information (for writing a slab of the output grid in
-               ! parallel mode)
-               use_subgrid, subgrid )
+            profiles(i)%fh, profiles(i)%fields(j)%file_id, data_for_output,    &
+          ! Subgrid information (for writing a slab of the output grid in
+          ! parallel mode)
+            use_subgrid, subgrid                                               &
+            )
       END IF
 
       ! Free the temporary cube
       CALL cube_free(data_for_output)
-
     END DO  ! fields
 
-    !--------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
     ! Update tracking variables and, if this is not the last output for the
     ! profile, advance the file
-    !--------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
     profiles(i)%samples_in_period = 0
 
     profiles(i)%current_output_time = profiles(i)%next_output_time
-    profiles(i)%next_output_time =                                             &
-      datetime_advance(profiles(i)%next_output_time,                           &
-                       profiles(i)%output_period)
+    profiles(i)%next_output_time = datetime_advance(                           &
+      profiles(i)%next_output_time, profiles(i)%output_period                  &
+    )
 
     ! Check if this is the last output time for the currently open output file
-    ! and if this task has an open file. If it is not, advance the file.
-    IF ( profiles(i)%has_open_file .AND.                                       &
-         profiles(i)%current_output_time < profiles(i)%fh%data_end ) THEN
+    ! and if this task has an open file
+    ! If it is not, then advance the file
+    IF ( ( profiles(i)%has_open_file ) .AND.                                   &
+      ( profiles(i)%current_output_time < profiles(i)%fh%data_end ) ) THEN
       CALL file_ts_advance(profiles(i)%fh)
     END IF
 
   END IF  ! Last timestep of output period
 
+  ! Nothing more to do!
 END DO
 
 RETURN

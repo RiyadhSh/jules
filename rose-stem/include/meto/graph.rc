@@ -1,43 +1,34 @@
 ###############################################################################
 ## Determine TRUSTZONE and set METO_HPC_GROUP if not defined.
 ###############################################################################
+{% if 'TRUSTZONE' in environ %}
+  {%- set TRUSTZONE=environ['TRUSTZONE'] %}
+{%- else %}
+  {%- set TRUSTZONE='research' %}
+{%- endif %}
 
-{# Determine EX Host #}
-{% if USE_EXZ is defined and USE_EXZ %}
-  {% set METO_HOST_EX = "exz" %}
-{% elif USE_EXAB is defined and USE_EXAB %}
-  {% set METO_HOST_EX = "exab" %}
-{% elif USE_EXCD is defined and USE_EXCD %}
-  {% set METO_HOST_EX = "excd" %}
-{% elif USE_EXA is defined and USE_EXA %}
-  {% set METO_HOST_EX = "exa" %}
-{% elif USE_EXB is defined and USE_EXB %}
-  {% set METO_HOST_EX = "exb" %}
-{% elif USE_EXC is defined and USE_EXC %}
-  {% set METO_HOST_EX = "exc" %}
-{% elif USE_EXD is defined and USE_EXD %}
-  {% set METO_HOST_EX = "exd" %}
-{% else %}
-    {# randomly choose either ab or cd #}
-    {% from "random" import randint %}
-    {% if randint(1,2) < 2 %}
-      {% set METO_HOST_EX = "exab" %}
-    {% else %}
-      {% set METO_HOST_EX = "excd" %}
-    {% endif %}
-{% endif %}
-{% do LOG.info("Host EX: " + METO_HOST_EX) %}
+{% if METO_HPC_GROUP is not defined %}
+  {%- if TRUSTZONE == 'collaboration' %}
+    {%- set METO_HPC_GROUP='xcs-c' %}
+  {% else %}
+    {%- set METO_HPC_GROUP='xc' %}
+  {%- endif %}
+{%- endif %}
 
-
-{% do SITE_VARS.update({"LAUNCH_PLATFORM": "azspice"}) %}
 
 
 ###############################################################################
 ## Imports
 ###############################################################################
-%include 'include/meto/graph-azspice-gnu.rc'
+{% if TRUSTZONE == 'research' %}
+%include 'include/meto/graph-linux-intel.rc'
+%include 'include/meto/graph-linux-fab.rc'
+%include 'include/meto/graph-linux-gfortran.rc'
+%include 'include/meto/graph-linux-nagfor.rc'
 %include 'include/meto/graph-ex1a-cce.rc'
 %include 'include/meto/graph-ex1a-gfortran.rc'
+{% endif %}
+%include 'include/meto/graph-xc40-cce.rc'
 
 ###############################################################################
 ## Name graphs
@@ -45,45 +36,59 @@
 {%- set name_graphs = {
          "umdp3_check" : "umdp3_checker",
          "metadata_check" : "metadata_checker",
-         "site_validator": "site_validator",
 } %}
-{%- do name_graphs.update(name_graphs_azspice_gnu.items()) %}
+{% if TRUSTZONE == 'research' %}
+{%- do name_graphs.update(name_graphs_linux_intel.items()) %}
+{%- do name_graphs.update(name_graphs_linux_fab.items()) %}
+{%- do name_graphs.update(name_graphs_linux_gfortran.items()) %}
+{%- do name_graphs.update(name_graphs_linux_nagfor.items()) %}
 {%- do name_graphs.update(name_graphs_ex1a_cce.items()) %}
 {%- do name_graphs.update(name_graphs_ex1a_gfortran.items()) %}
+{% endif %}
+{%- do name_graphs.update(name_graphs_xc40_cce.items()) %}
 
 
 ###############################################################################
 ## Group definitions
 ###############################################################################
 {%- set groups = {
-        "all" : ["azspice", "ex1a"],
+        "all" : ["linux", "xc40"],
 
-        "loobos" : ["azspice_loobos", "ex1a_loobos"],
+        "loobos" : ["linux_loobos", "xc40_loobos"],
 
-        "gswp2" : ["azspice_gswp2", "ex1a_gswp2"],
+        "gswp2" : ["linux_gswp2", "xc40_gswp2"],
 
-        "eraint" : ["azspice_eraint", "ex1a_eraint"],
+        "eraint" : ["linux_eraint", "xc40_eraint"],
 
-        "gswp2_es" : ["azspice_gswp2_es", "ex1a_gswp2_es"],
+        "gswp2_es" : ["linux_gswp2_es", "xc40_gswp2_es"],
 
-        "imogen" : ["azspice_imogen", "ex1a_imogen"],
-    }
-%}
+        "imogen" : ["linux_imogen", "xc40_imogen"],
 
-{% do groups.update({
-        "azspice" : ["azspice_gnu", "scripts"],
+        "linux" : ["linux_intel", "linux_gfortran", "linux_nagfor", "scripts"],
 
-        "azspice_loobos" : ["azspice_gnu_loobos"],
+        "linux_loobos" : ["linux_intel_loobos", "linux_gfortran_loobos", "linux_nagfor_loobos"],
 
-        "azspice_gswp2" : ["azspice_gnu_gswp2"],
+        "linux_gswp2" : ["linux_intel_gswp2", "linux_gfortran_gswp2"],
 
-        "azspice_eraint" : ["azspice_gnu_eraint"],
+        "linux_eraint" : ["linux_intel_eraint", "linux_gfortran_eraint"],
 
-        "azspice_gswp2_es" : ["azspice_gnu_gswp2_es"],
+        "linux_gswp2_es" : ["linux_intel_gswp2_es", "linux_gfortran_gswp2_es"],
 
-        "azspice_imogen" : ["azspice_gnu_imogen"],
+        "linux_imogen" : ["linux_intel_imogen", "linux_gfortran_imogen"],
 
-        "ex1a" : ["ex1a_cce", "ex1a_gfortran", "scripts"],
+        "xc40" : ["xc40_cce", "scripts"],
+
+        "xc40_loobos" : ["xc40_cce_loobos"],
+
+        "xc40_gswp2" : ["xc40_cce_gswp2"],
+
+        "xc40_eraint" : ["xc40_cce_eraint"],
+
+        "xc40_gswp2_es" : ["xc40_cce_gswp2_es"],
+
+        "xc40_imogen" : ["xc40_cce_imogen"],
+
+        "ex1a" : ["ex1a_cce", "ex1a_gfortran", "script"],
 
         "ex1a_loobos" : ["ex1a_cce_loobos", "ex1a_gfortran_loobos"],
 
@@ -95,13 +100,21 @@
 
         "ex1a_imogen" : ["ex1a_cce_imogen", "ex1a_gfortran_loobos"],
 
+	"tutorial_linux" : ["meto_linux_intel_loobos_crops", "meto_linux_gfortran_loobos_crops"],
+
+	"tutorial_xc40" : ["meto_xc40_cce_loobos_crops"],
+  
         "tutorial_ex1a" : ["meto_ex1a_cce_loobos_crops", "meto_ex1a_gfortran_loobos_crops"],
 
-        "scripts"   : ["umdp3_check", "metadata_check", "site_validator"],
+        "scripts"   : ["umdp3_check", "metadata_check"],
 
-    })
+    }
 %}
-
-{%- do groups.update(groups_azspice_gnu.items()) %}
+{% if TRUSTZONE == 'research' %}
+{%- do groups.update(groups_linux_intel.items()) %}
+{%- do groups.update(groups_linux_gfortran.items()) %}
+{%- do groups.update(groups_linux_nagfor.items()) %}
 {%- do groups.update(groups_ex1a_cce.items()) %}
 {%- do groups.update(groups_ex1a_gfortran.items()) %}
+{% endif %}
+{%- do groups.update(groups_xc40_cce.items()) %}

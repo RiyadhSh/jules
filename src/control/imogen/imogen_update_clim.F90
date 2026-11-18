@@ -15,24 +15,42 @@ USE model_time_mod, ONLY: current_time
 
 USE ancil_info, ONLY: dim_cs1, dim_cslayer, land_pts, nsoilt
 
-USE conversions_mod, ONLY: ppm_to_mmr
-
 USE io_constants, ONLY: imogen_unit
+
+USE theta_field_sizes, ONLY: t_i_length
+
+USE datetime_mod, ONLY: secs_in_day
 
 USE aero, ONLY: co2_mmr
 
+
 USE imogen_run, ONLY:                                                          &
-  include_co2, c_emissions, file_scen_co2_ppmv,                                &
+  include_co2, c_emissions, file_scen_co2_ppmv, anom, anlg,                    &
   co2_init_ppmv, include_non_co2_radf,                                         &
   land_feed_co2, land_feed_ch4,                                                &
-  nyr_non_co2, file_non_co2_radf, l_change_metdata, change_metdata_method
+  nyr_non_co2, file_non_co2_radf, l_drive_with_global_temps
 
-USE imogen_time, ONLY: mm, md, nsdmax
+USE imogen_time, ONLY:                                                         &
+  mm,md,nsdmax,step_day
 
 USE imogen_anlg_vals, ONLY:                                                    &
-  q2co2, f_ocean, kappa_o, lambda_l, lambda_o, mu
+  q2co2, dir_patt, f_ocean, kappa_o,                                           &
+  lambda_l, lambda_o, mu, dir_anom
 
-USE imogen_constants, ONLY: n_olevs
+USE imogen_constants, ONLY:                                                    &
+  n_olevs, drive_month
+
+USE imogen_clim, ONLY:                                                         &
+!   Scalars
+    latmin_clim,latmax_clim,longmin_clim,longmax_clim,                         &
+!   Arrays
+    t_clim,rainfall_clim,snowfall_clim,rh15m_clim,uwind_clim,                  &
+    vwind_clim,dtemp_clim,pstar_ha_clim,sw_clim,lw_clim,                       &
+    f_wet_clim, lat, LONG
+
+USE imogen_drive_vars, ONLY:                                                   &
+  t_out,conv_rain_out,conv_snow_out,ls_rain_out,ls_snow_out,                   &
+  qhum_out,wind_out,pstar_out,sw_out,lw_out
 
 USE logging_mod, ONLY: log_fatal
 
@@ -52,7 +70,7 @@ IMPLICIT NONE
 !-----------------------------------------------------------------------------
 ! Description:
 !   Updates the climatology and meteorology based on the global temperature
-!   anomaly. The Global temperature anomaly is calculated within as the a
+!   anomaly. The Global temperautre anomaly is calculated within as the a
 !   function of the atmospheric composition, i.e. the CO2 concentration plus the
 !   non-CO2 components.
 !
@@ -90,32 +108,36 @@ REAL ::                                                                        &
 REAL ::                                                                        &
   q_co2,                                                                       &
                ! Radiative forcing due to CO2 (W/m2)
-  dtemp_l ,                                                                    &
   q_ch4,                                                                       &
                ! Radiative forcing due to changes in CH4 concentration
                !     from reference projection (W/m2)
   q_total      ! Total radiative forcing
+
+REAL :: latmin,latmax,longmin,longmax
+               ! Max and min lat and long for files
 
 !-----------------------------------------------------------------
 ! Variables to hold calculated anomalies
 !-----------------------------------------------------------------
 REAL ::                                                                        &
   tl1_anom(land_pts,mm),                                                       &
-                ! Temperature anomalies (K)
+                ! WORK Temperature anomalies (K)
   precip_anom(land_pts,mm),                                                    &
-                ! Precip anomalies (mm/day)
-  ql1_anom(land_pts,mm),                                                       &
-                ! Specific humidity anomalies
-  wind_anom(land_pts,mm),                                                      &
-                ! wind anomalies (m/s)
+                ! WORK Precip anomalies (mm/day)
+  rh1p5m_anom(land_pts,mm),                                                    &
+                ! WORK Relative humidity anomalies
+  uwind_anom(land_pts,mm),                                                     &
+                ! WORK u-wind anomalies (m/s)
+  vwind_anom(land_pts,mm),                                                     &
+                ! WORK v-wind anomalies (m/s)
   diurnal_tl1_anom(land_pts,mm),                                               &
-                ! Diurnal Temperature (K)
+                ! WORK Diurnal Temperature (K)
   pstar_ha_anom(land_pts,mm),                                                  &
-                ! Pressure anomalies (hPa)
+                ! WORK Pressure anomalies (hPa)
   swdown_anom(land_pts,mm),                                                    &
-                ! Shortwave radiation anomalie
+                ! WORK Shortwave radiation anomalie
   lwdown_anom(land_pts,mm)
-                ! Longwave radiation anomalies
+                ! WORK Longwave radiation anomalies
 
 !------------------------------------------------------------------------
 ! Initialisation
@@ -125,8 +147,9 @@ q_total   = 0.0
 
 tl1_anom(:,:)         = 0.0
 precip_anom(:,:)      = 0.0
-ql1_anom(:,:)         = 0.0
-wind_anom(:,:)        = 0.0
+rh1p5m_anom(:,:)      = 0.0
+uwind_anom(:,:)       = 0.0
+vwind_anom(:,:)       = 0.0
 diurnal_tl1_anom(:,:) = 0.0
 pstar_ha_anom(:,:)    = 0.0
 swdown_anom(:,:)      = 0.0
@@ -143,30 +166,24 @@ END IF
 
 
 ! Hydrology 20th Century simulations (note also check for this run in
-! subroutine imogen_confirmed_run which includes more stringent checks)
+! subroutine IMOGEN_CONFIRMED_RUN which includes more stringent checks)
 ! OR analogue model simulations with CO2 prescribed.
 IF ( ( ( .NOT. c_emissions) .AND. include_co2 ) .OR.                           &
-             (l_change_metdata .AND. change_metdata_method == 3) ) THEN
-
+                                        l_drive_with_global_temps) THEN
   ! This works by reading in a file of CO2 concentrations, and checks that
   ! year is represented
-  kode = 0
   OPEN(imogen_unit, FILE=file_scen_co2_ppmv,                                   &
-            STATUS='old', POSITION='rewind', ACTION='read', IOSTAT=kode)
-  IF (kode /= 0) THEN
-    CALL log_fatal("imogen_update_clim", ': file_scen_co2_ppmv not found')
-  END IF
+                      STATUS='old', POSITION='rewind', ACTION='read')
 
   tally_co2_file = 0
+  kode = 0
 
   DO WHILE ( .TRUE.)
     READ(imogen_unit,FMT=*,IOSTAT = kode) yr_co2_file,co2_file_ppmv
     ! Check for end of file (or just any error) and exit loop if found
     ! iostat > 0 means illegal data
     ! iostat < 0 means end of record or end of file
-    IF (kode /= 0) THEN
-      CALL log_fatal("imogen_update_clim", ': error reading file_scen_co2_ppmv')
-    END IF
+    IF (kode /= 0) EXIT
 
     IF (yr_co2_file == current_time%year) THEN
       imgn_vars%co2_ppmv(1) = co2_file_ppmv
@@ -185,15 +202,15 @@ END IF
 
 ! Now calculate the added monthly anomalies, either from analogue model
 ! or prescribed directly.
-! These anomalies are set to zero when initialised (case l_change_metdata=false)
-IF (l_change_metdata) THEN
-  IF (change_metdata_method == 1) THEN  ! anlg_model
-    ! create anomalies here
+! These anomalies are set to zero when initialised (case anom=false, anlg=false)
+! cant have anom=false and anlg=true
+IF (anom) THEN
+  IF (anlg) THEN
     ! This call is to the GCM analogue model. It is prescribed CO2
     ! concentration, and calculates non-CO2, and returns total change in
-    ! radiative forcing, Q. Recall that the anlg model has a "memory" through
+    ! radiative forcing, Q. Recall that the AM has a "memory" through
     ! dtemp_o - ie the ocean temperatures. Note that in this version of the
-    ! code, the anlg model is updated yearly.
+    ! code, the AM is updated yearly.
 
     ! Calculate the CO2 forcing
     IF (include_co2) THEN
@@ -212,36 +229,59 @@ IF (l_change_metdata) THEN
     ! Calculate the total forcing
     q_total = q_co2 + imgn_vars%q_non_co2(1) + q_ch4
 
-    ! calculate the global and land temperature change using analogue model
-    CALL delta_temp(n_olevs, f_ocean, kappa_o, lambda_l, lambda_o, mu, q_total,&
-        dtemp_l, imgn_vars%dtemp_o, imgn_vars%dtemp_g(1))
-    imgn_vars%dtemp_g(1) = dtemp_l  !ejb sort this
-  END IF  ! end anlg_model
+    ! Call the GCM analogue model that responds to this forcing
+    IF (include_co2 .OR. include_non_co2_radf .OR.                             &
+                                     l_drive_with_global_temps) THEN
+      CALL gcm_anlg(                                                           &
+        q_total,land_pts,n_olevs,dir_patt,f_ocean,kappa_o,lambda_l,lambda_o,   &
+        mu,imgn_vars%dtemp_o,imgn_vars%dtemp_g(1),                             &
+        longmin,latmin,longmax,latmax,mm,imgn_drive,ainfo)
 
-  IF (change_metdata_method == 1 .OR. change_metdata_method == 3 ) THEN
-    ! calculate the new met data based on global temperature change
-    CALL pattern_scaling(land_pts, mm, imgn_vars%dtemp_g(1), imgn_drive, ainfo)
+      ! Check driving files are compatible.
+      IF ((ABS(longmin_clim - longmin) >= 1.0e-6) .OR.                         &
+         (ABS(latmin_clim - latmin) >= 1.0e-6) .OR.                            &
+         (ABS(longmax_clim - longmax) >= 1.0e-6) .OR.                          &
+         (ABS(latmax_clim - latmax) >= 1.0e-6)) THEN
+        CALL log_fatal("imogen_update_clim",                                   &
+                       'Driving files are incompatible')
+      END IF
+    END IF
+
+  ELSE
+    ! Option where anomalies are prescribed directly not using the analogue
+    ! anom=true, anlg=false
+    CALL drdat(                                                                &
+      current_time%year,land_pts,dir_anom,longmin,latmin,longmax,latmax,mm,    &
+      drive_month,imgn_drive,ainfo)
+
+    ! Check driving files are compatible.
+    IF ((ABS(longmin_clim - longmin) >= 1.0e-6) .OR.                           &
+       (ABS(latmin_clim - latmin) >= 1.0e-6) .OR.                              &
+       (ABS(longmax_clim - longmax) >= 1.0e-6) .OR.                            &
+       (ABS(latmax_clim - latmax) >= 1.0e-6)) THEN
+      CALL log_fatal("imogen_update_clim",                                     &
+                     'Driving files are incompatible')
+    END IF
   END IF
-
-  IF (change_metdata_method == 2) THEN
-    ! Option where anomalies are prescribed directly not using the analogue model
-    CALL drdat(current_time%year)
-  END IF
-
-ELSE  ! l_change_metdata=False
+ELSE
   ! Set anomalies to zero.
-  imgn_drive%tl1_ij_anom(:,:,:)         = 0.0
-  imgn_drive%swdown_ij_anom(:,:,:)      = 0.0
-  imgn_drive%lwdown_ij_anom(:,:,:)      = 0.0
-  imgn_drive%pstar_ij_anom(:,:,:)       = 0.0
-  imgn_drive%ql1_ij_anom(:,:,:)         = 0.0
-  imgn_drive%precip_ij_anom(:,:,:)      = 0.0
-  imgn_drive%wind_ij_anom(:,:,:)        = 0.0
+  imgn_drive%tl1_ij_anom(:,:,:) = 0.0
+  imgn_drive%swdown_ij_anom(:,:,:) = 0.0
+  imgn_drive%lwdown_ij_anom(:,:,:) = 0.0
+  imgn_drive%pstar_ij_anom(:,:,:) = 0.0
+  imgn_drive%rh1p5m_ij_anom(:,:,:) = 0.0
+  imgn_drive%precip_ij_anom(:,:,:) = 0.0
+  imgn_drive%uwind_ij_anom(:,:,:) = 0.0
+  imgn_drive%vwind_ij_anom(:,:,:) = 0.0
   imgn_drive%diurnal_tl1_ij_anom(:,:,:) = 0.0
 END IF         ! End of where anomalies are calculated
 
-! Now calculate the subdaily values of the driving data.
-CALL clim_calc(land_pts, mm, md, nsdmax, progs%seed_rain, imgn_drive, ainfo)
+! Now incorporate anomalies with climate data.
+! At this point, have climatology and anomalies.
+! Now calculate the daily values of the driving data.
+! This is calculated using subroutine clim_calc
+CALL clim_calc(land_pts,mm,md,                                                 &
+  nsdmax,progs%seed_rain,lat,LONG, imgn_drive, ainfo)
 
 ! Compute current land carbon as dctot_co2 for use in imogen_update_carb.
 IF (land_feed_co2) THEN
@@ -261,8 +301,7 @@ IF (land_feed_co2) THEN
   END DO
 END IF
 
-! Unit conversion ppm_to_mmr (g/g): mol mass co2 / mol mass dry air * 1e-6
-!ejb deleted co2_mmr = imgn_vars%co2_ppmv(1) * ppm_to_mmr
+! Unit conversion ppm to mmr (g/g): mol mass co2 / mol mass dry air * 1e-6
 co2_mmr = imgn_vars%co2_ppmv(1) * 44.0 / 28.97 * 1.0e-6
 imgn_vars%imogen_radf(:) = q_total
 

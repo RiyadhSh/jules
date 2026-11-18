@@ -8,7 +8,6 @@
 ! not parameters that are only used by TRIFFID).
 
 
-
 ! Code Description:
 !   Language: FORTRAN 90
 !   This code is written to UMDP3 v8.2 programming standards.
@@ -92,6 +91,10 @@ REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
                  ! CI/CA for DQ = 0, used with the Jacobs closure.
 ,fd(:)                                                                         &
                  ! Dark respiration coefficient.
+,g1b_stomata(:)                                                                 &
+                 ! Parameter g1 for the Medlyn et al. (2011) model of
+                 ! stomatal conductance (kPa**0.5) - see Eqn.11 of
+                 ! doi: 10.1111/j.1365-2486.2012.02790.x.
 ,g1_stomata(:)                                                                 &
                  ! Parameter g1 for the Medlyn et al. (2011) model of
                  ! stomatal conductance (kPa**0.5) - see Eqn.11 of
@@ -161,7 +164,7 @@ REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
 ! Parameters for trait physiology
 !-----------------------------------------------------------------------------
 REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
- hw_sw(:)                                                                      &
+hw_sw(:)                                                                       &
                  ! Heart:Stemwood Ratio (kg N/kg N)
 ,lma(:)                                                                        &
                  ! Leaf mass by area (1/SLA), (kg leaf/ m2)
@@ -173,6 +176,8 @@ REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
                  ! Stem nitrogen concentration (kg N/kg C)
 ,q10_leaf(:)                                                                   &
                  ! Factor for leaf respiration.
+,rmass(:)                                                                      &
+                 ! Root carbon dry weight (kg C/kg root) JBaguley
 ,vint(:)                                                                       &
                  ! Y intercept of the Narea to Vcmax relationship
                  ! from Kattge et al. (2009)
@@ -225,11 +230,16 @@ REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
 !-----------------------------------------------------------------------------
 INTEGER, ALLOCATABLE ::                                                        &
  fsmc_mod(:)
-                   ! Flag for whether water stress is calculated from
-                   ! available water in layers weighted by root fraction (0)
+                   ! Flag for whether water stress is calculated from,
+                   ! available water in layers weighted by root fraction (0),
+                   ! available water in root zone (1),
                    ! or
-                   ! whether water stress calculated from available
-                   ! water in root zone (1)
+                   ! soil to root resistivity and water potential (2).
+
+LOGICAL, ALLOCATABLE ::                                                        &
+ calc_rz_psi(:)
+                   ! Flag for wheather the rootzone water potential is
+                   ! calculated.
 
 REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
  catch0(:)                                                                     &
@@ -253,12 +263,30 @@ REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
                  ! Soil evaporation enhancement factor (no units).
 ,infil_f(:)                                                                    &
                  ! Infiltration enhancement factor.
+,min_gl_pft(:)                                                                 & ! JBaguley
+                 ! Minimum leaf conductance to H2O (m/s)
+,min_rootc_pft(:)                                                              & ! JBaguley
+                 ! Minimum root mass per unit area (kg m-2) for each pft.
+                 ! Used when calculating water stress using root resistivity
+                 ! and water potential (fsmc_mod(i) == 2).
 ,psi_close(:)                                                                  &
                  ! soil matric potential (Pa) below which soil moisture
                  ! stress factor fsmc is zero. Should be negative.
 ,psi_open(:)                                                                   &
                  ! soil matric potential (Pa) above which soil moisture
                  ! stress factor fsmc is one. Should be negative.
+,root_psi_crit(:)                                                              & ! JBaguley
+                 ! Negative critical root water potential (Pa) above which
+                 ! roots detach from soil.
+,root_radi_pft(:)                                                              & ! JBaguley
+                 ! fine root radius (m)
+                 ! Used when calculating water stress using root resistivity
+                 ! and water potential (fsmc_mod(i) == 2).
+,rootc_density_pft(:)                                                          & ! JBaguley
+                 ! root density, (kg m-3) specificaly root mas per unit root
+                 ! volume.
+                 ! Used when calculating water stress using root resistivity
+                 ! and water potential (fsmc_mod(i) == 2).
 ,rootd_ft(:)                                                                   &
                  ! e-folding depth (m) of the root density.
 ,z0v(:)
@@ -331,22 +359,8 @@ REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
                  ! Fire NOx Emission Factor (g/kg)
 ,fef_oc(:)                                                                     &
                  ! Fire OC Emission Factor (g/kg)
-,fef_so2(:)                                                                    &
+,fef_so2(:)
                  ! Fire SO2 Emission Factor (g/kg)
-,fef_c2h4(:)                                                                   &
-                 ! Fire C2H4 Emission Factor (g/kg)
-,fef_c2h6(:)                                                                   &
-                 ! Fire C2H6 Emission Factor (g/kg)
-,fef_c3h8(:)                                                                   &
-                 ! Fire C2H8 Emission Factor (g/kg)
-,fef_hcho(:)                                                                   &
-                 ! Fire HCHO Emission Factor (g/kg)
-,fef_mecho(:)                                                                  &
-                 ! Fire MeCHO Emission Factor (g/kg)
-,fef_nh3(:)                                                                    &
-                 ! Fire NH3 Emission Factor (g/kg)
-,fef_dms(:)
-                 ! Fire DMS Emission Factor (g/kg)
 
 !-----------------------------------------------------------------------------
 ! Parameters for SUGAR
@@ -360,16 +374,59 @@ REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
                  ! Growth yield fraction
 
 !-----------------------------------------------------------------------------
-! Parameters for SOX
+! Parameters for stomatal optimisation model (som)
 !-----------------------------------------------------------------------------
 REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
- sox_a(:)                                                                      &
-                 ! The shape parameter in the xylem vulnerability curve.
-,sox_p50(:)                                                                    &
-                 ! Xlem water potential at which xylem hydraulic
-                 ! conductance is half its maximum value. (MPa)
-,sox_rp_min(:)
-                 ! Plant minimum hydraulic resistance. (m2 s MPa/mol)
+ leaf_crit(:)
+                 ! Critical value of base som parameter. Used to determin
+                 ! the range over which the stomatal optimisation model samples
+                 ! the primary leaf parameter.
+                 ! Physical meaning is ether:
+                 !    -  Minimum possible leaf intercellular carbon (Pa).
+                 !       for each set of ci sample points the smallest
+                 !       value of ci is the maximum of leaf_crit and the
+                 !       CO2 compensation point.
+                 !         som_base_parm = 1
+                 !    -  leaf critical water potential (Pa),
+                 !         som_base_parm = 2
+
+INTEGER, ALLOCATABLE ::                                                        &
+pft_conductance_model(:)
+                 ! Flag for the xylem conductance model used by the stomatal
+                 !  optimisation model.
+                 !      1: Cumulative Weibul distribution
+                 !           k(psi) = kmax * exp((psi/b)^c)
+                 !      2: SOX model
+                 !           k(psi) = kmax / (1 + (psi/b)^c)
+
+REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
+ kmax_pft(:)                                                                   &
+                 ! Maximum xylem conductance (mol m-2 s-1 Pa-1).
+,P50(:)                                                                        &
+                 ! Water potential at which 50% of the xylem conductance is
+                 ! lost (Pa).
+,P88(:)                                                                        &
+                 ! Water potential at which 88% of the xylem conductance is
+                 ! lost (Pa).
+,conductance_b(:)                                                              &
+                 ! Sensetivity parameter, b, in the xylem conductance model
+                 !  (Pa).
+                 ! NOTE: This value is not directly input by the user, instead
+                 !        it is calculated from the P50 and P88 values in
+                 !        ptftparm_io_mod.F90.
+,conductance_c(:)                                                              &
+                 ! Shape parameter, c, in the xylem conductance model.
+                 ! NOTE: This value is not directly input by the user, instead
+                 !        it is calculated from the P50 and P88 values in
+                 !        ptftparm_io_mod.F90.
+,kcrit_fractional_loss(:)                                                      &
+                 ! Critical fractional loss of xylem conductance.
+,kcrit(:)
+                 ! Critical xylem conductance (mmol m-2 s-1 MPa-1).
+                 ! NOTE: This value is not directly input by the user, instead
+                 !        it is calculated from kmax_pft and
+                 !        kcrit_fractional_loss in ptftparm_io_mod.F90.
+                 !         kcrit = kmax_pft * (1-kcrit_fractional_loss)
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='PFTPARM'
 
@@ -457,6 +514,7 @@ ALLOCATE( ds_jmax(npft))
 ALLOCATE( ds_vcmax(npft))
 ALLOCATE( f0(npft))
 ALLOCATE( fd(npft))
+ALLOCATE( g1b_stomata(npft))
 ALLOCATE( g1_stomata(npft))
 ALLOCATE( jv25_ratio(npft))
 ALLOCATE( kn(npft))
@@ -482,6 +540,7 @@ ds_jmax(:)      = 0.0
 ds_vcmax(:)     = 0.0
 f0(:)           = 0.0
 fd(:)           = 0.0
+g1b_stomata(:)   = 0.0
 g1_stomata(:)   = 0.0
 jv25_ratio(:)   = 0.0
 kn(:)           = 0.0
@@ -501,6 +560,7 @@ ALLOCATE( nmass(npft))
 ALLOCATE( nr(npft))
 ALLOCATE( nsw(npft))
 ALLOCATE( q10_leaf(npft))
+ALLOCATE( rmass(npft))
 ALLOCATE( vint(npft))
 ALLOCATE( vsl(npft))
 
@@ -510,6 +570,7 @@ nmass(:)        = 0.0
 nr(:)           = 0.0
 nsw(:)          = 0.0
 q10_leaf(:)     = 0.0
+rmass(:)        = 0.49 !JBaguley
 vint(:)         = 0.0
 vsl(:)          = 0.0
 
@@ -540,6 +601,7 @@ g_leaf_0(:)     = 0.0
 tleaf_of(:)     = 0.0
 
 ! Hydrological parameters
+ALLOCATE( calc_rz_psi(npft)) ! JBaguley
 ALLOCATE( catch0(npft))
 ALLOCATE( dcatch_dlai(npft))
 ALLOCATE( dust_veg_scj(npft))
@@ -550,25 +612,36 @@ ALLOCATE( fsmc_p0(npft))
 ALLOCATE( glmin(npft))
 ALLOCATE( gsoil_f(npft))
 ALLOCATE( infil_f(npft))
+ALLOCATE( min_rootc_pft(npft)) ! JBaguley
+ALLOCATE( min_gl_pft(npft)) ! JBaguley
 ALLOCATE( psi_close(npft))
 ALLOCATE( psi_open(npft))
+ALLOCATE( root_psi_crit(npft))  ! JBaguley
+ALLOCATE( root_radi_pft(npft))  ! JBaguley
+ALLOCATE( rootc_density_pft(npft))  ! JBaguley
 ALLOCATE( rootd_ft(npft))
 ALLOCATE( z0v(npft))
 
-catch0(:)       = 0.0
-dcatch_dlai(:)  = 0.0
-dust_veg_scj(:) = 0.0
-dz0v_dh(:)      = 0.0
-emis_pft(:)     = 0.0
-fsmc_mod(:)     = 0.0
-fsmc_p0(:)      = 0.0
-glmin(:)        = 0.0
-gsoil_f(:)      = 0.0
-infil_f(:)      = 0.0
-psi_close(:)    = 0.0
-psi_open(:)     = 0.0
-rootd_ft(:)     = 0.0
-z0v(:)          = 0.0
+calc_rz_psi(:)       = .FALSE. ! JBaguley
+catch0(:)            = 0.0
+dcatch_dlai(:)       = 0.0
+dust_veg_scj(:)      = 0.0
+dz0v_dh(:)           = 0.0
+emis_pft(:)          = 0.0
+fsmc_mod(:)          = 0.0
+fsmc_p0(:)           = 0.0
+glmin(:)             = 0.0
+gsoil_f(:)           = 0.0
+infil_f(:)           = 0.0
+min_gl_pft(:)        = 0.0 ! JBaguley
+min_rootc_pft(:)     = 1.0 ! JBaguley M.Williams etal 2001
+psi_close(:)         = 0.0
+psi_open(:)          = 0.0
+root_psi_crit(:)     =-0.1e6 ! JBaguley M.Williams etal 2001
+root_radi_pft(:)     = 0.0005 ! JBaguley M.Williams etal 2001
+rootc_density_pft(:) = 0.5e3 ! JBaguley M.Williams etal 2001
+rootd_ft(:)          = 0.0
+z0v(:)               = 0.0
 
 ! Ozone damage parameters
 ALLOCATE( dfp_dcuo(npft))
@@ -615,28 +688,14 @@ ALLOCATE( fef_co2(npft))
 ALLOCATE( fef_nox(npft))
 ALLOCATE( fef_oc(npft))
 ALLOCATE( fef_so2(npft))
-ALLOCATE( fef_c2h4(npft))
-ALLOCATE( fef_c2h6(npft))
-ALLOCATE( fef_c3h8(npft))
-ALLOCATE( fef_mecho(npft))
-ALLOCATE( fef_hcho(npft))
-ALLOCATE( fef_nh3(npft))
-ALLOCATE( fef_dms(npft))
 
-fef_bc(:)   = 0.0
-fef_ch4(:)  = 0.0
-fef_co(:)   = 0.0
-fef_co2(:)  = 0.0
-fef_nox(:)  = 0.0
-fef_oc(:)   = 0.0
-fef_so2(:)  = 0.0
-fef_c2h4(:) = 0.0
-fef_c2h6(:) = 0.0
-fef_c3h8(:) = 0.0
-fef_mecho(:)= 0.0
-fef_hcho(:) = 0.0
-fef_nh3(:)  = 0.0
-fef_dms(:)  = 0.0
+fef_bc(:)  = 0.0
+fef_ch4(:) = 0.0
+fef_co(:)  = 0.0
+fef_co2(:) = 0.0
+fef_nox(:) = 0.0
+fef_oc(:)  = 0.0
+fef_so2(:) = 0.0
 
 ! SUGAR parameters
 ALLOCATE( sug_grec(npft))
@@ -647,14 +706,30 @@ sug_grec(:) = 0.0
 sug_g0(:)   = 0.0
 sug_yg(:)   = 0.0
 
-! SOX parameters
-ALLOCATE( sox_a(npft))
-ALLOCATE( sox_p50(npft))
-ALLOCATE( sox_rp_min(npft))
+! SOM parameters
+ALLOCATE( leaf_crit(npft))
+ALLOCATE( pft_conductance_model(npft))
+ALLOCATE( kcrit_fractional_loss(npft))
+ALLOCATE( kcrit(npft))
+ALLOCATE( kmax_pft(npft))
+ALLOCATE( P50(npft))
+ALLOCATE( P88(npft))
+ALLOCATE( conductance_b(npft))
+ALLOCATE( conductance_c(npft))
 
-sox_a(:)      = 0.0
-sox_p50(:)    = 0.0
-sox_rp_min(:) = 0.0
+leaf_crit(:) = 0.0
+pft_conductance_model(:) = 0
+kcrit_fractional_loss(:) = 0.95
+! NOTE: This is calculated in ptftparm_io_mod.F90 using
+!        kmax_pft * kcrit_fractional_loss.
+kcrit(:) = 0.0
+kmax_pft(:) = 0.0
+P50(:) = 0.0
+P88(:) = 0.0
+! NOTE: conductance_b and conductance_c are calculated in ptftparm_io_mod.F90
+!        using the P50 and P88 values and the choice of conductance model.
+conductance_b(:) = 1.0
+conductance_c(:) = 1.0
 
 IF (lhook) CALL dr_hook(ModuleName//':'//RoutineName,zhook_out,zhook_handle)
 RETURN

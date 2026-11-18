@@ -141,8 +141,7 @@ IF ( ANY(l_elev_absolute_height) ) THEN
                      "mean heights")
 
     CALL fill_variables_from_file(FILE,                                        &
-                                  [ 'z_land_land' ], [ z_land_name ],          &
-                                  is_climatology = [ .FALSE. ] )
+                                  [ 'z_land_land' ], [ z_land_name ])
 
     DO l = 1,land_pts
       j = ( ainfo_data%land_index(l) - 1 ) / t_i_length + 1

@@ -33,7 +33,7 @@ SUBROUTINE surf_couple_explicit(                                               &
     !Arguments used by JULES-standalone
     !Misc INTENT(IN) DONE
     bq_1, bt_1, photosynth_act_rad,                                            &
-    curr_day_number, curr_time,                                                &
+    curr_day_number,                                                           &
     !Diagnostics, INTENT(INOUT)
     sf_diag,                                                                   &
     !Fluxes INTENT(OUT) DONE
@@ -44,8 +44,7 @@ SUBROUTINE surf_couple_explicit(                                               &
     cdr10m,                                                                    &
     alpha1, alpha1_sea, alpha1_sice, ashtf_prime, ashtf_prime_sea,             &
     ashtf_prime_surft, epot_surft,                                             &
-    fracaero_t, fracaero_s, resfs, resft,                                      &
-    rhokh, rhokh_surft, rhokh_sice, rhokh_sea,                                 &
+    fraca, resfs, resft, rhokh, rhokh_surft, rhokh_sice, rhokh_sea,            &
     dtstar_surft, dtstar_sea, dtstar_sice,                                     &
     z0hssi, z0mssi, chr1p5m, chr1p5m_sice, canhc_surft,                        &
     wt_ext_surft, flake,                                                       &
@@ -85,7 +84,6 @@ SUBROUTINE surf_couple_explicit(                                               &
     !veg3_parm, &
     !veg3_field, &
     chemvars,                                                                  &
-    wtrac_jls,                                                                 &
     progs_cbl, work_cbl                                                        &
     )
 
@@ -109,7 +107,6 @@ USE jules_forcing_mod, ONLY: forcing_type
 ! USE veg3_parm_mod, ONLY: in_dev
 ! USE veg3_field_mod, ONLY: in_dev
 USE jules_chemvars_mod, ONLY: chemvars_type
-USE jules_wtrac_type_mod, ONLY: jls_wtrac_type
 
 ! In general CABLE utilizes a required subset of tbe JULES types, however;
 USE progs_cbl_vars_mod, ONLY: progs_cbl_vars_type ! CABLE requires extra progs
@@ -284,7 +281,7 @@ REAL(KIND=real_jlslsm), INTENT(IN) ::                                          &
   photosynth_act_rad(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)
     !Net downward shortwave radiation in band 1 (w/m2).
 INTEGER, INTENT(IN) ::                                                         &
-  curr_day_number, curr_time
+  curr_day_number
 
 !diagnostic array
 TYPE (strnewsfdiag), INTENT(IN OUT) :: sf_diag
@@ -325,17 +322,15 @@ REAL(KIND=real_jlslsm), INTENT(OUT) ::                                         &
     !Coefficient to calculate surface heat flux into land tiles.
   epot_surft(land_pts,nsurft),                                                 &
     !Local EPOT for land tiles.
-  fracaero_t(land_pts,nsurft),                                                 &
-    !Total fraction of surface moisture flux with only aerodynamic resistance
-  fracaero_s(land_pts,nsurft),                                                 &
-    !Fraction of surface moisture flux with only aerodynamic resistance
-    !from the frozen part of the tile only
+  fraca(land_pts,nsurft),                                                      &
+    !Fraction of surface moisture flux with only aerodynamic resistance for
+    !snow-free land tiles.
   resfs(land_pts,nsurft),                                                      &
     !Combined soil, stomatal and aerodynamic resistance factor for fraction
-    !(1-fracaero_t) of snow-free land tiles.
+    !(1-FRACA) of snow-free land tiles.
   resft(land_pts,nsurft),                                                      &
-    !Total resistance factor. fracaero_t+(1-fracaero_t)*resfs                  &
-    !for snow-free land, 1 for snow.
+    !Total resistance factor. FRACA+(1-FRACA)*RESFS for snow-free land, 1 for
+    !snow.
   rhokh(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end),                  &
     !Grid-box surface exchange coefficients
   rhokh_surft(land_pts,nsurft),                                                &
@@ -399,7 +394,6 @@ TYPE(forcing_type), INTENT(IN OUT) :: forcing
 !TYPE(in_dev), INTENT(IN OUT) :: veg3_parm
 !TYPE(in_dev), INTENT(IN OUT) :: veg3_field
 TYPE(chemvars_type), INTENT(IN OUT) :: chemvars
-TYPE(jls_wtrac_type), INTENT(IN OUT) :: wtrac_jls
 
 !CABLE TYPES containing field data (IN OUT)
 TYPE(progs_cbl_vars_type), INTENT(IN OUT)  :: progs_cbl
@@ -448,10 +442,6 @@ REAL(KIND=real_jlslsm) ::                                                      &
                              ! Thermal Roughness length.
 ,ice_fract_ij(tdims%i_start:tdims%i_end,tdims%j_start:tdims%j_end)
                              ! Sea ice fraction summed over all cats
-
-! Temporary array for flandg variable
-REAL(KIND=real_jlslsm) ::                                                      &
-  flandg_tmp(pdims%i_start:pdims%i_end,pdims%j_start:pdims%j_end)
 
 !  Workspace for land tiles
 REAL(KIND=real_jlslsm) ::                                                      &
@@ -536,12 +526,9 @@ CASE ( jules )
     END DO
   END DO
 
-  ! Populate temporary flandg array
-  flandg_tmp(:,:) = flandg(pdims%i_start:pdims%i_end,pdims%j_start:pdims%j_end)
-
   CALL jules_land_sf_explicit (                                                &
-    !IN date- and time-related values
-    curr_day_number, curr_time,                                                &
+    !IN date-related values
+    curr_day_number,                                                           &
     !IN values defining field dimensions and subset to be processed :
     land_pts,                                                                  &
     !IN values defining water tracer field dimensions
@@ -554,7 +541,7 @@ CASE ( jules )
     !IN soil/vegetation/land surface data :
     ainfo%land_index,nsurft,sm_levels,progs%canopy_surft,psparms%catch_surft,  &
     psparms%catch_snow_surft, psparms%hcon_soilt,jules_vars%ho2r2_orog_gb,     &
-    flandg_tmp,                                                                &
+    flandg(pdims%i_start:pdims%i_end,pdims%j_start:pdims%j_end),               &
     progs%snow_surft,jules_vars%sil_orog_land_gb,psparms%smvccl_soilt,         &
     psparms%smvcst_soilt,psparms%smvcwt_soilt,                                 &
     psparms%sthf_soilt, psparms%sthu_soilt,psparms%z0_surft,                   &
@@ -573,7 +560,6 @@ CASE ( jules )
     psparms%cosz_ij,                                                           &
     l_aero_classic,l_dust,l_dust_diag,psparms%clay_soilt,chemvars%o3_gb,       &
     fluxes%l_emis_surft_set,                                                   &
-    ainfo%latitude,ainfo%longitude,                                            &
     !INOUT diagnostics
     sf_diag,                                                                   &
     !INOUT data :
@@ -589,12 +575,12 @@ CASE ( jules )
     !OUT data required for mineral dust scheme
     aerotype%u_s_std_surft,                                                    &
     !OUT data required elsewhere in boundary layer or surface code
-    alpha1,ashtf_prime_surft,fluxes%fqw_surft,epot_surft,fracaero_t,           &
-    fracaero_s(:,:),                                                           &
+    alpha1,ashtf_prime_surft,fluxes%fqw_surft,epot_surft,fraca,                &
     resfs,resft,rhokh_surft,dtstar_surft,fluxes%z0h_surft,fluxes%z0m_surft,    &
     chr1p5m,progs%smc_soilt,hcons_soilt,trifctltype%gpp_gb,trifctltype%npp_gb, &
     trifctltype%resp_p_gb,trifctltype%g_leaf_pft,                              &
-    trifctltype%gpp_pft,trifctltype%npp_pft,trifctltype%resp_p_pft,            &
+    trifctltype%gpp_pft,psparms%som_transpiration_pft,                         & !JBaguley
+    trifctltype%npp_pft,trifctltype%resp_p_pft,            &
     trifctltype%resp_s_soilt,resp_s_tot_soilt,                                 &
     trif_vars%resp_l_pft,trif_vars%resp_r_pft,trifctltype%resp_w_pft,          &
     trif_vars%n_leaf_pft,trif_vars%n_root_pft,trif_vars%n_stem_pft,            &
@@ -602,7 +588,6 @@ CASE ( jules )
     progs%gc_surft,canhc_surft,wt_ext_surft,flake,                             &
     ainfo%surft_index,surft_pts,tile_frac,fluxes%fsmc_pft,emis_soil,           &
     trifctltype%growth_sug_pft,trifctltype%growth_sug_gb,progs%f_nsc_pft,      &
-    trifctltype%lwp_c_pft, trifctltype%psi_root_zone_pft,                      &
     ! OUT required for classic aerosols
     cd_land_ij,rib_surft,ch_surft_classic,cd_std_classic,                      &
     ! OUT required for sea and sea-ice calculations
@@ -629,9 +614,13 @@ CASE ( jules )
     !crop_vars_mod (OUT)
     crop_vars%gs_irr_surft, crop_vars%smc_irr_soilt,                           &
     crop_vars%wt_ext_irr_surft, crop_vars%gc_irr_surft,                        &
-    !p_s_parms (IN)
+    !p_s_parms (IN) JBaguley added satcon_soilt
     psparms%bexp_soilt, psparms%sathh_soilt, psparms%v_close_pft,              &
-    psparms%v_open_pft,                                                        &
+    psparms%v_open_pft, psparms%satcon_soilt,                                  &
+    !p_s_parms (OUT) JBaguley
+    psparms%soil_wp_soilt,psparms%soil_k_soilt,psparms%soil_root_k_soilt,      &
+    psparms%psi_root_zone_pft,psparms%psi_leaf_pft,psparms%cica_ratio_pft,     &
+    psparms%leaf_k_pft,                                                        &
     !urban_param (IN)
     urban_param%wrr_gb,                                                        &
     !Fluxes (IN OUT)
@@ -655,13 +644,9 @@ CASE ( jules )
     !jules_surface_types (IN)
     jules_vars%diff_frac,                                                      &
     !chemvars (OUT)
-    chemvars%flux_o3_pft, chemvars%fo3_pft,                                    &
-    !Water tracers (IN)
-    wtrac_jls%snow_surft, wtrac_jls%canopy_surft,                              &
-    wtrac_jls%sthu_soilt, wtrac_jls%qw_1_ij,                                   &
-    !Water tracers (OUT)
-    wtrac_jls%fqw_1, wtrac_jls%fqw_surft, wtrac_jls%fqw_evapsrce,              &
-    wtrac_jls%smc_soilt                                                        &
+    chemvars%flux_o3_pft, chemvars%fo3_pft, progs%psi_soil_pd,                 &
+    !TEMPORARY gain and cost
+    psparms%carbon_gain_pft, psparms%hydraulic_cost_pft                        &
     )
 
   CALL jules_ssi_sf_explicit (                                                 &
@@ -671,7 +656,7 @@ CASE ( jules )
     bq_1,bt_1,ainfo%z1_uv_ij,z1_uv_top,ainfo%z1_tq_ij,z1_tq_top,               &
     forcing%qw_1_ij,forcing%tl_1_ij,                                           &
     !IN soil/vegetation/land surface data :
-    flandg_tmp,                                                                &
+    flandg(pdims%i_start:pdims%i_end,pdims%j_start:pdims%j_end),               &
     !IN sea/sea-ice data :
     ainfo%ice_fract_ncat_sicat,progs%k_sice_sicat,                             &
     progs%z0m_sice_fmd, progs%z0m_sice_skin,                                   &
@@ -708,13 +693,7 @@ CASE ( jules )
     ainfo%sice_index_ncat, ainfo%sice_frac_ncat, ainfo%sice_pts_ncat,          &
     ssi_pts, sea_pts,                                                          &
     !fluxes (IN)
-    fluxes%sw_sicat, fluxes%sw_sea,                                            &
-    !Water tracers (IN)
-    wtrac_jls%qw_1_ij, wtrac_jls%r_sea, wtrac_jls%r_sice,                      &
-    !Water tracers (INOUT)
-    wtrac_jls%fqw_1,                                                           &
-    !Water tracers (OUT)
-    wtrac_jls%fqw_sea, wtrac_jls%fqw_sicat                                     &
+    fluxes%sw_sicat, fluxes%sw_sea                                             &
     )
 
   CALL jules_griddiag_sf_explicit (                                            &
@@ -724,7 +703,7 @@ CASE ( jules )
     bq_1,bt_1,ainfo%z1_uv_ij,                                                  &
     !IN soil/vegetation/land surface data :
     ainfo%land_index,nsurft,jules_vars%ho2r2_orog_gb,                          &
-    flandg_tmp,                                                                &
+    flandg(pdims%i_start:pdims%i_end,pdims%j_start:pdims%j_end),               &
     jules_vars%sil_orog_land_gb,                                               &
     !IN everything not covered so far :
     forcing%pstar_ij,rhostar_land,rhostar_ssi,jules_vars%zh,                   &
@@ -754,7 +733,7 @@ CASE ( jules )
     !OUT data required for mineral dust scheme
     aerotype%r_b_dust_ij,aerotype%cd_std_dust_ij,                              &
     !OUT data required elsewhere in UM system :
-    fb_surf,u_s,jules_vars%blendht,                                            &
+    fb_surf,u_s,                                                               &
     !OUT data required elsewhere in boundary layer or surface code
     rhokh,jules_vars%h_blend_orog_ij,z0hssi,z0mssi,jules_vars%z0m_eff_ij,      &
    !ancil_info (IN)
@@ -790,8 +769,7 @@ CASE ( cable )
   ashtf_prime_sea(:,:) = 0.0
   ashtf_prime_surft(:,:) = 0.0
   epot_surft(:,:) = 0.0
-  fracaero_t(:,:) = 0.0
-  fracaero_s(:,:) = 0.0
+  fraca(:,:) = 0.0
   resfs(:,:) = 0.0
   resft(:,:) = 0.0
   rhokh(:,:) = 0.0

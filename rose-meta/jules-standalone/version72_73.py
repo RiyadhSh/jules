@@ -1,11 +1,9 @@
+import rose.upgrade
 import re
 import sys
-if sys.version_info[0] == 2:
-    from rose.upgrade import MacroUpgrade
-else:
-    from metomi.rose.upgrade import MacroUpgrade
 
-class vn72_t1180(MacroUpgrade):
+
+class vn72_t1180(rose.upgrade.MacroUpgrade):
     """Upgrade macro from JULES by Douglas Clark"""
 
     BEFORE_TAG = "vn7.2"
@@ -26,7 +24,7 @@ class vn72_t1180(MacroUpgrade):
 
         return config, self.reports
 
-class vn72_t1385(MacroUpgrade):
+class vn72_t1385(rose.upgrade.MacroUpgrade):
 
     """Upgrade macro from JULES by Maggie Hendry"""
 
@@ -71,12 +69,12 @@ class vn72_t1385(MacroUpgrade):
 
         return config, self.reports
 
-class vn72_vn73(MacroUpgrade):
+class vn72_vn73(rose.upgrade.MacroUpgrade):
     """Version bump macro"""
-
+    
     BEFORE_TAG = "vn7.2_t1385"
     AFTER_TAG = "vn7.3"
-
+    
     def upgrade(self, config, meta_config=None):
-        # Nothing to do
+        # Nothing to do        
         return config, self.reports

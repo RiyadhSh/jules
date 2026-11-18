@@ -10,7 +10,7 @@
 
 MODULE overbank_inundation_mod
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Description:
 !   Contains river overbank inundation variables and switches
 !
@@ -20,7 +20,7 @@ MODULE overbank_inundation_mod
 ! Code Description:
 !   Language: Fortran 90.
 !   This code is written to JULES coding standards v1.
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 
 USE missing_data_mod, ONLY: imdi, rmdi
 
@@ -28,9 +28,9 @@ USE um_types, ONLY: real_jlslsm
 
 IMPLICIT NONE
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Constants identifying overbank inundation models.
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 INTEGER, PARAMETER ::                                                          &
   overbank_simple = 1,                                                         &
     ! Constant indicating that the inundated area is calculated using an
@@ -40,23 +40,17 @@ INTEGER, PARAMETER ::                                                          &
     ! Constant indicating that the inundated area is calculated using
     ! allometric relationships to estimate river width and depth, and the
     ! Rosgen entrenchment ratio, without use of topographic data,
-  overbank_hypsometric = 3,                                                    &
+  overbank_hypsometric = 3
     ! Constant indicating that the inundated area is calculated using a
     ! hypsometric integral and an allometric relationship to estimate river
     ! depth.
-  overbank_quantiles = 4
-    ! Constant indicating that the inundated area is calculated using quantiles
-    ! of elevation.
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Declare variables that can be read from the jules_overbank namelist.
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Overbank inundation parameters
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 INTEGER ::                                                                     &
-  nquantile_hypso = imdi,                                                      &
-    ! Number of quantiles used to describe the elevation profile (the
-    ! hypsometric curve).
   overbank_model = imdi
     ! Switch used to select the model of overbank inundation.
 
@@ -83,60 +77,36 @@ REAL(KIND=real_jlslsm) ::                                                      &
         ! The flood-prone area width is measured at the elevation that
         ! corresponds to twice the maximum depth of the bankfull channel.
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Declare variables that are not in the namelist.
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Array variables defined on land points updated in overbank inundation
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
+
 REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
   frac_fplain_lp(:)
            ! Overbank inundation area as a fraction of gridcell area
            ! (on land grid)
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Array variables defined on full 2D rivers grid (as read in from ancillary)
-!------------------------------------------------------------------------------
-REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
-  !----------------------------------------------------------------------------
-  ! Variables for overbank_model == overbank_hypsometric.
-  !----------------------------------------------------------------------------
-  logn_mean(:,:),                                                              &
-           ! ln(mean(elevation - elev_min)) for each gridcell
-  logn_stdev(:,:),                                                             &
-           ! ln(SD(elevation - elev_min)) for each gridcell
-  !----------------------------------------------------------------------------
-  ! Variables for overbank_model == overbank_quantiles.
-  !----------------------------------------------------------------------------
-  hypsometric_quantiles_grid(:,:,:)
-    ! Quantiles of floodplain elevation (m).
-    ! This is the elevation above that of the top of the river channel.
-    ! These define the elevation for equal increments of area.
+!-----------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-! Ancillary variables on river points.
-!------------------------------------------------------------------------------
 REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
-  !----------------------------------------------------------------------------
-  ! Variables for overbank_model == overbank_hypsometric.
-  !----------------------------------------------------------------------------
+  logn_mean(:,:),                                                              &
+           ! ln(mean(elevation - elev_min)) for each gridcell (on land grid)
+  logn_stdev(:,:)
+           ! ln(SD(elevation - elev_min)) for each gridcell (on land grid)
+
+!-----------------------------------------------------------------------------
+! Other array variables
+!-----------------------------------------------------------------------------
+
+REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
   logn_mean_rp(:),                                                             &
            ! ln(mean(elevation - elev_min)) for each gridcell (on rivers grid)
   logn_stdev_rp(:),                                                            &
            ! ln(SD(elevation - elev_min)) for each gridcell (on rivers grid)
-  !----------------------------------------------------------------------------
-  ! Variables for overbank_model == overbank_quantiles.
-  !----------------------------------------------------------------------------
-  hypsometric_quantiles(:,:)
-    ! Quantiles of floodplain elevation (m).
-    ! This is the elevation above that of the top of the river channel.
-    ! These define the elevation for equal increments of area.
-
-!------------------------------------------------------------------------------
-! Other array variables on river points.
-!------------------------------------------------------------------------------
-REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
   qbf(:),                                                                      &
            ! Bankfull discharge rate (m3/s)
   dbf(:),                                                                      &
@@ -147,26 +117,25 @@ REAL(KIND=real_jlslsm), ALLOCATABLE ::                                         &
            ! Overbank inundation area as a fraction of gridcell area
            ! (on rivers grid)
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Single namelist definition for UM and standalone
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 NAMELIST  /jules_overbank/                                                     &
-  coef_b, exp_c, ent_ratio, nquantile_hypso, overbank_model, riv_a, riv_b,     &
-  riv_c, riv_f
+  overbank_model, riv_a, riv_b, riv_c, riv_f, coef_b, exp_c, ent_ratio
 
 CHARACTER(LEN=*), PARAMETER, PRIVATE :: ModuleName='OVERBANK_INUNDATION_MOD'
 
 CONTAINS
 
-!##############################################################################
+!#############################################################################
 
 SUBROUTINE check_jules_overbank()
 
 USE ereport_mod, ONLY: ereport
 
-USE jules_rivers_mod, ONLY: l_riv_overbank
+USE jules_rivers_mod, ONLY: l_rivers, l_riv_overbank
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Description:
 !   Checks JULES_OVERBANK switches for consistency
 !
@@ -177,7 +146,7 @@ USE jules_rivers_mod, ONLY: l_riv_overbank
 ! Code Description:
 !   Language: Fortran 90.
 !   This code is written to JULES coding standards v1.
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 
 IMPLICIT NONE
 
@@ -185,8 +154,6 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='CHECK_JULES_OVERBANK'
 
 INTEGER :: errcode
 
-!End of header
-!------------------------------------------------------------------------------
 
 IF ( .NOT. l_riv_overbank ) THEN
   ! For clarity, raise an error if a model is specified but l_riv_overbank=F.
@@ -196,22 +163,21 @@ IF ( .NOT. l_riv_overbank ) THEN
                  'overbank_model should not be specified if '               // &
                  'l_riv_overbank = .FALSE')
   ELSE
-    ! No model specified, all is well, nothing more to do here.
+    ! No model specified, nothing more to do here.
     RETURN
   END IF
 END IF
 
-! Check that overbank model is provided.
-IF ( overbank_model == imdi ) THEN
+! Overbank code can only be used if rivers are modelled.
+IF ( .NOT. l_rivers ) THEN
   errcode = 101
   CALL ereport(RoutineName, errcode,                                           &
-               'No value found for overbank_model.')
+               'l_riv_overbank=T requires l_rivers=T ')
 END IF
 
 ! Check that a valid overbank model is specified.
 SELECT CASE ( overbank_model )
-CASE ( overbank_simple, overbank_simple_rosgen, overbank_hypsometric,          &
-       overbank_quantiles )
+CASE ( overbank_simple, overbank_simple_rosgen, overbank_hypsometric )
   ! Valid options, nothing to do.
 CASE DEFAULT
   errcode = 101
@@ -219,17 +185,16 @@ CASE DEFAULT
                'Invalid value for overbank_model')
 END SELECT
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Check that the required parameters were found.
-! In many cases we just check that a value is given, not that it is reasonable!
-!------------------------------------------------------------------------------
+! We just check that a value is given, not that it is reasonable!
+!-----------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Check values that are only required with overbank_model = simple or
 ! simple_rosgen.
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 SELECT CASE ( overbank_model )
-
 CASE ( overbank_simple, overbank_simple_rosgen )
 
   ! Parameters for river width allometry are required.
@@ -244,9 +209,9 @@ CASE ( overbank_simple, overbank_simple_rosgen )
     CALL ereport(RoutineName, errcode,'No value found for riv_b.')
   END IF
 
-  !----------------------------------------------------------------------------
-  ! Check values that are only required with overbank_model = rosgen.
-  !----------------------------------------------------------------------------
+  !---------------------------------------------------------------------------
+  ! Check values that are only required with overbak_model = rosgen.
+  !---------------------------------------------------------------------------
   IF ( overbank_model == overbank_simple_rosgen ) THEN
 
     ! Parameters for bankfull discharge and entrenchment ratio are required.
@@ -270,10 +235,10 @@ CASE ( overbank_simple, overbank_simple_rosgen )
 
 END SELECT
 
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 ! Check parameters that are required with overbank_model = simple_rosgen or
 ! hypso.
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
 SELECT CASE ( overbank_model )
 CASE ( overbank_simple_rosgen, overbank_hypsometric )
 
@@ -290,20 +255,6 @@ CASE ( overbank_simple_rosgen, overbank_hypsometric )
   END IF
 
 END SELECT
-
-!------------------------------------------------------------------------------
-! Check parameters that are required with overbank_model = quantiles.
-!------------------------------------------------------------------------------
-IF ( overbank_model == overbank_quantiles ) THEN
-  ! Number of quantiles must be provided and be >0.
-  IF ( nquantile_hypso == imdi ) THEN
-    errcode = 101
-    CALL ereport(RoutineName, errcode,'No value found for nquantile_hypso.')
-  ELSE IF ( nquantile_hypso < 1 ) THEN
-    errcode = 101
-    CALL ereport(RoutineName, errcode,'nquantile_hypso must be > 0.')
-  END IF
-END IF
 
 END SUBROUTINE check_jules_overbank
 
@@ -353,6 +304,7 @@ RETURN
 END SUBROUTINE init_rosgen_vars
 
 !##############################################################################
+!##############################################################################
 
 SUBROUTINE print_nlist_jules_overbank()
 
@@ -366,8 +318,6 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='PRINT_NLIST_JULES_OVERBANK'
 CALL jules_print('overbank_inundation_mod',                                    &
    'Contents of namelist jules_overbank')
 
-WRITE(lineBuffer,*)' nquantile_hypso = ',nquantile_hypso
-CALL jules_print('jules_overbank',lineBuffer)
 WRITE(lineBuffer,*)' overbank_model = ',overbank_model
 CALL jules_print('jules_overbank',lineBuffer)
 WRITE(lineBuffer,*)' riv_a = ',riv_a
@@ -390,59 +340,7 @@ CALL jules_print('overbank_inundation_mod',                                    &
 
 END SUBROUTINE print_nlist_jules_overbank
 
-!##############################################################################
-
-#if !defined(UM_JULES) && !defined(LFRIC)
-SUBROUTINE read_nml_jules_overbank(nml_dir)
-
-USE io_constants, ONLY: namelist_unit
-
-USE string_utils_mod, ONLY: to_string
-
-USE logging_mod, ONLY: log_info, log_fatal
-
-IMPLICIT NONE
-
-! Arguments
-CHARACTER(LEN=*), INTENT(IN) :: nml_dir  ! The directory containing the
-                                         ! namelists
-! Work variables
-INTEGER :: ERROR  ! Error indicator
-
-CHARACTER(LEN=*), PARAMETER :: RoutineName='READ_NML_JULES_OVERBANK'
-
-!------------------------------------------------------------------------------
-! Read river routing namelist
-!------------------------------------------------------------------------------
-CALL log_info(RoutineName, "Reading JULES_OVERBANK namelist...")
-
-! Open the river routing parameters namelist file
-OPEN(namelist_unit, FILE=(TRIM(nml_dir) // '/' // 'jules_rivers.nml'),         &
-               STATUS='old', POSITION='rewind', ACTION='read', IOSTAT = ERROR)
-IF ( ERROR /= 0 ) THEN
-  CALL log_fatal(RoutineName,                                                  &
-                 "Error opening namelist file jules_rivers.nml " //            &
-                 "(IOSTAT=" // TRIM(to_string(ERROR)) // ")")
-END IF
-
-READ(namelist_unit, NML = jules_overbank, IOSTAT = ERROR)
-IF ( ERROR /= 0 ) THEN
-  CALL log_fatal(RoutineName,                                                  &
-                 "Error reading namelist JULES_OVERBANK " //                   &
-                 "(IOSTAT=" // TRIM(to_string(ERROR)) // ")")
-END IF
-
-CLOSE(namelist_unit, IOSTAT = ERROR)
-IF ( ERROR /= 0 ) THEN
-  CALL log_fatal(RoutineName,                                                  &
-                 "Error closing namelist file jules_rivers.nml " //            &
-                 "(IOSTAT=" // TRIM(to_string(ERROR)) // ")")
-END IF
-
-END SUBROUTINE read_nml_jules_overbank
-#endif
-
-!##############################################################################
+!#############################################################################
 
 #if defined(UM_JULES) && !defined(LFRIC)
 SUBROUTINE read_nml_jules_overbank(unit_in)
@@ -470,12 +368,11 @@ CHARACTER(LEN=*), PARAMETER :: RoutineName='READ_NML_JULES_OVERBANK'
 
 ! set number of each type of variable in my_namelist type
 INTEGER, PARAMETER :: no_of_types = 2
-INTEGER, PARAMETER :: n_int = 2
+INTEGER, PARAMETER :: n_int = 1
 INTEGER, PARAMETER :: n_real = 7
 
 TYPE :: my_namelist
   SEQUENCE
-  INTEGER :: nquantile_hypso
   INTEGER :: overbank_model
   REAL(KIND=real_jlslsm) :: riv_a
   REAL(KIND=real_jlslsm) :: riv_b
@@ -497,11 +394,9 @@ CALL setup_nml_type(no_of_types, mpl_nml_type,                                 &
 
 IF (mype == 0) THEN
 
-  READ(UNIT = unit_in, NML = jules_overbank, IOSTAT = ErrorStatus,             &
-       IOMSG = iomessage)
+  READ(UNIT = unit_in, NML = jules_overbank, IOSTAT = ErrorStatus, IOMSG = iomessage)
   CALL check_iostat(errorstatus, "namelist JULES_OVERBANK", iomessage)
 
-  my_nml % nquantile_hypso  = nquantile_hypso
   my_nml % overbank_model   = overbank_model
   my_nml % riv_a            = riv_a
   my_nml % riv_b            = riv_b
@@ -517,8 +412,7 @@ CALL mpl_bcast(my_nml,1,mpl_nml_type,0,my_comm,icode)
 
 IF (mype /= 0) THEN
 
-  nquantile_hypso = my_nml % nquantile_hypso
-  overbank_model  = my_nml % overbank_model
+  overbank_model = my_nml % overbank_model
   riv_a = my_nml % riv_a
   riv_b = my_nml % riv_b
   riv_c = my_nml % riv_c
@@ -538,3 +432,4 @@ END SUBROUTINE read_nml_jules_overbank
 
 END MODULE overbank_inundation_mod
 
+!-----------------------------------------------------------------------------
